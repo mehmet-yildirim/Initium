@@ -427,10 +427,10 @@ if exist "agent.config.yaml" (
     echo [WARN] agent.config.yaml not found -- skipping.
 )
 
-:: --- CLAUDE.md ---
-if exist "CLAUDE.md" (
-    echo [INFO] Updating CLAUDE.md...
-    set "REPLACE_FILE=CLAUDE.md"
+:: --- AGENTS.md ---
+if exist "AGENTS.md" (
+    echo [INFO] Updating AGENTS.md...
+    set "REPLACE_FILE=AGENTS.md"
 
     set "REPLACE_OLD=TODO: Project Name"
     set "REPLACE_NEW=!PROJECT_NAME!"
@@ -479,7 +479,7 @@ if exist "CLAUDE.md" (
         call :replace_literal
     )
 
-    echo [OK]   CLAUDE.md updated.
+    echo [OK]   AGENTS.md updated.
 )
 
 :: --- .cursor/rules/00-project-overview.mdc ---
@@ -558,7 +558,7 @@ echo Project configured: !PROJECT_NAME!
 echo.
 echo   Updated files:
 echo     [OK] agent.config.yaml
-echo     [OK] CLAUDE.md
+echo     [OK] AGENTS.md
 echo     [OK] .cursor\rules\00-project-overview.mdc
 echo     [OK] .project-config.yaml (reference for AI tools)
 echo.

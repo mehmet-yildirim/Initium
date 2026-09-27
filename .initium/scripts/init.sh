@@ -369,9 +369,9 @@ else
   warn "agent.config.yaml not found — skipping."
 fi
 
-# --- CLAUDE.md — update project name, type, purpose, commands ---
-if [ -f "CLAUDE.md" ]; then
-  info "Updating CLAUDE.md..."
+# --- AGENTS.md — update project name, type, purpose, commands ---
+if [ -f "AGENTS.md" ]; then
+  info "Updating AGENTS.md..."
   sed -i.bak \
     -e "s|TODO: Project Name|${PROJECT_NAME}|g" \
     -e "s|TODO: e.g., REST API / Web App / CLI Tool / Library|${PROJECT_TYPE}|g" \
@@ -381,15 +381,15 @@ if [ -f "CLAUDE.md" ]; then
     -e "s|TODO: e.g., bun test \/ pytest \/ go test \.\.\.|${TEST_CMD}|g" \
     -e "s|TODO: e.g., bun lint \/ ruff check \. \/ golangci-lint run|${LINT_CMD}|g" \
     -e "s|TODO: e.g., bun build \/ python -m build \/ go build \.\.\.|${BUILD_CMD}|g" \
-    CLAUDE.md
+    AGENTS.md
   if [ -n "${FRAMEWORK:-}" ]; then
-    sed -i.bak "s|TODO: e.g., Next.js 14, FastAPI, Gin|${FRAMEWORK}|g" CLAUDE.md
+    sed -i.bak "s|TODO: e.g., Next.js 14, FastAPI, Gin|${FRAMEWORK}|g" AGENTS.md
   fi
   if [ -n "${RUNTIME:-}" ]; then
-    sed -i.bak "s|TODO: e.g., Node.js 22, Python 3.12, Go 1.23|${RUNTIME}|g" CLAUDE.md
+    sed -i.bak "s|TODO: e.g., Node.js 22, Python 3.12, Go 1.23|${RUNTIME}|g" AGENTS.md
   fi
-  rm -f CLAUDE.md.bak
-  success "CLAUDE.md updated."
+  rm -f AGENTS.md.bak
+  success "AGENTS.md updated."
 fi
 
 # --- .cursor/rules/00-project-overview.mdc ---
@@ -459,7 +459,7 @@ echo -e "${GREEN}${BOLD}Project configured: ${PROJECT_NAME}${NC}"
 echo ""
 echo "  Updated files:"
 echo "    ✅ agent.config.yaml"
-echo "    ✅ CLAUDE.md"
+echo "    ✅ AGENTS.md"
 echo "    ✅ .cursor/rules/00-project-overview.mdc"
 echo "    ✅ .project-config.yaml (reference for AI tools)"
 echo ""

@@ -2,7 +2,7 @@ Perform a comprehensive security evaluation of the specified target — code cha
 a full codebase scan, or a dependency manifest. Works for both manual development reviews and
 autonomous agent output validation.
 
-Reads CLAUDE.md, the relevant source files, and dependency manifests before producing any findings.
+Reads AGENTS.md, the relevant source files, and dependency manifests before producing any findings.
 
 ---
 
@@ -15,7 +15,7 @@ Parse `$ARGUMENTS` to identify scope:
 - **"deps"** → dependency CVE scan only
 - **"secrets"** → secret / credential scan only
 
-Read `CLAUDE.md` to identify the tech stack — language, framework, and tooling determine which
+Read `AGENTS.md` to identify the tech stack — language, framework, and tooling determine which
 SAST rules and CVE scanners apply.
 
 ---

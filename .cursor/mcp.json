@@ -88,6 +88,13 @@
       },
       "description": "Sentry: read error reports during post-deploy monitoring",
       "disabled": true
+    },
+
+    "codegraph": {
+      "command": "npx",
+      "args": ["-y", "codebase-memory-mcp"],
+      "description": "Code knowledge graph: symbol search, call traces, change impact — used by /codegraph",
+      "disabled": true
     }
   }
 }

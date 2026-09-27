@@ -2,7 +2,7 @@ Systematically diagnose and fix the described bug or error.
 
 ## Step 0: Branch Check
 
-Verify you are on a feature branch (`fix/` prefix for bugs). If on `main` or `develop`, stop and create one first (see CLAUDE.md → Git Workflow).
+Verify you are on a feature branch (`fix/` prefix for bugs). If on `main` or `develop`, stop and create one first (see AGENTS.md → Git Workflow).
 
 ---
 

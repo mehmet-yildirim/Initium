@@ -1,3 +1,15 @@
+---
+name: devops-docker
+description: Docker and container standards — Dockerfile best practices, compose, security, optimization. Use when writing Dockerfiles, compose files, or container runtime configuration.
+globs:
+  - "**/Dockerfile*"
+  - "**/docker-compose*.yml"
+  - "**/.dockerignore"
+  - "**/containerfile*"
+alwaysApply: false
+---
+<!-- Generated from .claude/skills by .initium/scripts/sync-skills.mjs — edit the skill, not this file. -->
+
 # Docker & Container Standards
 
 ## Dockerfile Best Practices

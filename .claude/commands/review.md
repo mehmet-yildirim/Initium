@@ -1,6 +1,6 @@
 Perform a thorough code review of the changes in the current branch (or the specified files/diff if provided).
 
-Review against the project's standards defined in CLAUDE.md and the `.cursor/rules/` files.
+Review against the project's standards defined in AGENTS.md and the `.cursor/rules/` files.
 
 ## Review Checklist
 
@@ -44,7 +44,7 @@ For each issue found, provide:
 ### Documentation
 - [ ] Public API changes documented
 - [ ] Complex logic has explanatory comments (why, not what)
-- [ ] CLAUDE.md or architecture docs updated if needed
+- [ ] AGENTS.md or architecture docs updated if needed
 
 ## Summary
 After the detailed review, provide:

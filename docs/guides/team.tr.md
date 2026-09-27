@@ -35,7 +35,7 @@ Kıdemli-acemi mühendis oranı değişir: **kıdemli veya orta seviye mühendis
 - Hekzagonal mimari sınırlarını ve tasarım deseni standartlarını tanımlar ve uygular
 - `/architect` tarafından işaretlenen yüksek riskli tasarımları onaylar (`risk=HIGH` tetiklendiğinde)
 - Yapısal değişiklikler içeren otonom ajan PR'larını birleştirmeden önce inceler
-- `CLAUDE.md`'yi korur — AI ajanlarının projeyi nasıl anladığının tek doğru kaynağı
+- `AGENTS.md`'yi korur — AI ajanlarının projeyi nasıl anladığının tek doğru kaynağı
 - `/sync-initium` aracılığıyla yeni Initium özelliklerinin ne zaman benimseneceğine karar verir
 
 **AI-native sorumluluklar:**
@@ -79,7 +79,7 @@ Kıdemli-acemi mühendis oranı değişir: **kıdemli veya orta seviye mühendis
 **AI-native sorumluluklar:**
 - Her PR'da istisnasız `/security-audit diff` çalıştırır
 - PR açmadan önce `/qa` çalıştırır; başarısız kapıları olan PR'lar açmaz
-- AI çıktısı yanlış olduğunda, kodu düzeltir VE ilgili kuralı `.cursor/rules/` veya CLAUDE.md'de günceller — hatanın tekrarlanmaması için
+- AI çıktısı yanlış olduğunda, kodu düzeltir VE ilgili kuralı `.cursor/rules/` veya AGENTS.md'de günceller — hatanın tekrarlanmaması için
 - `docs/guides/ai-workflow.md`'de "Etkili Prompt Kalıpları" altında etkili prompt kalıplarını paylaşır
 
 **TODO: Takım üyeleri:** `<isimler veya takım listesi linki>`
@@ -91,7 +91,7 @@ Kıdemli-acemi mühendis oranı değişir: **kıdemli veya orta seviye mühendis
 **Ne yapar:**
 - Tüm AI araçlarının takım genelinde sorunsuz çalışmasını sağlar
 - Initium güncellemeleri mevcut olduğunda `/sync-initium` çalıştırır; `merge_required` dosyalarını takımla koordineli olarak birleştirir
-- `.cursor/rules/`, `.continue/rules/` ve CLAUDE.md kurallarını korur
+- `.cursor/rules/`, `.continue/rules/` ve AGENTS.md kurallarını korur
 - Hangi komutların az kullanıldığını veya kafa karışıklığına yol açtığını takip eder; promptları iyileştirir veya kalıpları belgeler
 - `.cursor/mcp.json` ve `.claude/settings.json`'ı yönetir — MCP sunucularını ve araç izinlerini etkinleştirir/devre dışı bırakır
 - `agent.config.yaml` ayarlamalarının sahibidir: güven eşikleri, yeniden deneme limitleri, otonom mod ayarları
@@ -117,7 +117,7 @@ Kıdemli-acemi mühendis oranı değişir: **kıdemli veya orta seviye mühendis
 
 **AI-native sorumluluklar:**
 - Otonom ajan `/security-audit`'i otomatik çalıştırır — Güvenlik Şampiyonu yalnızca kodu değil, üretilen raporları da inceler
-- AI yeni bir güvenlik deseni (iyi veya kötü) sunduğunda, `.cursor/rules/skills/security-sast.mdc`'yi güçlendirmek veya önlemek için günceller
+- AI yeni bir güvenlik deseni (iyi veya kötü) sunduğunda, `.claude/skills/security-sast/SKILL.md`'yi güçlendirmek veya önlemek için günceller
 - İncelenmemiş güvenlik bulgularına sahip herhangi bir üretim dağıtımı için `AGENT_APPROVE_DEPLOY`'u engeller
 
 **Küçük takımlarda, Teknik Lider veya en güvenlik bilincine sahip geliştirici bu görevi üstlenir.**
@@ -149,7 +149,7 @@ Net sahiplik, ajanın doğru insanın doğru kararı onaylaması olmadan ilerlem
 - Teknik Lider her şeyi yapar: mimari, alan sahipliği, AI iş akışı koordinasyonu
 - Yarı-otonom ajan modu kullanın (`mode: semi-autonomous` in `agent.config.yaml`) — ajan üretir, insan her PR'dan önce onaylar
 - Her PR en az bir başka kişi tarafından incelenmelidir (harici inceleyici veya akran)
-- Öncelikler: `CLAUDE.md` kalitesi, alan sınırları doğruluğu, her birleştirmeden önce güvenlik denetimi
+- Öncelikler: `AGENTS.md` kalitesi, alan sınırları doğruluğu, her birleştirmeden önce güvenlik denetimi
 
 ### 3–6 kişi (standart takım)
 
@@ -175,7 +175,7 @@ Net sahiplik, ajanın doğru insanın doğru kararı onaylaması olmadan ilerlem
 
 Yeni mühendislerin hızla verimli hale gelmesi için:
 
-1. **1. Gün — Bağlam okuma:** `docs/context/project-brief.md`, `docs/context/tech-stack.md`, `docs/architecture/overview.md` ve bu dosyayı okuyun. Ardından `CLAUDE.md`'yi okuyun.
+1. **1. Gün — Bağlam okuma:** `docs/context/project-brief.md`, `docs/context/tech-stack.md`, `docs/architecture/overview.md` ve bu dosyayı okuyun. Ardından `AGENTS.md`'yi okuyun.
 2. **1. Gün — AI araç kurulumu:** Claude Code'u yüklemek, Cursor veya Continue'yu yapılandırmak için `docs/guides/onboarding.tr.md`'yi takip edin. `bash .initium/scripts/validate.sh` ile doğrulayın.
 3. **2. Gün — İlk `/help`:** `/help ilk görevimi nasıl alırım?` çalıştırın ve talimatları izleyin. AI iş akışı kurulumunu tamamlamadan kod yazmaya başlamayın.
 4. **İlk hafta — Gölgelendirilen PR:** Yeni mühendis, tam AI döngüsünü kullanarak bir `good-first-issue` uygular (`/requirements` → `/architect` → `/task plan` → `/implement` → `/qa` → `/review`). Kıdemli bir geliştirici yalnızca son diff'i değil her adımı inceler.
@@ -192,7 +192,7 @@ Yeni mühendislerin hızla verimli hale gelmesi için:
 | AI PR'larını diff'i okumadan birleştirme | AI, bakışta iyi görünen ancak ince hatalar, yanlış desenler veya güvenlik sorunları içerebilir |
 | "AI genellikle güvenlidir" diye `/security-audit diff`'i atlama | AI sıklıkla kimlik doğrulama kontrollerini, girdi doğrulamayı ve enjeksiyon risklerini kaçırır |
 | Alan sınırları tanımlanmadan ajanın otonom çalışmasına izin verme | Ajan kapsam dışı issue'ları kabul eder ve alakasız veya zararlı değişiklikler üretir |
-| CLAUDE.md'yi tek seferlik kurulum olarak değerlendirme | Proje gelişir; kurallar değiştiğinde veya ajan sistematik hatalar yaptığında CLAUDE.md güncellenmelidir |
+| AGENTS.md'yi tek seferlik kurulum olarak değerlendirme | Proje gelişir; kurallar değiştiğinde veya ajan sistematik hatalar yaptığında AGENTS.md güncellenmelidir |
 | İnsan incelemesi olmadan mimari kararlar için AI kullanma | Mimari, AI'nın tam olarak değerlendiremeyeceği ödünleşimler içerir — iş bağlamı, takım kapasitesi, operasyonel maliyet |
 | AI bir desen hatası yaptığında `.cursor/rules/`'u güncellememek | Hata her gelecek oturumda tekrarlanır |
 | Çok erken aşırı otomatikleştirme | Yarı-otonom ile başlayın, tam otonomluğu etkinleştirmeden önce ajanın triyaj doğruluğuna güven kazanın |
@@ -203,7 +203,7 @@ Yeni mühendislerin hızla verimli hale gelmesi için:
 
 | Belge | İçerik |
 |-------|--------|
-| `CLAUDE.md` | Proje kuralları — AI'nın birincil talimat dosyası |
+| `AGENTS.md` | Proje kuralları — AI'nın birincil talimat dosyası |
 | `docs/guides/ai-workflow.tr.md` | Tam AI-native geliştirme iş akışı referansı |
 | `docs/guides/onboarding.tr.md` | Yeni geliştiriciler için adım adım kurulum |
 | `docs/context/domain-boundaries.md` | Otonom ajanın üzerinde çalışacağı ve çalışmayacağı şeyler |

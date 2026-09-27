@@ -89,7 +89,7 @@ Herhangi bir kod yazmadan önce bu belgeleri sırayla oku:
 | `docs/context/project-brief.md` | Bu projenin ne yaptığı ve kimin için olduğu |
 | `docs/context/tech-stack.md` | Teknoloji seçimleri ve gerekçeleri |
 | `docs/architecture/overview.md` | Sistemin nasıl yapılandırıldığı |
-| `CLAUDE.md` | Kodlama kuralları, temel komutlar, mimari özeti |
+| `AGENTS.md` | Kodlama kuralları, temel komutlar, mimari özeti |
 | `docs/context/domain-glossary.md` | İş terminolojisi — herhangi bir şeyi adlandırmadan önce oku |
 | `docs/guides/team.tr.md` | Kimin neye sahip olduğu, eskalasyon zinciri, karar yetkisi |
 | `docs/context/domain-boundaries.md` | Kapsam tanımı (otonom ajan için kritik) |
@@ -106,7 +106,7 @@ Herhangi bir kod yazmadan önce bu belgeleri sırayla oku:
 # Yükle (henüz yüklü değilse)
 npm install -g @anthropic-ai/claude-code
 
-# Başlat — CLAUDE.md otomatik olarak yüklenir
+# Başlat — AGENTS.md otomatik olarak yüklenir (CLAUDE.md onu içe aktarır)
 claude
 ```
 
@@ -121,7 +121,7 @@ claude
 # --- Proje başlatma ---
 /init          — serbest biçimli proje açıklamasından tüm TODO dosyalarını doldur
 /init domain:  — domain sınırları ve ajan kapsam anahtar kelimeleri üret
-/init stack:   — teknoloji yığını belgesi ve CLAUDE.md komutları üret
+/init stack:   — teknoloji yığını belgesi ve AGENTS.md komutları üret
 /init ci:      — dil ve deployment hedefin için CI iş akışı üret
 /init agent:   — tracker anahtarları, GitHub deposu, eskalasyon kanallarını yapılandır
 
@@ -165,7 +165,7 @@ claude
 
 1. Proje klasörünü Cursor'da aç
 2. `.cursor/rules/` içindeki kurallar dosya türüne göre otomatik yüklenir (işlem gerekmez)
-3. `.cursor/rules/skills/` içindeki beceri kuralları eşleşen dosyaları açtığında etkinleşir
+3. `.claude/skills/` içindeki beceriler, görev veya açık dosya açıklamalarıyla ya da `paths` desenleriyle eşleştiğinde isteğe bağlı yüklenir
 4. `.claude/commands/` içindeki slash komutları Cursor'da doğrudan çalışır — tam listeyi görmek için `/` yaz
 5. MCP sunucularını etkinleştir: `.cursor/mcp.json` dosyasını düzenle, `"disabled": true` satırını kaldır, env değişkenlerini `.env` dosyasına ekle
 6. Cursor ayarlarına `ANTHROPIC_API_KEY` ekle
@@ -181,7 +181,7 @@ claude
 ### OpenCode
 
 1. [OpenCode](https://opencode.ai/docs/) kur ve bu repoyu proje dizini olarak aç
-2. Kökteki `opencode.json`, `CLAUDE.md` ve `.cursor/rules/` yönergelerini yükler
+2. OpenCode `AGENTS.md` ve `.claude/skills/` dizinini yerel olarak okur; kökteki `opencode.json` ayrıca `.cursor/rules/` yönergelerini ekler
 3. Tüm Initium slash komutları `.opencode/commands/` içinde (`.claude/commands/` ile aynı)
 4. TUI'de `/help`, `/goal`, `/implement` vb. — Claude Code ve Cursor ile aynı isimler
 5. `.claude/commands/` düzenledikten sonra:
@@ -304,7 +304,7 @@ bash .initium/scripts/sync.sh            # güncellemeleri etkileşimli olarak u
 .\.initium\scripts\sync.ps1
 ```
 
-Senkronizasyon betiği proje özgü dosyalarına (`CLAUDE.md`, `docs/context/`, `agent.config.yaml`) asla dokunmaz. Ayrıntılar için: [`.initium/docs/sync-guide.md`](initium-sync.md)
+Senkronizasyon betiği proje özgü dosyalarına (`AGENTS.md`, `docs/context/`, `agent.config.yaml`) asla dokunmaz. Ayrıntılar için: [`.initium/docs/sync-guide.md`](initium-sync.md)
 
 ---
 

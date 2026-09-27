@@ -102,7 +102,7 @@ A checklist that marks the entire feature as complete:
 - [ ] Code reviewed and approved
 - [ ] Security requirements verified (auth, input validation, no secrets in logs)
 - [ ] Performance tested under expected load
-- [ ] Documentation updated (API docs, CLAUDE.md if new patterns, architecture docs if applicable)
+- [ ] Documentation updated (API docs, AGENTS.md if new patterns, architecture docs if applicable)
 - [ ] Deployed to staging and smoke-tested
 - [ ] Product owner sign-off (if applicable)
 

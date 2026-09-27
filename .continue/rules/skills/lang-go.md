@@ -1,3 +1,15 @@
+---
+name: lang-go
+description: Go development standards — idiomatic Go, standard library, testing, concurrency patterns. Use when writing or reviewing Go code.
+globs:
+  - "**/*.go"
+  - "**/go.mod"
+  - "**/go.sum"
+  - "**/Makefile"
+alwaysApply: false
+---
+<!-- Generated from .claude/skills by .initium/scripts/sync-skills.mjs — edit the skill, not this file. -->
+
 # Go Development Standards
 
 ## Code Style

@@ -2,14 +2,14 @@ Generate a complete OpenAPI 3.x specification for this project's API, validate i
 interactive documentation (Swagger UI / ReDoc). Works for both initial generation and updating
 an existing spec after code changes.
 
-Read `CLAUDE.md`, the source files in scope, and any existing `openapi.json` / `openapi.yaml`
+Read `AGENTS.md`, the source files in scope, and any existing `openapi.json` / `openapi.yaml`
 before generating.
 
 ---
 
 ## Step 1: Detect Stack and Generation Strategy
 
-Read `CLAUDE.md` → `docs/context/tech-stack.md` to identify the framework(s) in use.
+Read `AGENTS.md` → `docs/context/tech-stack.md` to identify the framework(s) in use.
 Determine whether to use **code-first** (annotate source, then generate) or **spec-first**
 (write the spec, then validate against code):
 

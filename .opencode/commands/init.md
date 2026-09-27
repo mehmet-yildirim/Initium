@@ -61,7 +61,7 @@ that can be reasonably inferred.
 For each file, read the current content first, then replace every TODO section with
 project-specific content. Preserve all existing non-TODO content, comments, and structure.
 
-### 2a. CLAUDE.md
+### 2a. AGENTS.md
 
 Populate:
 - `**Name:**` — project name
@@ -96,9 +96,9 @@ Skip sections that cannot be reasonably populated (leave TODO with a hint commen
 Populate:
 - `**Name:**`, `**Type:**`, `**Purpose:**`
 - Technology stack table — fill all rows with detected choices
-- Repository layout — same layout as generated for CLAUDE.md
+- Repository layout — same layout as generated for AGENTS.md
 - Key constraints — infer from description (multi-tenancy, compliance mentions, etc.)
-- Domain glossary — same terms as CLAUDE.md
+- Domain glossary — same terms as AGENTS.md
 
 ---
 
@@ -242,7 +242,7 @@ when the deployment target is clear enough to generate accurate steps.
 
 For each file, write the populated content back. Report each write:
 ```
-✅ CLAUDE.md — populated (12 TODO items resolved)
+✅ AGENTS.md — populated (12 TODO items resolved)
 ✅ .cursor/rules/00-project-overview.mdc — populated
 ✅ docs/context/project-brief.md — populated
 ✅ docs/context/domain-boundaries.md — populated (critical for agent triage)

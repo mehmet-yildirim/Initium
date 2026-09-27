@@ -19,6 +19,66 @@ See [.initium/docs/sync-guide.md](.initium/docs/sync-guide.md) for the full guid
 
 ---
 
+## v1.1.0 — Agent Skills standard, AGENTS.md, 9 new stacks, 7 new commands
+
+**Date:** 2026-09-27
+**Commit:** (set by release)
+**Severity:** MINOR (with manual migration steps)
+
+### Why
+- `AGENTS.md` is now read natively by Cursor, OpenCode, Codex, Copilot, and Gemini CLI. Keeping
+  instructions only in `CLAUDE.md` made OpenCode and Claude Code follow different files.
+- The open [Agent Skills](https://agentskills.io) format (`<name>/SKILL.md`) is loaded natively
+  by Claude Code, Cursor, and OpenCode with progressive disclosure — only descriptions cost
+  context until a skill is needed. `.cursor/rules/skills/*.mdc` worked in Cursor only.
+- `.claude/skills/` is the single source because it is the one location all three tools read;
+  also copying to `.agents/skills/` would make Cursor and OpenCode load every skill twice.
+
+### New Files (skeleton-owned — auto-applied)
+- `.claude/skills/<name>/SKILL.md` — 23 existing skills migrated + 9 new:
+  `ai-llm-apps`, `lang-rust`, `lang-kotlin` (backend), `be-node`, `lang-php`,
+  `devops-terraform`, `devops-observability`, `be-messaging`, `be-graphql-grpc`
+- `.claude/commands/` — `/codegraph`, `/refactor`, `/upgrade`, `/perf`, `/a11y`, `/eval`, `/skill`
+  (+ `.opencode/commands/` mirrors)
+- `.initium/scripts/sync-skills.mjs` — validates skill frontmatter and generates
+  `.continue/rules/skills/*.md` (`--check` for CI)
+
+### Updated Files (skeleton-owned — auto-applied)
+- `.continue/rules/skills/*.md` — now generated from `SKILL.md` (full content, not condensed)
+- `.claude/commands/*` — reference `AGENTS.md`; `/implement` uses the code graph when enabled;
+  `/help` lists the new commands
+- `.claude/hooks/post-write.mjs` — `AGENTS.md` is a protected path
+- `opencode.json` — drops `CLAUDE.md` and skill rules (read natively); adds disabled `codegraph` MCP
+- `.initium/scripts/validate.{sh,ps1,cmd}`, `setup.*`, `init.*` — `AGENTS.md`, skills validation
+- `skills/README.md`, `CONTRIBUTING.md`, `.initium/docs/sync-guide.md`, guides
+
+### Removed
+- `.cursor/rules/skills/*.mdc` — replaced by `.claude/skills/<name>/SKILL.md`
+
+### Merge Required
+- `agent.config.yaml` — new `codegraph:` section (disabled); `AGENTS.md` added to `safety.protected_paths`
+- `.cursor/mcp.json` — new disabled `codegraph` server (`npx -y codebase-memory-mcp`)
+- `.continue/config.yaml` — commented entries for the new skills
+- `.gitignore` — `.codebase-memory/`
+
+### Migration Notes
+1. **Move your instructions to `AGENTS.md`** (project-owned, so sync will not do it for you):
+   ```bash
+   git mv CLAUDE.md AGENTS.md
+   printf '@AGENTS.md\n' > CLAUDE.md
+   sed -i.bak 's/CLAUDE\.md/AGENTS.md/g' agent.config.yaml && rm agent.config.yaml.bak  # protected_paths
+   ```
+   Keep Claude Code-only notes (if any) below the import line in `CLAUDE.md`.
+2. **Delete the legacy skill rules** after syncing: `git rm -r .cursor/rules/skills/`.
+   If you customised any of them, move your additions into a `.claude/skills/project-<topic>/SKILL.md`.
+   `validate.sh` warns while the old folder still contains `.mdc` files.
+3. Regenerate derived files: `node .initium/scripts/sync-skills.mjs` (requires Node.js 22+).
+4. Optional — code graph: run `/codegraph setup`, then set `codegraph.enabled: true`.
+5. Claude Code ships bundled `/debug` and `/loop` skills; if a name collides, the project command in
+   `.claude/commands/` is the one Initium documents — invoke it explicitly if your client prompts.
+
+---
+
 ## v1.0.24 — OpenCode support and /goal command
 
 **Date:** 2026-08-10

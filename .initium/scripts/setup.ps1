@@ -75,7 +75,8 @@ function Check-File {
     }
 }
 
-Check-File "CLAUDE.md"                               "Claude Code config"
+Check-File "AGENTS.md"                               "Agent instructions (all tools)"
+Check-File "CLAUDE.md"                               "Claude Code import of AGENTS.md"
 Check-File ".cursor\rules\00-project-overview.mdc"   "Cursor project overview"
 Check-File ".continue\config.yaml"                   "Continue config"
 
@@ -100,14 +101,14 @@ Write-Host "  Open Claude Code and run:  /init <describe your project>"
 Write-Host "  Or in Cursor:              @.cursor/prompts/init.md"
 Write-Host ""
 Write-Host "  This populates:"
-Write-Host "    * CLAUDE.md, docs\context\, docs\architecture\overview.md"
+Write-Host "    * AGENTS.md, docs\context\, docs\architecture\overview.md"
 Write-Host "    * agent.config.yaml domain keywords"
 Write-Host "    * .github\workflows\ci.yml  (use: /init ci: <your stack>)"
 Write-Host ""
 Write-Host "  STEP 3 - Finish setup:"
 Write-Host "  * Edit .continue\config.yaml (add API keys)"
 Write-Host "  * Add git remote:  git remote add origin <url>"
-Write-Host "  * Install dependencies: [from CLAUDE.md after /init]"
+Write-Host "  * Install dependencies: [from AGENTS.md after /init]"
 Write-Host "  * Validate: .\.initium\scripts\validate.ps1"
 Write-Host "  * Read the AI workflow: docs\ai-workflow.md"
 Write-Host ""

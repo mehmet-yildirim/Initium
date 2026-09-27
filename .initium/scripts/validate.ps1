@@ -45,7 +45,11 @@ function Check-Exists {
 }
 
 # Core AI tool configs
+Check-Exists "AGENTS.md"
 Check-Exists "CLAUDE.md"
+if ((Test-Path "CLAUDE.md") -and -not (Select-String -Path "CLAUDE.md" -Pattern "^@AGENTS\.md" -Quiet)) {
+    Write-Warn "CLAUDE.md does not import @AGENTS.md — Claude Code may follow different instructions"
+}
 Check-Exists "SECURITY.md"
 Check-Exists ".cursor/rules/00-project-overview.mdc"
 Check-Exists ".cursor/rules/01-coding-standards.mdc"
@@ -82,6 +86,13 @@ Check-Exists ".claude/commands/loop.md"
 Check-Exists ".claude/commands/escalate.md"
 Check-Exists ".claude/commands/goal.md"
 Check-Exists ".claude/commands/help.md"
+Check-Exists ".claude/commands/codegraph.md"
+Check-Exists ".claude/commands/refactor.md"
+Check-Exists ".claude/commands/upgrade.md"
+Check-Exists ".claude/commands/perf.md"
+Check-Exists ".claude/commands/a11y.md"
+Check-Exists ".claude/commands/eval.md"
+Check-Exists ".claude/commands/skill.md"
 Check-Exists "opencode.json"
 Check-Exists ".opencode/README.md"
 if (Test-Path ".initium/scripts/sync-opencode-commands.sh") {
@@ -111,48 +122,27 @@ Check-Exists ".claude/hooks/post-write.mjs"
 Check-Exists ".claude/hooks/audit-log.mjs"
 Check-Exists ".claude/hooks/on-stop.mjs"
 
-# Cursor skill rules
-Check-Exists ".cursor/rules/skills/lang-java.mdc"
-Check-Exists ".cursor/rules/skills/lang-dotnet.mdc"
-Check-Exists ".cursor/rules/skills/lang-python.mdc"
-Check-Exists ".cursor/rules/skills/lang-typescript.mdc"
-Check-Exists ".cursor/rules/skills/lang-go.mdc"
-Check-Exists ".cursor/rules/skills/fe-react.mdc"
-Check-Exists ".cursor/rules/skills/fe-nextjs.mdc"
-Check-Exists ".cursor/rules/skills/fe-vue.mdc"
-Check-Exists ".cursor/rules/skills/fe-angular.mdc"
-Check-Exists ".cursor/rules/skills/be-microservices.mdc"
-Check-Exists ".cursor/rules/skills/devops-docker.mdc"
-Check-Exists ".cursor/rules/skills/devops-cicd.mdc"
-Check-Exists ".cursor/rules/skills/security-sast.mdc"
-Check-Exists ".cursor/rules/skills/db-migrations.mdc"
-Check-Exists ".cursor/rules/skills/devops-aws.mdc"
-Check-Exists ".cursor/rules/skills/devops-gcp.mdc"
-Check-Exists ".cursor/rules/skills/devops-onprem.mdc"
-Check-Exists ".cursor/rules/skills/mobile-ios.mdc"
-Check-Exists ".cursor/rules/skills/mobile-android.mdc"
-Check-Exists ".cursor/rules/skills/mobile-kmp.mdc"
-Check-Exists ".cursor/rules/skills/mobile-flutter.mdc"
-Check-Exists ".cursor/rules/skills/mobile-reactnative.mdc"
-
-# Continue skill rules
-Check-Exists ".continue/rules/skills/lang-java.md"
-Check-Exists ".continue/rules/skills/lang-dotnet.md"
-Check-Exists ".continue/rules/skills/lang-python.md"
-Check-Exists ".continue/rules/skills/fe-react.md"
-Check-Exists ".continue/rules/skills/fe-nextjs.md"
-Check-Exists ".continue/rules/skills/fe-vue.md"
-Check-Exists ".continue/rules/skills/fe-angular.md"
-Check-Exists ".continue/rules/skills/mobile-ios.md"
-Check-Exists ".continue/rules/skills/mobile-android.md"
-Check-Exists ".continue/rules/skills/mobile-kmp.md"
-Check-Exists ".continue/rules/skills/mobile-flutter.md"
-Check-Exists ".continue/rules/skills/mobile-reactnative.md"
-Check-Exists ".continue/rules/skills/security-sast.md"
-Check-Exists ".continue/rules/skills/db-migrations.md"
-Check-Exists ".continue/rules/skills/devops-aws.md"
-Check-Exists ".continue/rules/skills/devops-gcp.md"
-Check-Exists ".continue/rules/skills/devops-onprem.md"
+# Agent Skills (.claude/skills/<name>/SKILL.md — single source)
+$skillFiles = @(Get-ChildItem -Path ".claude/skills" -Filter "SKILL.md" -Recurse -Depth 1 -ErrorAction SilentlyContinue)
+if ($skillFiles.Count -gt 0) {
+    Write-Pass "Found $($skillFiles.Count) skill(s) in .claude/skills/"
+} else {
+    Write-Fail "No skills found in .claude/skills/"
+}
+if (Test-Path ".cursor/rules/skills/*.mdc") {
+    Write-Warn "Legacy .cursor/rules/skills/ still present — skills now live in .claude/skills/ (see UPDATES.md v1.1.0)"
+}
+Check-Exists ".initium/scripts/sync-skills.mjs"
+if (Get-Command node -ErrorAction SilentlyContinue) {
+    $null = node .initium/scripts/sync-skills.mjs --check 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Pass "Skills valid; Continue rules in sync"
+    } else {
+        Write-Fail "Skill frontmatter invalid or Continue rules stale — run: node .initium/scripts/sync-skills.mjs"
+    }
+} else {
+    Write-Warn "node not found — cannot validate skills (requires Node.js 22+)"
+}
 
 # Workflow docs
 Check-Exists "docs/guides/workflows/01-requirements-analysis.md"
@@ -197,7 +187,7 @@ function Check-Customized {
     }
 }
 
-Check-Customized "CLAUDE.md"
+Check-Customized "AGENTS.md"
 Check-Customized "SECURITY.md"
 Check-Customized ".cursor/rules/00-project-overview.mdc"
 Check-Customized "docs/context/project-brief.md"

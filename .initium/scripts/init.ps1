@@ -317,20 +317,20 @@ if (Test-Path "agent.config.yaml") {
     Write-Warn "agent.config.yaml not found — skipping."
 }
 
-# --- CLAUDE.md ---
-if (Test-Path "CLAUDE.md") {
-    Write-Info "Updating CLAUDE.md..."
-    Replace-Literal "CLAUDE.md" "TODO: Project Name"                                                      $PROJECT_NAME
-    Replace-Literal "CLAUDE.md" "TODO: e.g., REST API / Web App / CLI Tool / Library"                    $PROJECT_TYPE
-    Replace-Literal "CLAUDE.md" "TODO: One or two sentences describing what this project does and for whom." $PROJECT_PURPOSE
-    Replace-Literal "CLAUDE.md" "TODO: e.g., TypeScript, Python, Go"                                     $PRIMARY_LANGUAGE
-    Replace-Literal "CLAUDE.md" "TODO: e.g., bun install / pip install -e `".[dev]`" / go mod tidy"      $INSTALL_CMD
-    Replace-Literal "CLAUDE.md" "TODO: e.g., bun test / pytest / go test ./..."                          $TEST_CMD
-    Replace-Literal "CLAUDE.md" "TODO: e.g., bun lint / ruff check . / golangci-lint run"                $LINT_CMD
-    Replace-Literal "CLAUDE.md" "TODO: e.g., bun build / python -m build / go build ./..."               $BUILD_CMD
-    if ($FRAMEWORK) { Replace-Literal "CLAUDE.md" "TODO: e.g., Next.js 14, FastAPI, Gin" $FRAMEWORK }
-    if ($RUNTIME)   { Replace-Literal "CLAUDE.md" "TODO: e.g., Node.js 22, Python 3.12, Go 1.23"  $RUNTIME }
-    Write-Ok "CLAUDE.md updated."
+# --- AGENTS.md ---
+if (Test-Path "AGENTS.md") {
+    Write-Info "Updating AGENTS.md..."
+    Replace-Literal "AGENTS.md" "TODO: Project Name"                                                      $PROJECT_NAME
+    Replace-Literal "AGENTS.md" "TODO: e.g., REST API / Web App / CLI Tool / Library"                    $PROJECT_TYPE
+    Replace-Literal "AGENTS.md" "TODO: One or two sentences describing what this project does and for whom." $PROJECT_PURPOSE
+    Replace-Literal "AGENTS.md" "TODO: e.g., TypeScript, Python, Go"                                     $PRIMARY_LANGUAGE
+    Replace-Literal "AGENTS.md" "TODO: e.g., bun install / pip install -e `".[dev]`" / go mod tidy"      $INSTALL_CMD
+    Replace-Literal "AGENTS.md" "TODO: e.g., bun test / pytest / go test ./..."                          $TEST_CMD
+    Replace-Literal "AGENTS.md" "TODO: e.g., bun lint / ruff check . / golangci-lint run"                $LINT_CMD
+    Replace-Literal "AGENTS.md" "TODO: e.g., bun build / python -m build / go build ./..."               $BUILD_CMD
+    if ($FRAMEWORK) { Replace-Literal "AGENTS.md" "TODO: e.g., Next.js 14, FastAPI, Gin" $FRAMEWORK }
+    if ($RUNTIME)   { Replace-Literal "AGENTS.md" "TODO: e.g., Node.js 22, Python 3.12, Go 1.23"  $RUNTIME }
+    Write-Ok "AGENTS.md updated."
 }
 
 # --- .cursor/rules/00-project-overview.mdc ---
@@ -408,7 +408,7 @@ Write-Host "Project configured: $PROJECT_NAME" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Updated files:"
 Write-Host "    [OK] agent.config.yaml"
-Write-Host "    [OK] CLAUDE.md"
+Write-Host "    [OK] AGENTS.md"
 Write-Host "    [OK] .cursor\rules\00-project-overview.mdc"
 Write-Host "    [OK] .project-config.yaml (reference for AI tools)"
 Write-Host ""

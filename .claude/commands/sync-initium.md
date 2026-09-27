@@ -130,12 +130,12 @@ Initium adds new command references. Merge strategy:
 
 ## Step 6: Report project_owned Changes (Informational)
 
-If any `project_owned` files changed in Initium (e.g., `CLAUDE.md` template was
+If any `project_owned` files changed in Initium (e.g., `AGENTS.md` template was
 improved), report them as informational notices:
 
 ```
-ℹ  CLAUDE.md — Initium template improved
-   Review: git show skeleton/main:CLAUDE.md
+ℹ  AGENTS.md — Initium template improved
+   Review: git show skeleton/main:AGENTS.md
    Action: Manually adopt any new guidance that applies to your project
 ```
 
@@ -188,7 +188,7 @@ Suggested commit:
 ## What This Command Does NOT Do
 
 - Modify your application source code
-- Change `CLAUDE.md`, `agent.config.yaml`, or any project context files
+- Change `AGENTS.md`, `agent.config.yaml`, or any project context files
 - Affect the `.agent/` runtime directory
 - Push to any remote (you decide when to commit and push)
 

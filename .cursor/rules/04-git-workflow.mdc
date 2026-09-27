@@ -91,7 +91,7 @@ docs(api): document rate limiting headers
 - [ ] Linter and formatter pass
 - [ ] Type checking passes
 - [ ] Self-review completed (read every line of your diff)
-- [ ] CLAUDE.md / project docs updated if needed
+- [ ] AGENTS.md / project docs updated if needed
 - [ ] No debug code, console.logs, or commented-out code
 
 ### PR size

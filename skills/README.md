@@ -1,156 +1,146 @@
 # Skills Index
 
 This directory documents all available AI coding skills for this project.
-Skills are language-, framework-, and domain-specific rule sets that provide
-deep context to AI tools.
+Skills are language-, framework-, and domain-specific rule sets that give AI tools
+deep context only when a task needs it.
+
+Every skill is a folder in `.claude/skills/<name>/` containing a `SKILL.md` in the
+[Agent Skills](https://agentskills.io) open format. That folder is the **single source**;
+nothing else needs to be edited by hand.
 
 ## How Skills Work
 
+Only each skill's `name` and `description` sit in the agent's context. The body is loaded
+when the task matches the description, or when a file matching the optional `paths`
+globs is involved (progressive disclosure — no token cost for unused skills).
+
 | Tool | How skills activate |
 |------|-------------------|
-| **Cursor** | Automatically via `globs` in `.cursor/rules/skills/*.mdc` |
-| **Continue** | Manually added to `.continue/config.yaml` `rules:` section |
-| **Claude Code** | Via `@` file references in prompts |
+| **Claude Code** | Native — reads `.claude/skills/`; also invocable as `/<skill-name>` |
+| **Cursor** | Native — reads `.claude/skills/` (also `.agents/skills/`, `.cursor/skills/`) |
+| **OpenCode** | Native — reads `.claude/skills/` via its `skill` tool |
+| **Codex / Copilot / Gemini CLI** | Via `AGENTS.md`, which points agents to `.claude/skills/<name>/SKILL.md` |
+| **Continue** | Generated rules in `.continue/rules/skills/*.md`, activated in `.continue/config.yaml` |
+
+> Do not copy skills into `.agents/skills/` as well — Cursor and OpenCode read both
+> locations and would load every skill twice.
 
 ## Available Skills
 
-### Backend Languages
+### Languages
 
-| Skill | Cursor Rule | Continue Rule | Key Coverage |
-|-------|-------------|---------------|-------------|
-| Java | `skills/lang-java.mdc` | `skills/lang-java.md` | Spring Boot, JPA, JUnit 5, Java 21 |
-| .NET / C# | `skills/lang-dotnet.mdc` | `skills/lang-dotnet.md` | ASP.NET Core, EF Core, xUnit, C# 12 |
-| Python | `skills/lang-python.mdc` | `skills/lang-python.md` | FastAPI, SQLAlchemy, pytest, type hints |
-| TypeScript | `skills/lang-typescript.mdc` | `skills/lang-typescript.md` | Strict TS, ESM, Bun/Node.js |
-| Go | `skills/lang-go.mdc` | `skills/lang-go.md` | Idiomatic Go, stdlib, concurrency |
+| Skill | Key Coverage |
+|-------|-------------|
+| `lang-java` | Spring Boot, JPA, JUnit 5, Java 21 |
+| `lang-dotnet` | ASP.NET Core, EF Core, xUnit, C# 12 |
+| `lang-python` | FastAPI, SQLAlchemy, pytest, type hints |
+| `lang-typescript` | Strict TS, ESM, Bun/Node.js |
+| `lang-go` | Idiomatic Go, stdlib, concurrency |
+| `lang-rust` | Edition 2024, Tokio, Axum, sqlx, thiserror/anyhow, tracing, nextest, cargo-deny |
+| `lang-kotlin` | Backend Kotlin: Ktor 3, Spring Boot, coroutines, Exposed/jOOQ, Kotest/MockK |
+| `lang-php` | PHP 8.3+, Laravel 11+, PHPStan level 8+, Pint, Pest |
+
+### Backend & APIs
+
+| Skill | Key Coverage |
+|-------|-------------|
+| `be-microservices` | Service design, communication, observability |
+| `be-node` | NestJS, Fastify, Hono, Zod validation, pino, OpenTelemetry, graceful shutdown |
+| `be-messaging` | Kafka/RabbitMQ/SQS/NATS, event schemas, outbox, idempotent consumers, DLQs |
+| `be-graphql-grpc` | GraphQL DataLoader, complexity limits, persisted queries; protobuf, `buf breaking`, deadlines |
+| `db-migrations` | Flyway, Liquibase, Alembic, Prisma, Drizzle, Goose, Atlas, EF Core, Room, drift, SQLDelight |
+
+### AI / LLM Applications
+
+| Skill | Key Coverage |
+|-------|-------------|
+| `ai-llm-apps` | Provider ports, structured output, OWASP LLM Top 10, RAG, cost and caching, GenAI telemetry, evals, MCP servers |
+
+Pair with `/eval` to build evaluation suites for LLM features.
 
 ### Frontend Frameworks
 
-| Skill | Cursor Rule | Continue Rule | Key Coverage |
-|-------|-------------|---------------|-------------|
-| React | `skills/fe-react.mdc` | `skills/fe-react.md` | Hooks, React Query, RTL, forms |
-| Next.js | `skills/fe-nextjs.mdc` | `skills/fe-nextjs.md` | App Router, Server Components, Server Actions |
-| Vue 3 | `skills/fe-vue.mdc` | `skills/fe-vue.md` | Composition API, Pinia, Vue Router |
-| Angular | `skills/fe-angular.mdc` | `skills/fe-angular.md` | Standalone, Signals, NgRx, RxJS |
+| Skill | Key Coverage |
+|-------|-------------|
+| `fe-react` | Hooks, React Query, RTL, forms |
+| `fe-nextjs` | App Router, Server Components, Server Actions |
+| `fe-vue` | Composition API, Pinia, Vue Router |
+| `fe-angular` | Standalone, Signals, NgRx, RxJS |
 
 ### Mobile Platforms
 
-| Skill | Cursor Rule | Continue Rule | Key Coverage |
-|-------|-------------|---------------|-------------|
-| iOS | `skills/mobile-ios.mdc` | `skills/mobile-ios.md` | Swift 5.9+, SwiftUI, MVVM, async/await, SwiftData, XCTest / Swift Testing |
-| Android | `skills/mobile-android.mdc` | `skills/mobile-android.md` | Kotlin, Jetpack Compose, Hilt, Room, Coroutines + Flow, Material 3 |
-| Kotlin Multiplatform | `skills/mobile-kmp.mdc` | `skills/mobile-kmp.md` | KMP shared logic, Ktor, kotlinx.serialization, SQLDelight, Koin, Compose Multiplatform, SKIE |
-| Flutter | `skills/mobile-flutter.mdc` | `skills/mobile-flutter.md` | Dart 3, Riverpod, GoRouter, Freezed, drift, EAS / Fastlane |
-| React Native | `skills/mobile-reactnative.mdc` | `skills/mobile-reactnative.md` | Expo, TypeScript strict, React Navigation, Zustand, TanStack Query, EAS |
+| Skill | Key Coverage |
+|-------|-------------|
+| `mobile-ios` | Swift, SwiftUI, MVVM, async/await, SwiftData, Swift Testing |
+| `mobile-android` | Kotlin, Jetpack Compose, Hilt, Room, Coroutines + Flow, Material 3 |
+| `mobile-kmp` | KMP shared logic, Ktor, SQLDelight, Koin, Compose Multiplatform, SKIE |
+| `mobile-flutter` | Dart 3, Riverpod, GoRouter, Freezed, drift |
+| `mobile-reactnative` | Expo, TypeScript strict, React Navigation, Zustand, TanStack Query, EAS |
 
 ### Security
 
-| Skill | Cursor Rule | Continue Rule | Key Coverage |
-|-------|-------------|---------------|-------------|
-| Security SAST | `skills/security-sast.mdc` | `skills/security-sast.md` | OWASP Top 10 patterns per language, injection, crypto, path traversal, secret detection, mobile storage |
+| Skill | Key Coverage |
+|-------|-------------|
+| `security-sast` | OWASP Top 10 patterns per language, injection, crypto, path traversal, secret detection, mobile storage |
 
-> **Recommendation:** Enable `security-sast` for all production projects alongside your language skill. It activates on all common source file extensions.
+> **Recommendation:** Keep `security-sast` active for all production projects alongside your language skill.
 
-### Infrastructure & DevOps
+### Infrastructure, DevOps & Operations
 
-| Skill | Cursor Rule | Continue Rule | Key Coverage |
-|-------|-------------|---------------|-------------|
-| Docker | `skills/devops-docker.mdc` | `skills/devops-docker.md` | Dockerfile, Compose, security, optimization |
-| CI/CD | `skills/devops-cicd.mdc` | `skills/devops-cicd.md` | GitHub Actions, quality gates, deployment strategies |
-| Microservices | `skills/be-microservices.mdc` | `skills/be-microservices.md` | Service design, communication, observability |
-| Database Migrations | `skills/db-migrations.mdc` | `skills/db-migrations.md` | Flyway, Liquibase, Alembic, Django, Prisma, Drizzle, Goose, golang-migrate, Atlas, EF Core, Room, drift, SQLDelight |
-| AWS Deployment | `skills/devops-aws.mdc` | `skills/devops-aws.md` | ECS Fargate, EKS, ECR, RDS, S3/CloudFront, OIDC/IAM, Secrets Manager, CloudWatch, Terraform |
-| GCP Deployment | `skills/devops-gcp.mdc` | `skills/devops-gcp.md` | Cloud Run, GKE Autopilot, Cloud SQL, Artifact Registry, Workload Identity Federation, Secret Manager, Cloud Armor, Terraform |
-| On-Premise Deployment | `skills/devops-onprem.mdc` | `skills/devops-onprem.md` | k3s/kubeadm, MetalLB, Nginx Ingress, cert-manager, HashiCorp Vault, Harbor, Ansible, Prometheus/Grafana, Velero |
+| Skill | Key Coverage |
+|-------|-------------|
+| `devops-docker` | Dockerfile, Compose, security, optimization |
+| `devops-cicd` | GitHub Actions, quality gates, deployment strategies |
+| `devops-terraform` | Terraform / OpenTofu layout, remote state, `moved`/`import` blocks, plan/apply in CI, policy-as-code |
+| `devops-observability` | OpenTelemetry, OTLP Collector, semantic conventions, SLOs and burn-rate alerts |
+| `devops-aws` | ECS Fargate, EKS, RDS, S3/CloudFront, OIDC/IAM, Secrets Manager, CloudWatch |
+| `devops-gcp` | Cloud Run, GKE Autopilot, Cloud SQL, Workload Identity Federation, Secret Manager |
+| `devops-onprem` | k3s/kubeadm, MetalLB, Nginx Ingress, cert-manager, Vault, Harbor, Ansible, Velero |
+
+### Documentation
+
+| Skill | Key Coverage |
+|-------|-------------|
+| `docs-generation` | API docs, architecture docs, diagrams, changelogs |
 
 ## Activating Skills in Continue
 
-By default, only the base rules are active in Continue. To add a language skill,
-edit `.continue/config.yaml`:
+Continue does not support the Agent Skills format, so `node .initium/scripts/sync-skills.mjs`
+generates one rule per skill in `.continue/rules/skills/<name>.md`. Uncomment the ones your
+project needs in `.continue/config.yaml`:
 
 ```yaml
 rules:
-  # Base rules (always active)
   - .continue/rules/01-coding-standards.md
-  - .continue/rules/02-architecture.md
-  - .continue/rules/03-testing.md
-  - .continue/rules/04-security.md
-
-  # Backend — activate one:
-  # - .continue/rules/skills/lang-java.md
-  # - .continue/rules/skills/lang-dotnet.md
-  # - .continue/rules/skills/lang-python.md
-  # - .continue/rules/skills/lang-typescript.md
+  # ...
   # - .continue/rules/skills/lang-go.md
-
-  # Frontend — activate one or more:
-  # - .continue/rules/skills/fe-react.md
-  # - .continue/rules/skills/fe-nextjs.md
-  # - .continue/rules/skills/fe-vue.md
-  # - .continue/rules/skills/fe-angular.md
-
-  # Mobile — activate one:
-  # - .continue/rules/skills/mobile-ios.md
-  # - .continue/rules/skills/mobile-android.md
-  # - .continue/rules/skills/mobile-kmp.md
-  # - .continue/rules/skills/mobile-flutter.md
-  # - .continue/rules/skills/mobile-reactnative.md
-
-  # Database (activate if your project uses a relational or mobile DB):
-  # - .continue/rules/skills/db-migrations.md
-
-  # Deployment platform (activate one matching your target):
-  # - .continue/rules/skills/devops-docker.md
-  # - .continue/rules/skills/devops-cicd.md
-  # - .continue/rules/skills/devops-aws.md
-  # - .continue/rules/skills/devops-gcp.md
-  # - .continue/rules/skills/devops-onprem.md
-  # - .continue/rules/skills/be-microservices.md
-
-  # Security SAST (recommended for all production projects):
   # - .continue/rules/skills/security-sast.md
 ```
 
-## Using Skills in Claude Code
+## Adding or Changing Skills
 
-Reference a skill file directly in a prompt for targeted guidance:
+Use `/skill new <topic>` — it gathers conventions from the codebase and writes the file for you.
+To do it by hand:
 
-```
-# In Claude Code chat:
-@.cursor/rules/skills/lang-java.mdc — given these standards, review my UserService
-@.cursor/rules/skills/fe-react.mdc — generate a UserProfile component following our patterns
-```
+1. Create `.claude/skills/<name>/SKILL.md`:
+   ```markdown
+   ---
+   name: lang-example
+   description: Example language standards — key frameworks and tools. Use when writing or reviewing Example code.
+   paths:
+     - "**/*.ext"
+   ---
 
-## Adding New Skills
+   # Example Language Standards
 
-To add a skill for a new language or framework:
+   ## Code Style
+   ...
+   ```
+   - `name`: lowercase letters, digits, and single hyphens; max 64 characters; must equal the folder name.
+   - `description`: 1–1024 characters; say what the skill covers **and when to use it**.
+   - `paths`: optional globs; omit for task-triggered skills.
+2. Run `node .initium/scripts/sync-skills.mjs` to validate and regenerate the Continue rule.
+3. Add the skill to this index.
 
-1. Create `.cursor/rules/skills/<name>.mdc` — full detailed Cursor rule
-2. Create `.continue/rules/skills/<name>.md` — condensed Continue rule
-3. Add to this README index
-4. Activate in `.continue/config.yaml` for your project
-
-### Skill file template
-
-**.cursor/rules/skills/lang-example.mdc:**
-```
----
-description: Example language standards — [key frameworks and tools]
-globs: ["**/*.ext", "**/config-file.*"]
-alwaysApply: false
----
-
-# Example Language Standards
-
-## Code Style
-...
-
-## Naming Conventions
-...
-
-## Architecture
-...
-
-## Testing
-...
-```
+Skills shipped by Initium are overwritten by `/sync-initium`. Put project-specific knowledge in
+a separate `project-<topic>` skill.

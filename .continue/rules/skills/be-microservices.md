@@ -1,3 +1,16 @@
+---
+name: be-microservices
+description: Microservices architecture patterns — service design, communication, resilience, observability. Use when designing service boundaries, inter-service communication, resilience, or distributed observability.
+globs:
+  - "**/docker-compose*.yml"
+  - "**/k8s/**"
+  - "**/helm/**"
+  - "**/proto/**"
+  - "**/*.proto"
+alwaysApply: false
+---
+<!-- Generated from .claude/skills by .initium/scripts/sync-skills.mjs — edit the skill, not this file. -->
+
 # Microservices Architecture Standards
 
 ## Service Design Principles

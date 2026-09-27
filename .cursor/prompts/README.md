@@ -25,4 +25,4 @@ See [`.claude/commands/`](../../.claude/commands/) for the full list. All comman
 
 ## Context loading
 
-Cursor loads project context through `.cursor/rules/` (always-on and on-demand rules). OpenCode loads `opencode.json` → `instructions` (same rules + `CLAUDE.md`). Commands reference `CLAUDE.md` for project conventions — ensure it is filled in before running any command.
+Cursor loads project context through `.cursor/rules/` (always-on and on-demand rules). OpenCode reads `AGENTS.md` natively and adds the same rules via `opencode.json` → `instructions`. Commands reference `AGENTS.md` for project conventions — ensure it is filled in before running any command.

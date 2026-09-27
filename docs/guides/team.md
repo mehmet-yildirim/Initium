@@ -35,7 +35,7 @@ The ratio of senior to junior engineers shifts: **prefer senior or mid-level eng
 - Define and enforce the hexagonal architecture boundaries and design pattern standards
 - Approve high-risk designs flagged by `/architect` (triggered by `risk=HIGH`)
 - Review autonomous agent PRs before merge for any structural changes
-- Maintain `CLAUDE.md` — the single source of truth for how AI agents understand this project
+- Maintain `AGENTS.md` — the single source of truth for how AI agents understand this project
 - Decide when to adopt new Initium features via `/sync-initium`
 
 **AI-native responsibilities:**
@@ -79,7 +79,7 @@ The ratio of senior to junior engineers shifts: **prefer senior or mid-level eng
 **AI-native responsibilities:**
 - Run `/security-audit diff` on every PR without exception
 - Run `/qa` before opening PRs; do not open PRs with failing gates
-- When AI output is wrong, fix the code AND update the relevant rule in `.cursor/rules/` or CLAUDE.md so the error doesn't recur
+- When AI output is wrong, fix the code AND update the relevant rule in `.cursor/rules/` or AGENTS.md so the error doesn't recur
 - Share effective prompt patterns in `docs/guides/ai-workflow.md` under "Effective Prompt Patterns"
 
 **TODO: Team members:** `<list names or link to team roster>`
@@ -91,7 +91,7 @@ The ratio of senior to junior engineers shifts: **prefer senior or mid-level eng
 **What they do:**
 - Keep all AI tooling running smoothly across the team
 - Run `/sync-initium` when Initium updates are available; coordinate merging `merge_required` files with the team
-- Maintain `.cursor/rules/`, `.continue/rules/`, and CLAUDE.md conventions
+- Maintain `.cursor/rules/`, `.continue/rules/`, and AGENTS.md conventions
 - Track which commands are underused or causing confusion; improve prompts or document patterns
 - Manage `.cursor/mcp.json` and `.claude/settings.json` — enable/disable MCP servers and tool permissions
 - Own `agent.config.yaml` tuning: confidence thresholds, retry limits, autonomous mode settings
@@ -117,7 +117,7 @@ The ratio of senior to junior engineers shifts: **prefer senior or mid-level eng
 
 **AI-native responsibilities:**
 - The autonomous agent runs `/security-audit` automatically — the Security Champion reviews the generated reports, not just the code
-- When AI introduces a new security pattern (good or bad), update `.cursor/rules/skills/security-sast.mdc` to reinforce or prevent it
+- When AI introduces a new security pattern (good or bad), update `.claude/skills/security-sast/SKILL.md` to reinforce or prevent it
 - Block `AGENT_APPROVE_DEPLOY` for any production deployment with unreviewed security findings
 
 **On small teams, the Tech Lead or most security-aware developer fills this role.**
@@ -149,7 +149,7 @@ Clear ownership prevents the agent from proceeding without the right human appro
 - Tech Lead does everything: architecture, domain ownership, AI workflow coordination
 - Use semi-autonomous agent mode (`mode: semi-autonomous` in `agent.config.yaml`) — agent generates, human approves before every PR
 - Every PR must be reviewed by at least one other person (external reviewer or peer)
-- Prioritize: `CLAUDE.md` quality, domain boundaries accuracy, security audit before every merge
+- Prioritize: `AGENTS.md` quality, domain boundaries accuracy, security audit before every merge
 
 ### 3–6 people (standard team)
 
@@ -175,7 +175,7 @@ Clear ownership prevents the agent from proceeding without the right human appro
 
 For new engineers to become productive quickly:
 
-1. **Day 1 — Context reading:** Read `docs/context/project-brief.md`, `docs/context/tech-stack.md`, `docs/architecture/overview.md`, and this file. Then `CLAUDE.md`.
+1. **Day 1 — Context reading:** Read `docs/context/project-brief.md`, `docs/context/tech-stack.md`, `docs/architecture/overview.md`, and this file. Then `AGENTS.md`.
 2. **Day 1 — AI tools setup:** Follow `docs/guides/onboarding.md` to install Claude Code, configure Cursor or Continue. Verify with `bash .initium/scripts/validate.sh`.
 3. **Day 2 — First `/help`:** Run `/help how do I pick up my first task?` and follow the instructions. Don't start writing code before completing the AI workflow setup.
 4. **First week — shadowed PR:** New engineer implements a `good-first-issue` using the full AI loop (`/requirements` → `/architect` → `/task plan` → `/implement` → `/qa` → `/review`). A senior dev reviews every step, not just the final diff.
@@ -192,7 +192,7 @@ For new engineers to become productive quickly:
 | Merging AI PRs without reading the diff | AI can introduce subtle bugs, wrong patterns, or security issues that look fine at a glance |
 | Skipping `/security-audit diff` because "AI is usually safe" | AI frequently misses auth checks, input validation, and injection risks |
 | Letting the agent run autonomously without domain boundaries defined | Agent will accept out-of-scope issues and produce irrelevant or harmful changes |
-| Treating CLAUDE.md as a one-time setup | Project evolves; CLAUDE.md must be updated when conventions change or the agent makes systematic errors |
+| Treating AGENTS.md as a one-time setup | Project evolves; AGENTS.md must be updated when conventions change or the agent makes systematic errors |
 | Using AI for architecture decisions without human review | Architecture is about tradeoffs the AI cannot fully evaluate — business context, team capability, operational cost |
 | Not updating `.cursor/rules/` when AI makes a pattern mistake | The mistake will recur in every future session |
 | Over-automating too early | Start semi-autonomous, earn trust in the agent's triage accuracy before enabling full autonomy |
@@ -203,7 +203,7 @@ For new engineers to become productive quickly:
 
 | Document | Contents |
 |----------|---------|
-| `CLAUDE.md` | Project conventions — the AI's primary instruction file |
+| `AGENTS.md` | Project conventions — the AI's primary instruction file |
 | `docs/guides/ai-workflow.md` | Full AI-native development workflow reference |
 | `docs/guides/onboarding.md` | Step-by-step setup for new developers |
 | `docs/context/domain-boundaries.md` | What the autonomous agent will and will not work on |

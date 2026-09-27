@@ -38,7 +38,7 @@ If confidence < threshold → `/escalate medium requirements_confidence_low <tas
 
 Requirements: [paste requirements JSON tasks and user stories]
 
-Architecture constraints from CLAUDE.md:
+Architecture constraints from AGENTS.md:
 [paste relevant architecture section]
 ```
 
@@ -95,7 +95,7 @@ Files to change: [from design output]
 
 ### 4b. Run tests immediately
 ```bash
-<test command from CLAUDE.md>
+<test command from AGENTS.md>
 ```
 
 ### 4c. Check result

@@ -43,6 +43,7 @@ appendFileSync(auditFile, JSON.stringify(entry) + '\n');
 // Safety check: warn if writing to a protected path
 const PROTECTED_PATTERNS = [
   /^agent\.config\.yaml$/,
+  /^AGENTS\.md$/,
   /^CLAUDE\.md$/,
   /^\.github\/workflows\//,
   /\.env$/,

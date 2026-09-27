@@ -84,11 +84,15 @@ rules:
   # - .continue/rules/skills/security-sast.md
 
   # --- Language skills: uncomment the one(s) for your project ---
+  # Generated from .claude/skills/ — edit the SKILL.md and run node .initium/scripts/sync-skills.mjs
   # - .continue/rules/skills/lang-java.md
   # - .continue/rules/skills/lang-dotnet.md
   # - .continue/rules/skills/lang-python.md
   # - .continue/rules/skills/lang-typescript.md   # (TypeScript covered by base rules too)
   # - .continue/rules/skills/lang-go.md
+  # - .continue/rules/skills/lang-rust.md
+  # - .continue/rules/skills/lang-kotlin.md       # (backend Kotlin; Android uses mobile-android)
+  # - .continue/rules/skills/lang-php.md
 
   # --- Frontend skills: uncomment the one(s) for your project ---
   # - .continue/rules/skills/fe-react.md
@@ -103,12 +107,27 @@ rules:
   # - .continue/rules/skills/mobile-reactnative.md
   # - .continue/rules/skills/mobile-kmp.md
 
-  # --- Backend / Architecture skills: uncomment for microservices projects ---
+  # --- Backend / Architecture skills ---
   # - .continue/rules/skills/be-microservices.md
+  # - .continue/rules/skills/be-node.md
+  # - .continue/rules/skills/be-messaging.md
+  # - .continue/rules/skills/be-graphql-grpc.md
+  # - .continue/rules/skills/db-migrations.md
+
+  # --- AI / LLM applications ---
+  # - .continue/rules/skills/ai-llm-apps.md
 
   # --- DevOps skills: uncomment if working on infra/pipeline ---
   # - .continue/rules/skills/devops-docker.md
   # - .continue/rules/skills/devops-cicd.md
+  # - .continue/rules/skills/devops-terraform.md
+  # - .continue/rules/skills/devops-observability.md
+  # - .continue/rules/skills/devops-aws.md
+  # - .continue/rules/skills/devops-gcp.md
+  # - .continue/rules/skills/devops-onprem.md
+
+  # --- Documentation ---
+  # - .continue/rules/skills/docs-generation.md
 
 # =============================================================================
 # SLASH COMMANDS — Custom commands available with /

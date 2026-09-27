@@ -14,11 +14,14 @@ Supports [Cursor](https://cursor.sh), [Continue](https://continue.dev), [Claude 
 
 | Layer | Config | Purpose |
 |-------|--------|---------|
-| **Claude Code** | `CLAUDE.md`, `.claude/` | Project instructions, 29 slash commands, event hooks |
-| **Cursor** | `.cursor/rules/`, `.claude/commands/` | 6 base rules + 22 skill rules (auto-activate by file type) + shared slash commands |
-| **OpenCode** | `opencode.json`, `.opencode/commands/` | Same slash commands as Claude/Cursor; synced from `.claude/commands/` |
-| **Continue** | `.continue/` | Multi-model setup, 22 skill rules, persistent guidelines |
+| **All agents** | `AGENTS.md` | Single source of project instructions (Claude Code loads it via `@AGENTS.md` in `CLAUDE.md`) |
+| **Agent Skills** | `.claude/skills/<name>/SKILL.md` | 32 stack skills in the open Agent Skills format — loaded on demand by Claude Code, Cursor, and OpenCode |
+| **Claude Code** | `CLAUDE.md`, `.claude/` | 36 slash commands, event hooks |
+| **Cursor** | `.cursor/rules/`, `.claude/skills/`, `.claude/commands/` | 6 base rules + shared skills and slash commands |
+| **OpenCode** | `opencode.json`, `.opencode/commands/` | Reads `AGENTS.md` and skills natively; slash commands synced from `.claude/commands/` |
+| **Continue** | `.continue/` | Multi-model setup, 32 skill rules generated from `.claude/skills/`, persistent guidelines |
 | **Autonomous Agent** | `agent.config.yaml`, `.initium/docs/agent/` | JIRA polling, domain triage, full dev loop, escalation system |
+| **Code graph** | `agent.config.yaml → codegraph`, `/codegraph` | Optional structural code index (MCP) so agents query symbols and callers instead of reading whole files |
 | **GitHub** | `.github/` | PR template, issue templates, CI workflow template |
 | **Initium sync** | `.initium/initium.json`, `.initium/scripts/sync.{sh,ps1,cmd}` | Pull improvements from upstream Initium without overwriting customizations |
 
@@ -61,8 +64,8 @@ After setup, code with the AI loop:
 
 | File | How it's populated |
 |------|--------------------|
-| `CLAUDE.md` | Wizard fills mechanical fields; AI fills conventions |
-| `.cursor/rules/00-project-overview.mdc` | Same as CLAUDE.md |
+| `AGENTS.md` | Wizard fills mechanical fields; AI fills conventions |
+| `.cursor/rules/00-project-overview.mdc` | Same as AGENTS.md |
 | `docs/context/project-brief.md` | AI-generated from your description |
 | `docs/context/tech-stack.md` | AI-generated from confirmed stack |
 | `docs/context/domain-boundaries.md` | AI-generated — **critical for autonomous agent** |
@@ -83,7 +86,8 @@ After setup, code with the AI loop:
 
 ```
 .
-├── CLAUDE.md                           # ← CUSTOMIZE — project instructions for Claude Code
+├── AGENTS.md                           # ← CUSTOMIZE — project instructions for every AI agent
+├── CLAUDE.md                           # Imports AGENTS.md for Claude Code — do not add content
 ├── agent.config.yaml                   # ← CUSTOMIZE — autonomous agent configuration
 ├── .initium/
 │   ├── initium.json                   # Tracks which Initium version this project is based on
@@ -92,7 +96,13 @@ After setup, code with the AI loop:
 │
 ├── .claude/
 │   ├── settings.json                   # Tool permissions + event hooks
-│   ├── commands/                       # 29 slash commands (type / in Claude Code)
+│   ├── skills/                         # 32 Agent Skills — <name>/SKILL.md (single source)
+│   │   ├── lang-*/                     # Java, .NET, Python, TypeScript, Go, Rust, Kotlin, PHP
+│   │   ├── be-*/                       # Microservices, Node.js, messaging, GraphQL/gRPC
+│   │   ├── fe-*/  mobile-*/            # React, Next.js, Vue, Angular · iOS, Android, KMP, Flutter, RN
+│   │   ├── devops-*/                   # Docker, CI/CD, Terraform, observability, AWS, GCP, on-prem
+│   │   └── ai-llm-apps/ db-migrations/ docs-generation/ security-sast/
+│   ├── commands/                       # 36 slash commands (type / in Claude Code)
 │   │   ├── help.md                     # /help — guide to commands and workflows
 │   │   ├── goal.md                     # /goal — pursue one objective until done
 │   │   ├── init.md                     # /init — project setup wizard
@@ -118,6 +128,13 @@ After setup, code with the AI loop:
 │   │   ├── doc-schema.md               # /doc-schema — database ERD + table reference
 │   │   ├── standup.md                  # /standup
 │   │   ├── sync-initium.md             # /sync-initium — apply upstream Initium updates
+│   │   ├── codegraph.md                # /codegraph — code graph setup, queries, impact
+│   │   ├── refactor.md                 # /refactor
+│   │   ├── upgrade.md                  # /upgrade — dependency / framework upgrades
+│   │   ├── perf.md                     # /perf
+│   │   ├── a11y.md                     # /a11y — WCAG 2.2 AA audit
+│   │   ├── eval.md                     # /eval — LLM feature evaluations
+│   │   ├── skill.md                    # /skill — create or update Agent Skills
 │   │   ├── triage.md                   # /triage        ← autonomous agent
 │   │   ├── groom.md                    # /groom         ← autonomous agent
 │   │   ├── loop.md                     # /loop          ← autonomous agent
@@ -135,27 +152,18 @@ After setup, code with the AI loop:
 │   │   ├── 02-architecture.mdc
 │   │   ├── 03-testing.mdc
 │   │   ├── 04-git-workflow.mdc
-│   │   ├── 05-security.mdc            # OWASP Top 10 — always loaded
-│   │   └── skills/                    # Auto-activate by file glob (22 files)
-│   │       ├── lang-*.mdc             # Java, .NET, Python, TypeScript, Go
-│   │       ├── fe-*.mdc               # React, Next.js, Vue, Angular
-│   │       ├── mobile-*.mdc           # iOS, Android, Flutter, React Native, KMP
-│   │       ├── devops-*.mdc           # Docker, CI/CD, AWS, GCP, On-Prem
-│   │       ├── db-migrations.mdc
-│   │       ├── be-microservices.mdc
-│   │       ├── docs-generation.mdc
-│   │       └── security-sast.mdc
+│   │   └── 05-security.mdc            # OWASP Top 10 — always loaded
 │   └── mcp.json                       # MCP servers: GitHub, Jira, Linear, Slack, Sentry…
 │
 ├── .continue/
 │   ├── config.yaml                    # ← ADD API KEYS + uncomment your skills
 │   └── rules/
 │       ├── 01-coding-standards.md … 04-security.md
-│       └── skills/                    # 22 files — mirror of .cursor/rules/skills/
+│       └── skills/                    # 32 files — generated from .claude/skills/ (sync-skills.mjs)
 │
 ├── .opencode/
-│   └── commands/                      # 29 slash commands (mirrors .claude/commands/)
-├── opencode.json                      # OpenCode instructions (CLAUDE.md + rules)
+│   └── commands/                      # 36 slash commands (mirrors .claude/commands/)
+├── opencode.json                      # OpenCode instructions (.cursor/rules) + code graph MCP
 │
 ├── .github/
 │   ├── PULL_REQUEST_TEMPLATE.md
@@ -250,7 +258,7 @@ After setup, code with the AI loop:
 |---------|---------|
 | `/init <description>` | Populate all TODO files from a free-form project description |
 | `/init domain: <desc>` | Generate domain boundaries, glossary, and agent scope keywords |
-| `/init stack: <stack>` | Generate tech stack doc and CLAUDE.md commands section |
+| `/init stack: <stack>` | Generate tech stack doc and AGENTS.md commands section |
 | `/init ci: <stack>` | Generate real CI workflow steps for your language and deploy target |
 | `/init agent: <keys>` | Configure tracker keys, GitHub owner/repo, escalation channels |
 
@@ -279,6 +287,18 @@ After setup, code with the AI loop:
 | `/sprint` | Sprint planning: capacity + backlog + tasks + risk register | Sprint kickoff |
 | `/standup` | Daily summary from git history | Start of day |
 | `/docs <file>` | Generate code-level documentation (JSDoc, docstrings, GoDoc…) | After implementation |
+| `/refactor` | Behavior-preserving refactor with characterization tests | Tech debt, before extending messy code |
+| `/upgrade [audit\|<pkg>\|security\|runtime]` | Audit or upgrade dependencies, frameworks, runtimes with migration guides | Outdated deps, CVEs |
+| `/perf` | Baseline → profile → fix → re-measure, with a regression guard | Latency, memory, bundle size |
+| `/a11y [scope]` | WCAG 2.2 AA audit (automated + manual) and fixes for web and mobile | UI changes |
+| `/eval [create\|run\|compare]` | Evaluation suites for LLM features: datasets, graders, thresholds, CI | Prompt / model / RAG changes |
+
+### Context & Knowledge
+
+| Command | Purpose |
+|---------|---------|
+| `/codegraph [setup\|status\|query\|impact\|refresh]` | Structural code graph via MCP (`codebase-memory-mcp` by default): symbol search, call traces, diff impact — fewer tokens than grep + read |
+| `/skill [new\|update\|list]` | Create or update Agent Skills in `.claude/skills/` from the codebase's real conventions |
 
 ### Documentation Generation
 
@@ -394,15 +414,17 @@ See [.initium/docs/agent/docker-agent.md](.initium/docs/agent/docker-agent.md) f
 
 ## Language & Framework Skills
 
-Skills provide deep, idiomatic guidance. Cursor auto-activates by file glob; Continue requires uncommenting in `.continue/config.yaml`.
+Skills provide deep, idiomatic guidance in the open [Agent Skills](https://agentskills.io) format. Claude Code, Cursor, and OpenCode load them on demand from `.claude/skills/` (only the description costs context until a skill is used); Continue requires uncommenting the generated rule in `.continue/config.yaml`.
 
 | Category | Skills |
 |----------|--------|
-| **Backend** | Java/Spring Boot · .NET/ASP.NET Core · Python/FastAPI · TypeScript/Node.js · Go |
+| **Backend** | Java/Spring Boot · .NET/ASP.NET Core · Python/FastAPI · TypeScript · Node.js (NestJS/Fastify/Hono) · Go · Rust (Axum/Tokio) · Kotlin (Ktor/Spring) · PHP (Laravel) |
+| **APIs & Integration** | Microservices · Messaging (Kafka/RabbitMQ/SQS, outbox) · GraphQL & gRPC |
+| **AI / LLM** | LLM applications: structured output, RAG, OWASP LLM Top 10, evals, MCP servers |
 | **Frontend** | React · Next.js App Router · Vue 3 · Angular 17+ |
 | **Mobile** | iOS/Swift · Android/Kotlin · Kotlin Multiplatform · Flutter/Dart · React Native/Expo |
-| **Infrastructure** | Docker · GitHub Actions CI/CD · AWS · GCP · On-Premise (k3s/Vault/Ansible) |
-| **Cross-cutting** | Database Migrations · Microservices · Security SAST · Documentation Generation |
+| **Infrastructure** | Docker · GitHub Actions CI/CD · Terraform/OpenTofu · OpenTelemetry & SLOs · AWS · GCP · On-Premise (k3s/Vault/Ansible) |
+| **Cross-cutting** | Database Migrations · Security SAST · Documentation Generation |
 
 See [skills/README.md](skills/README.md) for the full index, activation guide, and how to add new skills.
 
@@ -452,7 +474,7 @@ bash .initium/scripts/sync.sh --check  # just check if an update is available
 The sync script uses `.initium/initium.json` to classify every file:
 - **Initium-owned** (commands, skill rules, agent docs) → auto-applied safely
 - **merge-required** (`.continue/config.yaml`, `mcp.json`, `ci.yml`) → shown as diff, you decide
-- **project-owned** (`CLAUDE.md`, `docs/context/`, `agent.config.yaml`) → never touched
+- **project-owned** (`AGENTS.md`, `CLAUDE.md`, `docs/context/`, `agent.config.yaml`) → never touched
 
 See [.initium/docs/sync-guide.md](.initium/docs/sync-guide.md) for the full guide, including merge strategies for each file type and how to maintain an organizational fork.
 

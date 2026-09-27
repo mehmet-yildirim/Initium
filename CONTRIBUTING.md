@@ -31,34 +31,40 @@ This guide is for contributors who want to improve **Initium itself** — the ru
 
 | Area | Location | Notes |
 |------|----------|------|
-| Skills | `.cursor/rules/skills/*.mdc`, `.continue/rules/skills/*.md` | Must maintain parity (see below) |
+| Skills | `.claude/skills/<name>/SKILL.md` | Single source; Continue rules are generated (see below) |
 | Base rules | `.cursor/rules/*.mdc`, `.continue/rules/*.md` | Keep Cursor and Continue in sync |
-| Prompts / Commands | `.cursor/prompts/`, `.claude/commands/` | Workflow prompts and slash commands |
+| Prompts / Commands | `.cursor/prompts/`, `.claude/commands/` | Slash commands; `.opencode/commands/` is generated |
 | Docs | `docs/` | Architecture, workflows, agent, context |
 | Scripts | `scripts/` | setup, init, validate-ai-config (sh, ps1, bat) |
 | CI / GitHub | `.github/` | Workflows, PR template, issue templates |
 
-## Skill Parity Rule (Critical)
+## Skill Format (Critical)
 
-Every new skill **must** be added to **both** AI tools:
+Skills follow the [Agent Skills](https://agentskills.io) open format and live in exactly one
+place: `.claude/skills/<name>/SKILL.md`. Claude Code, Cursor, and OpenCode read that folder
+natively; do not duplicate skills into `.agents/skills/` or `.cursor/rules/`.
 
-1. **Cursor**: `.cursor/rules/skills/<name>.mdc` — uses YAML frontmatter (`description`, `globs`, `alwaysApply`)
-2. **Continue**: `.continue/rules/skills/<name>.md` — no frontmatter; content only
-3. **Continue config**: Register the new skill in `.continue/config.yaml` as a commented-out rule under the appropriate section (Language, Frontend, Mobile, Backend, DevOps)
+Frontmatter rules (enforced by `.initium/scripts/sync-skills.mjs`):
+- `name` — lowercase letters, digits, single hyphens; max 64 characters; equals the folder name
+- `description` — 1–1024 characters; states what the skill covers and when to use it
+- `paths` — optional list of globs for file-scoped activation
 
-File names must match across tools (e.g., `lang-go.mdc` ↔ `lang-go.md`).
+Generated files — never edit by hand:
+- `.continue/rules/skills/<name>.md` ← `node .initium/scripts/sync-skills.mjs`
+- `.opencode/commands/<name>.md` ← `bash .initium/scripts/sync-opencode-commands.sh`
 
 ## How to Add a New Skill
 
-1. Create `.cursor/rules/skills/<name>.mdc` with frontmatter and content
-2. Create `.continue/rules/skills/<name>.md` with the same content (strip frontmatter)
+1. Create `.claude/skills/<name>/SKILL.md` (or run `/skill new <topic>`)
+2. Run `node .initium/scripts/sync-skills.mjs` to validate and generate the Continue rule
 3. Add `# - .continue/rules/skills/<name>.md` to `.continue/config.yaml` in the correct section
-4. Run `.initium/scripts/validate.sh` (or `.ps1` / `.cmd`) — all checks must pass
-5. Update `skills/README.md` and `README.md` if the skill table needs a new row
+4. Add the skill to `skeleton_owned` in `.initium/initium.json` (both the `SKILL.md` and the Continue rule)
+5. Run `.initium/scripts/validate.sh` (or `.ps1` / `.cmd`) — all checks must pass
+6. Update `skills/README.md` and `README.md` if the skill table needs a new row
 
 ## Naming Conventions
 
-- **Skills**: `lang-<language>`, `fe-<framework>`, `mobile-<platform>`, `be-microservices`, `devops-docker`, `devops-cicd`, `security-sast`
+- **Skills**: `lang-<language>`, `fe-<framework>`, `be-<topic>`, `mobile-<platform>`, `devops-<topic>`, `db-<topic>`, `ai-<topic>`, `security-<topic>`, `docs-<topic>`
 - **Branches**: `feat/`, `fix/`, `docs/`, `chore/` prefix (see [.cursor/rules/04-git-workflow.mdc](.cursor/rules/04-git-workflow.mdc))
 - **Commits**: Conventional Commits format — `feat: add X`, `fix: correct Y`, `docs: update Z`
 
