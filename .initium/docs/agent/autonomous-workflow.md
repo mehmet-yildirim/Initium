@@ -104,7 +104,7 @@ and `/escalate`; thresholds and limits come from `agent.config.yaml`.
               ▼
          ┌───────────────────┐
          │   DOCS SYNC       │ ◀── Conditional on requirements architectureImpact flags
-         │   (conditional)   │     apiChanges → /doc-api diff
+         │   (conditional)   │     apiChanges → /doc-api <path>
          │                   │     schemaChanges → /doc-schema migrations
          └───────────────────┘
                  │

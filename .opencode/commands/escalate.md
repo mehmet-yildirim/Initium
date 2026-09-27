@@ -13,7 +13,7 @@ Read `agent.config.yaml` → `escalation` section:
 - Severity routing (which channels get which severities)
 - SLA timers
 
-Read `docs/guides/agent/escalation-protocol.md` for the canonical trigger definitions and available actions.
+Read `.initium/docs/agent/escalation-protocol.md` for the canonical trigger definitions and available actions.
 
 ---
 

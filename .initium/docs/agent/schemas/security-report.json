@@ -64,7 +64,7 @@
           "id":          { "type": "string", "description": "Finding ID: FIND-001" },
           "severity":    { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"] },
           "category":    { "type": "string", "description": "OWASP category or custom: A01, A03, SECRET, CVE, IaC" },
-          "owaspId":     { "type": ["string", "null"], "description": "e.g. A03:2021" },
+          "owaspId":     { "type": ["string", "null"], "description": "e.g. A05:2025" },
           "cweId":       { "type": ["string", "null"], "description": "e.g. CWE-89" },
           "cveId":       { "type": ["string", "null"], "description": "e.g. CVE-2023-12345" },
           "cvssScore":   { "type": ["number", "null"], "minimum": 0, "maximum": 10 },

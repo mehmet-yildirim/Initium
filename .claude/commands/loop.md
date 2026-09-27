@@ -145,9 +145,10 @@ from `.agent/outputs/<task-id>-requirements.json`:
 
 ### If `architectureImpact.apiChanges: true` — update OpenAPI spec
 ```
-/doc-api diff
+/doc-api <service or path touched by this task>
 ```
-This scans the changed controllers/handlers, updates `openapi.json`, validates the spec,
+Pass the service or directory that contains the changed controllers/handlers
+(`git diff --name-only main...HEAD` lists them). This scans them, updates `openapi.json`, validates the spec,
 and generates a fresh ReDoc output. If new endpoints are undocumented, generates stubs.
 
 Commit the updated spec:

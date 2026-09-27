@@ -11,7 +11,7 @@ Reads AGENTS.md, the relevant source files, and dependency manifests before prod
 Parse `$ARGUMENTS` to identify scope:
 - **Empty / "full"** → scan entire repository (dependency audit + SAST + secrets)
 - **File or directory path** → scan that path only
-- **PR / branch** → scan diff from `git diff main...HEAD`
+- **"diff" / "pr" / branch name** → scan the branch diff from `git diff main...HEAD`
 - **"deps"** → dependency CVE scan only
 - **"secrets"** → secret / credential scan only
 
@@ -138,99 +138,96 @@ checking each OWASP Top 10 category manually:
 
 ---
 
-## Step 4: OWASP Top 10 Assessment
+## Step 4: OWASP Top 10:2025 Assessment
 
-For each category, examine the code in scope and report findings:
+For each category, examine the code in scope and report findings. Load the `security-sast` skill
+for language-specific patterns. Report IDs in the form `A05:2025`.
 
-### A01 — Broken Access Control
+### A01 — Broken Access Control (includes SSRF)
 Check for:
 - [ ] Missing authorization checks before resource access
 - [ ] IDOR: client-supplied IDs used without server-side ownership verification
 - [ ] Privilege escalation paths (user → admin without check)
 - [ ] CORS misconfiguration (wildcard `*` on sensitive endpoints)
-- [ ] Missing rate limiting on sensitive operations
+- [ ] **SSRF**: user-controlled URLs fetched by the server without an allowlist; internal
+      metadata endpoints (`169.254.169.254`, `fd00::/8`) reachable; no DNS-rebinding protection
 
 ```
 Pattern (BAD): const order = await getOrder(req.body.orderId);  // No ownership check
 Pattern (GOOD): const order = await getOrder(req.user.id, req.body.orderId);
 ```
 
-### A02 — Cryptographic Failures
+### A02 — Security Misconfiguration
+Check for:
+- [ ] Default credentials or example secrets left in code
+- [ ] Debug mode, verbose stack traces, or dev tooling enabled in production configs
+- [ ] Missing security headers (`CSP`, `frame-ancestors`, `X-Content-Type-Options`, `HSTS`)
+- [ ] Unnecessary features, ports, admin/actuator endpoints exposed
+- [ ] Cloud storage buckets configured as public
+
+### A03 — Software Supply Chain Failures
+Covered by Step 2 (CVE scan). Additionally check (see the `security-supply-chain` skill):
+- [ ] Lockfile missing or not used in CI (`npm ci`, `--frozen-lockfile`, `--require-hashes`)
+- [ ] GitHub Actions or container images referenced by tag instead of commit SHA / digest
+- [ ] Unmaintained libraries or runtimes outside their security support window
+- [ ] Build steps that download and execute unverified scripts (`curl … | sh`)
+
+### A04 — Cryptographic Failures
 Check for:
 - [ ] Sensitive data (PII, passwords, tokens) transmitted without TLS
 - [ ] Weak algorithms: MD5, SHA1, DES, RC4 — in any cryptographic context
 - [ ] Hardcoded encryption keys or salts
-- [ ] Passwords stored without bcrypt/Argon2/scrypt
-- [ ] Weak random number generators for security-sensitive values (use `crypto.randomBytes`)
-- [ ] Missing HSTS / insecure cookie flags
+- [ ] Passwords stored without Argon2id/scrypt/bcrypt
+- [ ] Non-cryptographic random for security-sensitive values (use a CSPRNG)
+- [ ] Insecure cookie flags (`Secure`, `HttpOnly`, `SameSite`)
 
-### A03 — Injection
+### A05 — Injection
 Check for:
 - [ ] **SQL injection**: string concatenation into SQL (any language)
 - [ ] **NoSQL injection**: unvalidated objects passed to MongoDB/DynamoDB operators
 - [ ] **Command injection**: `exec()`, `system()`, `subprocess.run(shell=True)` with user data
-- [ ] **LDAP injection**: unsanitized input in LDAP queries
-- [ ] **Template injection**: user input rendered by template engines without escaping
-- [ ] **XPath / XML injection**: user input in XPath expressions or XML parsers
+- [ ] **Template injection** and **XSS**: user input rendered without context-aware encoding
+- [ ] **LDAP / XPath / XML injection**: unsanitized input in queries or parsers
 
 ```
 Pattern (BAD):  db.query(`SELECT * FROM users WHERE id = '${req.params.id}'`)
 Pattern (GOOD): db.query('SELECT * FROM users WHERE id = $1', [req.params.id])
 ```
 
-### A04 — Insecure Design
+### A06 — Insecure Design
 Check for:
 - [ ] Missing rate limiting on authentication, password reset, OTP endpoints
-- [ ] Lack of account lockout after failed attempts
 - [ ] Business logic flaws (e.g., can buy items at negative price)
-- [ ] Insufficient anti-automation (no CAPTCHA on abuse-prone endpoints)
+- [ ] Insufficient anti-automation on abuse-prone endpoints
 - [ ] Mass assignment: blindly accepting all user-provided fields as model updates
 
-### A05 — Security Misconfiguration
+### A07 — Authentication Failures
 Check for:
-- [ ] Default credentials or example secrets left in code
-- [ ] Debug mode, verbose stack traces, or dev tooling enabled in production configs
-- [ ] Missing security headers (`CSP`, `X-Frame-Options`, `X-Content-Type-Options`, `HSTS`)
-- [ ] Overly permissive CORS (`Access-Control-Allow-Origin: *` on auth endpoints)
-- [ ] Unnecessary features, ports, or services enabled
-- [ ] Cloud storage buckets configured as public
-- [ ] Environment-specific secrets committed to version control
-
-### A06 — Vulnerable and Outdated Components
-This is covered by Step 2 (CVE scan). Additionally check:
-- [ ] Unmaintained libraries (last release > 2 years ago, no security patches)
-- [ ] Runtime/language version out of security support window
-
-### A07 — Identification and Authentication Failures
-Check for:
-- [ ] Weak session token generation (non-cryptographic random)
-- [ ] Session not invalidated on logout
-- [ ] Tokens not rotated after privilege change (login, role change)
-- [ ] JWT: `alg: none` accepted, weak secret, missing expiry (`exp` claim)
+- [ ] Weak session token generation; sessions not invalidated on logout
+- [ ] Tokens not rotated after login or privilege change
+- [ ] JWT: `alg: none` accepted, weak secret, missing `exp`
 - [ ] Password reset tokens: long-lived, reusable, or guessable
-- [ ] Multi-factor authentication bypassable
+- [ ] No lockout/backoff after failed attempts; MFA bypassable
 
-### A08 — Software and Data Integrity Failures
+### A08 — Software or Data Integrity Failures
 Check for:
 - [ ] Deserialization of untrusted data (Java ObjectInputStream, Python pickle, PHP unserialize)
-- [ ] Dependencies fetched without integrity verification (no lockfile, no SRI)
-- [ ] CI/CD pipeline allows unauthorized access or injection of build artifacts
-- [ ] Auto-update mechanisms without signature verification
+- [ ] Webhooks or updates accepted without signature verification (HMAC, constant-time compare)
+- [ ] CI/CD pipeline allows untrusted input to influence build artifacts
 
-### A09 — Security Logging and Monitoring Failures
+### A09 — Security Logging and Alerting Failures
 Check for:
-- [ ] Failed authentication attempts not logged
-- [ ] Authorization failures not logged
-- [ ] PII or sensitive data appearing in log statements
-- [ ] Logs written to a location accessible by application users
-- [ ] No correlation IDs in logs (makes incident response hard)
+- [ ] Failed authentication and authorization attempts not logged
+- [ ] PII, secrets, or tokens appearing in log statements
+- [ ] No correlation / trace IDs in logs
+- [ ] Security events logged but no alert wired to them
 
-### A10 — Server-Side Request Forgery (SSRF)
+### A10 — Mishandling of Exceptional Conditions
 Check for:
-- [ ] User-controlled URLs fetched by the server (image downloaders, webhooks, proxies)
-- [ ] No URL allowlist validation before fetch
-- [ ] Internal metadata endpoints reachable: `169.254.169.254`, `fd00::/8`
-- [ ] DNS rebinding protection absent
+- [ ] Fail-open behaviour: an exception in an auth/validation path lets the request through
+- [ ] Errors swallowed (`catch {}`) or stack traces returned to clients
+- [ ] Resources (locks, transactions, file handles) not released on error paths
+- [ ] Partial state left behind when a multi-step operation fails midway
 
 ---
 
@@ -280,7 +277,7 @@ actionlint .github/workflows/*.yml 2>/dev/null || true
 Produce a structured report in two formats:
 
 ### JSON (machine-readable — saved to `.agent/audit/<date>-security-report.json`)
-Use the schema at `docs/guides/agent/schemas/security-report.json`.
+Use the schema at `.initium/docs/agent/schemas/security-report.json`.
 
 ### Markdown Summary (human-readable output)
 
@@ -295,7 +292,7 @@ Use the schema at `docs/guides/agent/schemas/security-report.json`.
 ### CRITICAL Issues (must fix before any deployment)
 | # | Category | File:Line | Finding | CVE/CWE | Remediation |
 |---|----------|-----------|---------|---------|-------------|
-| 1 | A03 Injection | src/api/users.ts:42 | SQL string interpolation with req.params.id | CWE-89 | Use parameterized query |
+| 1 | A05 Injection | src/api/users.ts:42 | SQL string interpolation with req.params.id | CWE-89 | Use parameterized query |
 
 ### HIGH Issues (fix before next release)
 ...
@@ -321,7 +318,7 @@ Use the schema at `docs/guides/agent/schemas/security-report.json`.
 - Critical: N | High: N | Medium: N | Low: N
 - CVEs found: N (Critical: N, High: N)
 - Secrets found: N
-- OWASP categories with findings: A01, A03, ...
+- OWASP categories with findings: A01, A05, ...
 - Estimated remediation effort: X hours
 
 ### Recommendation
@@ -356,4 +353,4 @@ npm update <package>    # or: pip install <package>==<fixed-version>
 
 ---
 
-Target to scan (leave empty for full scan, or specify path/pr/deps/secrets): $ARGUMENTS
+Target to scan (leave empty for full scan, or specify path/diff/deps/secrets): $ARGUMENTS
