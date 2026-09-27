@@ -13,6 +13,8 @@ alwaysApply: false
 
 # React Development Standards
 
+Visual design quality (typography, color, layout, avoiding templated UI): `frontend-design` and `impeccable`; tokens: `design-tokens`.
+
 ## Component Design Principles
 - **One component, one concern** — if it needs "and" to describe it, split it
 - Components should be small: aim for < 150 lines; split if larger

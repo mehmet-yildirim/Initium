@@ -13,6 +13,11 @@
       "type": "local",
       "command": ["npx", "-y", "codebase-memory-mcp"],
       "enabled": false
+    },
+    "sosumi": {
+      "type": "remote",
+      "url": "https://sosumi.ai/mcp",
+      "enabled": false
     }
   }
 }

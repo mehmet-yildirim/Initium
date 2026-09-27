@@ -107,6 +107,13 @@ rules:
   # - .continue/rules/skills/mobile-reactnative.md
   # - .continue/rules/skills/mobile-kmp.md
 
+  # --- UI design skills: web craft, platform guidelines, design tokens ---
+  # - .continue/rules/skills/frontend-design.md
+  # - .continue/rules/skills/impeccable.md        # (references in .claude/skills/impeccable/reference/)
+  # - .continue/rules/skills/design-apple-hig.md
+  # - .continue/rules/skills/design-material3.md
+  # - .continue/rules/skills/design-tokens.md
+
   # --- Backend / Architecture skills ---
   # - .continue/rules/skills/be-microservices.md
   # - .continue/rules/skills/be-node.md

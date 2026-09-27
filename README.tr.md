@@ -13,11 +13,11 @@
 | Katman | Yapılandırma | Amaç |
 |--------|-------------|------|
 | **Tüm ajanlar** | `AGENTS.md` | Proje talimatlarının tek kaynağı (Claude Code bunu `CLAUDE.md` içindeki `@AGENTS.md` ile yükler) |
-| **Agent Skills** | `.claude/skills/<ad>/SKILL.md` | Açık Agent Skills formatında 32 beceri — Claude Code, Cursor ve OpenCode ihtiyaç anında yükler |
-| **Claude Code** | `CLAUDE.md`, `.claude/` | 36 slash komutu, olay hook'ları |
+| **Agent Skills** | `.claude/skills/<ad>/SKILL.md` | Açık Agent Skills formatında 37 beceri (yığınlar + arayüz tasarımı) — Claude Code, Cursor ve OpenCode ihtiyaç anında yükler |
+| **Claude Code** | `CLAUDE.md`, `.claude/` | 40 slash komutu, olay hook'ları |
 | **Cursor** | `.cursor/rules/`, `.claude/skills/`, `.claude/commands/` | 6 temel kural + paylaşılan beceriler ve slash komutları |
 | **OpenCode** | `opencode.json`, `.opencode/commands/` | `AGENTS.md` ve becerileri yerel okur; slash komutları `.claude/commands/` ile senkron |
-| **Continue** | `.continue/` | Çok-model yapılandırması, `.claude/skills/`'ten üretilen 32 beceri kuralı, kalıcı yönergeler |
+| **Continue** | `.continue/` | Çok-model yapılandırması, `.claude/skills/`'ten üretilen 37 beceri kuralı, kalıcı yönergeler |
 | **Kod grafı** | `agent.config.yaml → codegraph`, `/codegraph` | İsteğe bağlı yapısal kod indeksi (MCP) — ajan tüm dosyaları okumak yerine sembol ve çağıranları sorgular |
 | **Otonom Ajan** | `agent.config.yaml`, `.initium/docs/agent/` | JIRA taraması, domain doğrulama, tam geliştirme döngüsü, eskalasyon |
 | **GitHub** | `.github/` | PR şablonu, issue şablonları, CI iş akışı |
@@ -109,8 +109,9 @@ Kurulumun ardından AI döngüsüyle kodlamaya başla:
 │
 ├── .claude/
 │   ├── settings.json                   # Araç izinleri + olay hook'ları
-│   ├── skills/                         # 32 Agent Skill — <ad>/SKILL.md (tek kaynak)
-│   ├── commands/                       # 36 slash komutu (Claude Code'da / yazarak erişilir)
+│   ├── skills/                         # 37 Agent Skill — <ad>/SKILL.md (tek kaynak)
+│   ├── agents/                         # impeccable skill'inin kullandığı alt ajanlar
+│   ├── commands/                       # 40 slash komutu (Claude Code'da / yazarak erişilir)
 │   │   ├── help.md                     # /help — komutlara ve iş akışlarına rehberlik
 │   │   ├── goal.md                     # /goal — ana hedef tamamlanana kadar durmadan çalış
 │   │   ├── init.md                     # /init — proje kurulum sihirbazı
@@ -124,6 +125,7 @@ Kurulumun ardından AI döngüsüyle kodlamaya başla:
 │   │   ├── codegraph.md                # /codegraph — kod grafı kurulumu, sorgu, etki analizi
 │   │   ├── refactor.md upgrade.md      # /refactor, /upgrade
 │   │   ├── perf.md a11y.md eval.md     # /perf, /a11y, /eval
+│   │   ├── design*.md polish.md        # /design, /design-review, /design-system, /polish
 │   │   ├── skill.md                    # /skill — Agent Skill oluştur / güncelle
 │   │   ├── triage.md                   # /triage  ← otonom ajan
 │   │   ├── groom.md                    # /groom   ← otonom ajan
@@ -140,9 +142,9 @@ Kurulumun ardından AI döngüsüyle kodlamaya başla:
 │
 ├── .continue/
 │   ├── config.yaml                    # ← API ANAHTARLARI EKLE + becerileri etkinleştir
-│   └── rules/                         # Temel kurallar + 32 beceri dosyası (.claude/skills/'ten üretilir)
+│   └── rules/                         # Temel kurallar + 37 beceri dosyası (.claude/skills/'ten üretilir)
 │
-├── .opencode/commands/                # 36 slash komutu (.claude/commands/ ile aynı)
+├── .opencode/commands/                # 40 slash komutu (.claude/commands/ ile aynı)
 ├── opencode.json                      # OpenCode yönergeleri + kod grafı MCP
 │
 ├── docs/
@@ -232,6 +234,10 @@ Kurulumun ardından AI döngüsüyle kodlamaya başla:
 | `/perf` | Ölç → profille → düzelt → yeniden ölç, regresyon koruması ekle | Gecikme, bellek, bundle boyutu |
 | `/a11y [kapsam]` | Web ve mobil için WCAG 2.2 AA denetimi ve düzeltmeleri | UI değişiklikleri |
 | `/eval [create\|run\|compare]` | LLM özellikleri için değerlendirme setleri: veri seti, puanlayıcı, eşik, CI | Prompt / model / RAG değişiklikleri |
+| `/design <hedef + brief>` | Bağlam → yazılı yön (token'lar, wireframe, tek imza öğe) → uygulama → ekran görüntüsüyle öz-eleştiri | Yeni sayfa, ekran veya bileşen |
+| `/design-review [kapsam]` | Salt okunur inceleme: "AI şablonu" izleri, işçilik, durumlar, Apple HIG / Material 3 uyumu, puanlı rapor | UI birleştirmeden önce, "jenerik görünüyor" |
+| `/polish [kapsam]` | Son geçiş: bozuk yerleşim, eksik durumlar, token tutarlılığı, tipografi, şablon izleri | Yayından önce |
+| `/design-system [scan\|seed\|check\|tokens]` | `DESIGN.md` (Google DESIGN.md formatı) ve `PRODUCT.md` oluştur/yenile; token dosyaları üret | Proje başına bir kez, görsel değişikliklerden sonra |
 | `/codegraph [setup\|status\|query\|impact\|refresh]` | MCP üzerinden yapısal kod grafı: sembol arama, çağrı izleme, diff etki analizi — daha az token | Büyük kod tabanları |
 | `/skill [new\|update\|list]` | Kod tabanının gerçek kurallarından `.claude/skills/` içinde Agent Skill oluştur | Yeni yığın / kural |
 
@@ -361,6 +367,7 @@ Beceriler açık [Agent Skills](https://agentskills.io) formatındadır. Claude 
 | **AI / LLM** | LLM uygulamaları: yapılandırılmış çıktı, RAG, OWASP LLM Top 10, eval, MCP sunucuları |
 | **Frontend** | React · Next.js App Router · Vue 3 · Angular 17+ |
 | **Mobil** | iOS/Swift · Android/Kotlin · Kotlin Multiplatform · Flutter/Dart · React Native/Expo |
+| **Arayüz Tasarımı** | Web görsel tasarımı (`frontend-design`, `impeccable` — Apache-2.0, bkz. `THIRD_PARTY_NOTICES.md`) · Apple Human Interface Guidelines · Material Design 3 Expressive · Tasarım token'ları ve DESIGN.md |
 | **Altyapı** | Docker · GitHub Actions CI/CD · Terraform/OpenTofu · OpenTelemetry ve SLO · AWS · GCP · Şirket İçi (k3s/Vault/Ansible) |
 | **Çapraz kesen** | Veritabanı Migrasyonları · Güvenlik SAST · Belgelendirme Üretimi |
 

@@ -11,6 +11,8 @@ paths:
 
 # Angular Development Standards
 
+Visual design quality (typography, color, layout, avoiding templated UI): `frontend-design` and `impeccable`; tokens: `design-tokens`.
+
 ## Architecture
 - Feature modules (or standalone components for Angular 17+) — one feature per module/directory
 - Core module for singletons (auth, logging, HTTP interceptors); SharedModule for common components

@@ -95,6 +95,12 @@
       "args": ["-y", "codebase-memory-mcp"],
       "description": "Code knowledge graph: symbol search, call traces, change impact — used by /codegraph",
       "disabled": true
+    },
+
+    "sosumi": {
+      "url": "https://sosumi.ai/mcp",
+      "description": "Apple developer docs and Human Interface Guidelines as Markdown (unofficial, lookup only) — used by design-apple-hig",
+      "disabled": true
     }
   }
 }

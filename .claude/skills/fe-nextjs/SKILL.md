@@ -12,6 +12,8 @@ paths:
 
 # Next.js (App Router) Standards
 
+Visual design quality (typography, color, layout, avoiding templated UI): `frontend-design` and `impeccable`; tokens: `design-tokens`.
+
 ## Server vs. Client Components
 
 ### Default to Server Components

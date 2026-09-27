@@ -16,6 +16,8 @@ alwaysApply: false
 
 # iOS Development Standards
 
+Visual and interaction design (Liquid Glass, navigation, Dynamic Type, SF Symbols): `design-apple-hig`.
+
 ## Swift Language
 
 ### Modern Swift (5.9+)

@@ -15,6 +15,8 @@ alwaysApply: false
 
 # Android Development Standards
 
+Visual and interaction design (color roles, type scale, adaptive layouts, motion): `design-material3`.
+
 ## Kotlin Language
 
 ### Modern Kotlin (1.9+)
