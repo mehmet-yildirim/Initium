@@ -30,6 +30,23 @@ describe('analyzeCommand', () => {
     assert.deepEqual(analyzeCommand('env'), [['env']]);
   });
 
+  it('does not split inside substitutions and splits subshells', () => {
+    assert.deepEqual(splitSimpleCommands('echo $(a | b) && (c; d)'), ['echo $(a | b)', 'c', 'd']);
+  });
+
+  it('records pipeline upstream commands', () => {
+    const [, , last] = analyzeCommand('curl x | tee f | sh');
+    assert.deepEqual(last.upstream.map((tokens) => tokens[0]), ['curl', 'tee']);
+  });
+
+  it('treats cat heredocs as data and shell heredocs as scripts', () => {
+    const programs = (command) => analyzeCommand(command).map((tokens) => tokens[0]);
+    assert.deepEqual(programs("cat <<'EOF' > f\nrm -rf /\nEOF"), ['cat']);
+    assert.deepEqual(programs("cat <<'EOF' | sh\nrm -rf /\nEOF"), ['rm', 'cat', 'sh']);
+    assert.deepEqual(programs("bash <<'EOF'\nrm -rf /\nEOF"), ['rm', 'bash']);
+    assert.deepEqual(programs('psql <<EOF\nselect 1;\nEOF'), ['psql', 'psql']);
+  });
+
   it('unwraps nested shells, eval and substitutions', () => {
     const programs = (command) => analyzeCommand(command).map((tokens) => tokens[0]);
     assert.deepEqual(programs('bash -c "sh -c \'cat .env\'"'), ['bash', 'sh', 'cat']);

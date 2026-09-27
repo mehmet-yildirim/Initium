@@ -174,8 +174,12 @@ node --test ".initium/guardrails/test/*.test.mjs"
 
 ## Limits
 
-- Shell analysis is best-effort: it unwraps `sudo`, `env`, `sh -c`, `eval`, `$(…)`, and
-  backticks, but a script file the agent writes and then runs is opaque to it.
+- Shell analysis is best-effort: it unwraps `sudo`, `env`, `sh -c`, `eval`, `$(…)`, backticks,
+  subshells, and heredocs fed to a shell, but a script file the agent writes and then runs is
+  opaque to it.
+- Text is not a command: message arguments of `git`, `gh`, and `glab` (`-m`, `--body`,
+  `--title`, …), single-quoted strings, and heredocs written by `cat` / `tee` are skipped by the
+  command-text rules, so commit messages and PR descriptions may mention `rm -rf` or `curl | sh`.
 - The engine sees paths, not contents: a secret copied into an ordinary file is caught only by
   the pre-commit token scan.
 - Tools without hooks (Continue, plain terminals) are covered only by the pre-commit layer.

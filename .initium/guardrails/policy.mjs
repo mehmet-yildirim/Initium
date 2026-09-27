@@ -41,9 +41,15 @@ export const GUARDRAIL_FILES = [
 const HOME_PREFIX = /^(~|\$HOME|\$\{HOME\})(?=\/|$)/;
 const SAFE_DEVICES = /^\/dev\/(null|stdout|stderr|tty|fd\/\d+)$/;
 const PROTECTED_BRANCHES = /^(\+?(refs\/heads\/)?)(main|master|develop|release\/.+)$/;
-const PIPE_TO_INTERPRETER = /\b(curl|wget)\b[^;&]*\|\s*(sudo\s+)?(\S+=\S+\s+)*(ba|z|da|k)?sh\b|\b(curl|wget)\b[^;&]*\|\s*(sudo\s+)?(python3?|node|perl|ruby)\b/;
-const SHELL_FROM_DOWNLOAD = /\b(ba|z)?sh\s+(-c\s+)?["']?\s*[<$]\(\s*(curl|wget)\b/;
+const INTERPRETERS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish', 'python', 'python3', 'node', 'perl', 'ruby']);
+const DOWNLOADERS = new Set(['curl', 'wget']);
+const DOWNLOAD_SUBSTITUTION = /(\$\(|`|<\()\s*(curl|wget)\b/;
+const DROP_DATABASE = /\bDROP\s+DATABASE\b/i;
 const SECRET_ENV_ECHO = /\$\{?[A-Za-z_]*(TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|PRIVATE_KEY|CREDENTIALS?)[A-Za-z_]*\}?/i;
+// Commit, PR, and release text is prose, not a command — text rules skip it.
+const MESSAGE_PROGRAMS = new Set(['git', 'gh', 'glab']);
+const MESSAGE_FLAG = /^(-[a-zA-Z]*[mbt]|--message|--body|--title|--notes|--subject)$/;
+const MESSAGE_ASSIGNMENT = /^--(message|body|title|notes|subject)=/;
 const READERS = new Set([
   'cat', 'less', 'more', 'head', 'tail', 'bat', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'awk', 'sed',
   'nl', 'od', 'xxd', 'hexdump', 'strings', 'base64', 'source', '.', 'diff', 'cmp', 'vim', 'vi',
@@ -197,13 +203,48 @@ function isEnvironmentDump(tokens) {
   return args.some((arg) => /^\/proc\/[^/]+\/environ$/.test(arg));
 }
 
+/** @param {string[] & { upstream?: string[][], source?: string }} tokens */
+function isRemoteScript(tokens) {
+  if (!INTERPRETERS.has(tokens[0])) return false;
+  if ((tokens.upstream ?? []).some((earlier) => DOWNLOADERS.has(earlier[0]))) return true;
+  return DOWNLOAD_SUBSTITUTION.test(tokens.source ?? '');
+}
+
+/** @param {string[]} tokens */
+function isSecretEcho(tokens) {
+  return (tokens[0] === 'echo' || tokens[0] === 'printf') && tokens.slice(1).some((arg) => SECRET_ENV_ECHO.test(arg));
+}
+
+/**
+ * Command text for substring rules, without commit/PR message arguments.
+ * @param {string[]} tokens
+ */
+function commandText(tokens) {
+  if (!MESSAGE_PROGRAMS.has(tokens[0])) return tokens.join(' ');
+  return tokens
+    .filter((token, index) => !MESSAGE_FLAG.test(tokens[index - 1] ?? '') && !MESSAGE_ASSIGNMENT.test(token))
+    .join(' ');
+}
+
 /** Baseline rules that apply in every mode. */
 function checkBaselineTokens(tokens) {
   if (isCatastrophicRm(tokens)) return result(DECISION.DENY, 'destructive-rm', 'Recursive delete of the root, home, or project directory is blocked.');
   if (isForcePushToProtected(tokens)) return result(DECISION.DENY, 'force-push', 'Force-pushing, deleting, or mirroring protected branches is blocked.');
   if (isGuardrailBypass(tokens)) return result(DECISION.DENY, 'guardrail-bypass', 'Skipping git hooks (--no-verify, core.hooksPath) is blocked.');
   if (isSystemDestruction(tokens)) return result(DECISION.DENY, 'system-destruction', 'Formatting disks or rewriting / permissions is blocked.');
+  if (isRemoteScript(tokens)) return result(DECISION.DENY, 'remote-script', 'Piping a download into an interpreter is blocked.');
+  if (DROP_DATABASE.test(commandText(tokens))) return result(DECISION.DENY, 'drop-database', 'DROP DATABASE is blocked.');
   return null;
+}
+
+/** "Needs a human" rules; null when none applies. */
+function checkEscalationTokens(policy, tokens) {
+  if (isEnvironmentDump(tokens)) return escalate(policy, 'environment-dump', 'Dumping the environment exposes tokens to the model.');
+  if (isSecretEcho(tokens)) return escalate(policy, 'secret-env', 'Printing secret environment variables is blocked.');
+  const text = normalizeCommand(commandText(tokens)).toLowerCase();
+  const forbidden = policy.forbiddenCommands.find((entry) => text.includes(normalizeCommand(entry).toLowerCase()));
+  if (forbidden) return escalate(policy, 'forbidden-command', `Matches safety.forbidden_commands ("${forbidden}").`);
+  return checkFileTokens(policy, tokens);
 }
 
 /** @param {ReturnType<typeof loadPolicy>} policy @param {string[]} tokens */
@@ -230,20 +271,6 @@ function checkFileTokens(policy, tokens) {
   return null;
 }
 
-function checkRawCommand(policy, command) {
-  if (PIPE_TO_INTERPRETER.test(command) || SHELL_FROM_DOWNLOAD.test(command)) {
-    return result(DECISION.DENY, 'remote-script', 'Piping a download into an interpreter is blocked.');
-  }
-  if (/\bDROP\s+DATABASE\b/i.test(command)) return result(DECISION.DENY, 'drop-database', 'DROP DATABASE is blocked.');
-  if (/\b(echo|printf)\b/.test(command) && SECRET_ENV_ECHO.test(command)) {
-    return escalate(policy, 'secret-env', 'Printing secret environment variables is blocked.');
-  }
-  const normalized = normalizeCommand(command).toLowerCase();
-  const forbidden = policy.forbiddenCommands.find((entry) => normalized.includes(normalizeCommand(entry).toLowerCase()));
-  if (forbidden) return escalate(policy, 'forbidden-command', `Matches safety.forbidden_commands ("${forbidden}").`);
-  return null;
-}
-
 /**
  * Adapter entry point: most restrictive decision across all targets of one tool call.
  * @param {ReturnType<typeof loadPolicy>} policy
@@ -266,20 +293,13 @@ export function checkCommand(policy, command) {
   if (isKillSwitchActive(policy)) {
     return result(DECISION.DENY, 'kill-switch', `${policy.killSwitchFile} exists — the agent is stopped.`);
   }
-  const raw = checkRawCommand(policy, command);
-  if (raw?.decision === DECISION.DENY) return raw;
-  let firstAsk = raw;
+  let firstAsk = null;
   for (const tokens of analyzeCommand(command)) {
     const baseline = checkBaselineTokens(tokens);
     if (baseline) return baseline;
-    if (isEnvironmentDump(tokens)) {
-      const dump = escalate(policy, 'environment-dump', 'Dumping the environment exposes tokens to the model.');
-      if (dump.decision === DECISION.DENY) return dump;
-      firstAsk ??= dump;
-    }
-    const file = checkFileTokens(policy, tokens);
-    if (file?.decision === DECISION.DENY) return file;
-    firstAsk ??= file;
+    const escalation = checkEscalationTokens(policy, tokens);
+    if (escalation?.decision === DECISION.DENY) return escalation;
+    firstAsk ??= escalation;
   }
   return firstAsk ?? ALLOW_RESULT;
 }
