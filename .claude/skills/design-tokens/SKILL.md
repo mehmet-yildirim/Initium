@@ -2,12 +2,9 @@
 name: design-tokens
 description: Design system and design token standards — primitive/semantic/component token layers, DESIGN.md (Google DESIGN.md spec) as the agent-readable source of truth, mapping tokens to CSS custom properties, Tailwind, SwiftUI, and Compose, and keeping components consistent. Use when creating or changing colors, typography, spacing, radius, elevation, or motion values, building shared UI components, or writing or updating DESIGN.md.
 paths:
-  - "**/DESIGN.md"
   - "**/tokens/**"
   - "**/*.tokens.json"
-  - "**/tailwind.config.*"
-  - "**/theme/**"
-  - "**/styles/**"
+  - "**/DESIGN.md"
 ---
 
 # Design Tokens and Design System
@@ -68,7 +65,9 @@ components:
 - **Spacing:** a 4 px base (4, 8, 12, 16, 24, 32, 48, 64 …). Vary spacing deliberately: tight
   within a group, generous between groups. Uniform spacing everywhere flattens hierarchy.
 - **Type:** 5–7 sizes from a ratio (1.125–1.333) with explicit line heights; body 16 px on the
-  web (never below 16 px for mobile inputs), line length 45–80 characters.
+  web, line length 45–80 characters. Web form controls (`input`, `select`, `textarea`) use a
+  computed font size of at least 16 px so iOS Safari does not auto-zoom on focus. This is a
+  mobile-web rule; native apps follow platform text styles (`sp` / Dynamic Type) instead.
 - **Color:** 1 accent, 1 neutral ramp (tinted toward the brand hue, not pure gray), and status
   colors (success, warning, danger, info). Pure `#000` / `#fff` are rarely right — use tinted
   near-black and near-white. Verify contrast for every text/background pair in every theme.
@@ -108,3 +107,5 @@ components:
 - [ ] Every text/background pair passes contrast in light, dark, and high-contrast themes
 - [ ] Spacing, type, radius, and motion values all come from their scales
 - [ ] Components cover all interactive and data states
+
+_Versions verified September 2026._

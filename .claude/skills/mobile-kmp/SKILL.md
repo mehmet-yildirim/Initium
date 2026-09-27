@@ -1,640 +1,230 @@
 ---
 name: mobile-kmp
-description: Kotlin Multiplatform (KMP) standards — shared business logic targeting Android, iOS, Desktop, and Web. Ktor, kotlinx.serialization, SQLDelight, Koin, Compose Multiplatform. Use when writing or reviewing Kotlin Multiplatform shared code.
+description: Kotlin Multiplatform standards for Kotlin 2.4 shared code on Android, iOS, and desktop — the AGP 9 Android-KMP library plugin, Ktor 3, kotlinx.serialization, SQLDelight 2 or Room 3, DataStore, Koin 4.2 or Metro, lifecycle ViewModel, Compose Multiplatform 1.12 with Navigation 3, SKIE vs Swift Export, and kotlin.test/Mokkery testing. Use when writing, reviewing, or configuring commonMain/androidMain/iosMain code, expect/actual declarations, or KMP Gradle modules.
 paths:
-  - "**/commonMain/**/*.kt"
-  - "**/commonTest/**/*.kt"
-  - "**/iosMain/**/*.kt"
-  - "**/androidMain/**/*.kt"
-  - "**/desktopMain/**/*.kt"
-  - "**/wasmJsMain/**/*.kt"
-  - "**/shared/**/*.kt"
-  - "**/shared/build.gradle.kts"
-  - "**/composeApp/**/*.kt"
-  - "**/composeApp/build.gradle.kts"
+  - "**/src/commonMain/**"
+  - "**/src/iosMain/**"
+  - "**/src/androidMain/**"
+  - "**/src/commonTest/**"
 ---
 
-# Kotlin Multiplatform (KMP) Standards
+# Kotlin Multiplatform Standards
 
-## What to Share vs. What to Keep Native
+Kotlin language rules: `lang-kotlin`. Android app module, manifest, Play rules: `mobile-android`.
+Native iOS app code: `mobile-ios`. Visual design: `design-material3` / `design-apple-hig`.
 
-```
-┌──────────────────────────────────────────────────┐
-│              Shared (commonMain)                 │
-│  Domain: entities, use cases, repository interfaces│
-│  Data: repository implementations, DTOs         │
-│  Network: Ktor client, API services             │
-│  Storage: SQLDelight, multiplatform-settings    │
-│  ViewModel / Presentation logic (KMP ViewModel) │
-│  Business rules and validation                  │
-└──────────────┬───────────────────────────────────┘
-               │  expect / actual
-    ┌──────────┴──────────┐
-    ▼                     ▼
- androidMain           iosMain / iosSimulatorArm64Main
- (Hilt if needed,      (Swift/Obj-C interop,
-  Room fallback,        MainThread dispatching)
-  Android Context)
-```
+## Baseline
 
-**Share:** business logic, networking, serialization, local DB schema, ViewModels, state.
-**Keep native:** UI (unless using Compose Multiplatform), platform APIs, DI wiring, app lifecycle.
-
----
-
-## Project Structure
-
-```
-project/
-├── shared/
-│   ├── build.gradle.kts         # KMP module definition
-│   └── src/
-│       ├── commonMain/kotlin/   # All platform-shared code
-│       ├── commonTest/kotlin/   # Platform-agnostic tests
-│       ├── androidMain/kotlin/  # Android actuals + Android-only code
-│       ├── iosMain/kotlin/      # iOS actuals
-│       └── desktopMain/kotlin/  # JVM desktop actuals (if targeting desktop)
-├── composeApp/                  # Compose Multiplatform UI (optional)
-│   └── src/
-│       ├── commonMain/kotlin/   # Shared Compose UI
-│       ├── androidMain/kotlin/  # Android-specific composables / resources
-│       └── iosMain/kotlin/      # iOS-specific composables
-├── androidApp/                  # Android entry point (if separate from composeApp)
-└── iosApp/                      # Xcode project wrapping the KMP framework
-```
-
----
-
-## Gradle Configuration
+- Kotlin 2.4.x (2.4.20 current); AGP 9.4; Gradle 9.6; JDK 17; Xcode 26+ on Apple silicon.
+- Android target: `com.android.kotlin.multiplatform.library` configured in `kotlin { android { … } }`.
+  `com.android.library`/`com.android.application` are incompatible with the KMP plugin on AGP 9,
+  and `androidLibrary { }` is deprecated since AGP 9.1.
+- The Android app entry point (`MainActivity`, `com.android.application`) lives in a separate
+  `androidApp` module that depends on the shared module.
+- Apple targets: `iosArm64()` + `iosSimulatorArm64()`. Drop `iosX64()`/`macosX64()` — deprecated in
+  Kotlin and removed from Compose Multiplatform. Kotlin 2.4 defaults to iOS 15.0 minimum.
+- Library line-up (verify compatibility with your Kotlin version before bumping): kotlinx.coroutines
+  1.11, kotlinx.serialization, Ktor 3.6, SQLDelight 2.4 or Room 3.0 (`androidx.room3`), DataStore 1.2,
+  multiplatform-settings 1.3, Koin 4.2 or Metro 1.x, `androidx.lifecycle` 2.11 ViewModel,
+  Compose Multiplatform 1.12, SKIE 0.10.x, Mokkery 3.5.
+- Compiler options with `compilerOptions { … }` only; `kotlinOptions` is an error in Kotlin 2.x.
 
 ```kotlin
 // shared/build.gradle.kts
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kotlin.multiplatform.library)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.sqldelight)
 }
 
 kotlin {
-    androidTarget {
-        compilations.all {
-            kotlinOptions { jvmTarget = "17" }
-        }
+    android {
+        namespace = "com.example.shared"
+        compileSdk = 37
+        minSdk = 26
+        compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
+        withHostTest {}
     }
-    listOf(
-        iosX64(),
-        iosArm64(),
-        iosSimulatorArm64()
-    ).forEach { iosTarget ->
-        iosTarget.binaries.framework {
+    listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
+        target.binaries.framework {
             baseName = "Shared"
             isStatic = true
         }
     }
-    // Desktop target (optional)
-    jvm("desktop")
+    jvm()
 
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.ktor.client.core)
-            implementation(libs.ktor.client.contentNegotiation)
+            implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
-            implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutines.extensions)
             implementation(libs.koin.core)
+            implementation(libs.kermit)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.turbine)
         }
         androidMain.dependencies {
-            implementation(libs.ktor.client.android)
+            implementation(libs.ktor.client.okhttp)
             implementation(libs.sqldelight.android.driver)
-            implementation(libs.koin.android)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
             implementation(libs.sqldelight.native.driver)
         }
-    }
-}
-```
-
----
-
-## expect / actual
-
-The `expect` / `actual` mechanism is KMP's primary tool for platform variance.
-
-```kotlin
-// commonMain — declare the contract
-expect class PlatformContext
-
-expect fun platformDispatcher(): CoroutineDispatcher
-
-expect fun createDatabase(context: PlatformContext): AppDatabase
-```
-
-```kotlin
-// androidMain — Android implementation
-actual class PlatformContext(val context: android.content.Context)
-
-actual fun platformDispatcher(): CoroutineDispatcher = Dispatchers.IO
-
-actual fun createDatabase(context: PlatformContext): AppDatabase =
-    AppDatabase(AndroidSqliteDriver(AppDatabase.Schema, context.context, "app.db"))
-```
-
-```kotlin
-// iosMain — iOS implementation
-actual class PlatformContext  // no constructor parameters needed on iOS
-
-actual fun platformDispatcher(): CoroutineDispatcher = Dispatchers.Default
-
-actual fun createDatabase(context: PlatformContext): AppDatabase =
-    AppDatabase(NativeSqliteDriver(AppDatabase.Schema, "app.db"))
-```
-
-**Rules:**
-- Keep `expect` declarations minimal — the less platform-specific surface, the better
-- Never leak Android/iOS imports into `commonMain`
-- Prefer interfaces + DI over `expect/actual` when the contract is complex
-- `expect class` is appropriate for platform wrappers (`Logger`, `PlatformContext`, `Database`)
-
----
-
-## Networking (Ktor)
-
-Use Ktor — the only HTTP client with a true multiplatform engine.
-**Never use Retrofit in shared code** — it is Android/JVM only.
-
-```kotlin
-// commonMain
-class HttpClientFactory(private val json: Json = Json { ignoreUnknownKeys = true }) {
-
-    fun create(): HttpClient = HttpClient {
-        install(ContentNegotiation) { json(json) }
-        install(HttpTimeout) {
-            requestTimeoutMillis = 30_000
-            connectTimeoutMillis = 15_000
-        }
-        install(Logging) {
-            level = LogLevel.HEADERS
-            logger = object : Logger {
-                override fun log(message: String) { /* use platform logger */ }
-            }
-        }
-        defaultRequest {
-            contentType(ContentType.Application.Json)
-            header("X-App-Version", BuildConfig.APP_VERSION)
-        }
-    }
-}
-
-// API service in commonMain
-class UserApiService(private val client: HttpClient, private val baseUrl: String) {
-
-    suspend fun getUser(id: String): Result<UserDto> = runCatching {
-        client.get("$baseUrl/users/$id").body<UserDto>()
-    }
-
-    suspend fun createUser(request: CreateUserRequest): Result<UserDto> = runCatching {
-        client.post("$baseUrl/users") {
-            setBody(request)
-        }.body<UserDto>()
-    }
-}
-```
-
-**Ktor engine per platform:**
-- Android: `ktor-client-android` (OkHttp-based)
-- iOS: `ktor-client-darwin` (NSURLSession-based)
-- Desktop: `ktor-client-java` or `ktor-client-okhttp`
-
----
-
-## Serialization (kotlinx.serialization)
-
-**Only `kotlinx.serialization` works in commonMain.** Do not use Gson or Moshi in shared code.
-
-```kotlin
-@Serializable
-data class UserDto(
-    val id: String,
-    val name: String,
-    val email: String,
-    @SerialName("created_at") val createdAt: Long
-)
-
-@Serializable
-data class CreateUserRequest(
-    val name: String,
-    val email: String
-)
-
-// Enum serialization
-@Serializable
-enum class UserRole {
-    @SerialName("admin") ADMIN,
-    @SerialName("user") USER,
-    @SerialName("guest") GUEST
-}
-```
-
-- `@SerialName` for snake_case JSON keys
-- `@Transient` to exclude a field from serialization
-- `@Required` to enforce a field is present during deserialization
-- Use `Json { ignoreUnknownKeys = true; coerceInputValues = true }` for resilient parsing
-
----
-
-## Local Storage (SQLDelight)
-
-SQLDelight generates type-safe Kotlin code from `.sq` SQL files and runs on all platforms.
-**Never use Room in commonMain** — it is Android-only.
-
-```sql
--- commonMain/sqldelight/com/example/app/User.sq
-
-CREATE TABLE User (
-    id TEXT NOT NULL PRIMARY KEY,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL,
-    created_at INTEGER NOT NULL
-);
-
-selectAll:
-SELECT * FROM User ORDER BY created_at DESC;
-
-selectById:
-SELECT * FROM User WHERE id = :id;
-
-insert:
-INSERT OR REPLACE INTO User(id, name, email, created_at)
-VALUES (?, ?, ?, ?);
-
-deleteById:
-DELETE FROM User WHERE id = :id;
-```
-
-```kotlin
-// commonMain — repository using generated queries
-class UserLocalDataSource(private val database: AppDatabase) {
-
-    fun getAllUsers(): Flow<List<User>> =
-        database.userQueries.selectAll()
-            .asFlow()
-            .mapToList(Dispatchers.Default)
-
-    suspend fun insertUser(user: User) {
-        withContext(Dispatchers.Default) {
-            database.userQueries.insert(user.id, user.name, user.email, user.createdAt)
+        jvmMain.dependencies {
+            implementation(libs.ktor.client.okhttp)
+            implementation(libs.sqldelight.sqlite.driver)
         }
     }
 }
 ```
 
-- `asFlow()` extension from `sqldelight-coroutines-extensions`
-- `mapToList` / `mapToOne` / `mapToOneOrNull` for Flow transformations
-- Migrations in numbered `.sqm` files alongside `.sq` files
-- Always test migrations before applying to production
+Read `reference/gradle-setup.md` for the version catalog, KSP per-target configurations, the
+`androidApp` module, Compose Multiplatform plugins, and CI tasks.
 
-**Simple key-value storage:**
-```kotlin
-// Use multiplatform-settings for preferences/flags (not SharedPreferences)
-val settings: Settings = // provided per-platform via expect/actual or factory
-settings["user_id"] = userId
-val theme: String = settings["theme"] ?: "system"
-```
+## Toolchain
 
----
+- ktlint/detekt on all source sets; Android Lint runs on `androidMain` via the Android-KMP plugin.
+- Build every target in CI: `./gradlew :shared:allTests`, `:shared:linkDebugFrameworkIosSimulatorArm64`
+  (macOS runner), and the Android/desktop apps. Cache Gradle and `~/.konan`.
+- Dependencies via the version catalog with Renovate/Dependabot; bump Kotlin, KSP, SKIE, Mokkery,
+  and Compose Multiplatform together — compiler plugins are pinned to Kotlin versions.
+- Binary compatibility validator (`abiValidation` in KGP) for shared modules published as libraries.
 
-## Dependency Injection (Koin)
-
-Hilt is Android-only. Use **Koin** for shared DI in KMP, or manual DI for small projects.
-
-```kotlin
-// commonMain — shared module definitions
-val dataModule = module {
-    single { HttpClientFactory().create() }
-    single { UserApiService(get(), BASE_URL) }
-    single { UserLocalDataSource(get()) }
-    single<UserRepository> { UserRepositoryImpl(get(), get()) }
-}
-
-val domainModule = module {
-    factory { GetUsersUseCase(get()) }
-    factory { CreateUserUseCase(get()) }
-}
-
-val viewModelModule = module {
-    viewModelOf(::UserListViewModel)
-}
-```
-
-```kotlin
-// androidMain — Android-specific Koin startup
-fun initKoin(context: android.content.Context) = startKoin {
-    androidContext(context)
-    modules(dataModule, domainModule, viewModelModule, androidModule)
-}
-
-// iosMain — iOS Koin startup (called from Swift AppDelegate)
-fun initKoin() = startKoin {
-    modules(dataModule, domainModule, viewModelModule)
-}
-```
-
----
-
-## ViewModel (KMP ViewModel)
-
-Use `androidx.lifecycle:lifecycle-viewmodel` — it now supports KMP (since 2.8.x):
-
-```kotlin
-// commonMain
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-
-class UserListViewModel(
-    private val getUsersUseCase: GetUsersUseCase
-) : ViewModel() {
-
-    private val _uiState = MutableStateFlow<UiState<List<User>>>(UiState.Loading)
-    val uiState: StateFlow<UiState<List<User>>> = _uiState.asStateFlow()
-
-    init { loadUsers() }
-
-    fun refresh() { loadUsers() }
-
-    private fun loadUsers() {
-        viewModelScope.launch {
-            _uiState.value = UiState.Loading
-            getUsersUseCase()
-                .onSuccess { _uiState.value = UiState.Success(it) }
-                .onFailure { _uiState.value = UiState.Error(it.message ?: "Unknown error", it) }
-        }
-    }
-}
-```
-
-**Alternative — manual ViewModel lifecycle for iOS if not using lifecycle-viewmodel:**
-```kotlin
-// commonMain — manual scope management for iOS Swift consumers
-class UserListViewModel(getUsersUseCase: GetUsersUseCase) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
-    val uiState: StateFlow<UiState<List<User>>> = ...
-
-    // Called from Swift deinit / ARC deallocation
-    fun onCleared() { scope.cancel() }
-}
-```
-
----
-
-## Coroutines in KMP
-
-```kotlin
-// commonMain — safe dispatcher usage
-suspend fun fetchData() = withContext(Dispatchers.Default) {
-    // CPU-bound work: safe on all platforms
-}
-
-// NOT this in commonMain — Dispatchers.IO does not exist on iOS
-// suspend fun fetchData() = withContext(Dispatchers.IO) { ... }  ← WRONG
-```
-
-- `Dispatchers.Default` — available on all platforms (thread pool)
-- `Dispatchers.Main` — available on Android and iOS (via `kotlinx-coroutines-main`)
-- `Dispatchers.IO` — Android/JVM only; **do not use in commonMain**
-- Use `expect fun ioDispatcher(): CoroutineDispatcher` if IO dispatcher is needed in common code
-
-```kotlin
-// Structured concurrency in shared code
-class DataSyncService(...) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
-    fun startSync() {
-        scope.launch {
-            try {
-                performSync()
-            } catch (e: CancellationException) { throw e }  // always re-throw
-              catch (e: Exception) { handleError(e) }
-        }
-    }
-
-    fun cancel() = scope.cancel()
-}
-```
-
----
-
-## Compose Multiplatform (shared UI)
-
-When using Compose Multiplatform (`org.jetbrains.compose`), the composable code lives in `commonMain`:
-
-```kotlin
-// commonMain/composeApp — shared composable
-@Composable
-fun UserListScreen(
-    viewModel: UserListViewModel = koinViewModel(),
-    onUserClick: (String) -> Unit
-) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-
-    when (val s = state) {
-        is UiState.Loading -> CircularProgressIndicator()
-        is UiState.Error -> Text("Error: ${s.message}")
-        is UiState.Success -> LazyColumn {
-            items(s.data, key = { it.id }) { user ->
-                UserCard(user = user, onClick = { onUserClick(user.id) })
-            }
-        }
-    }
-}
-```
-
-**Platform-specific composables via expect/actual:**
-```kotlin
-// commonMain
-@Composable
-expect fun PlatformDatePicker(onDateSelected: (Long) -> Unit)
-
-// androidMain
-@Composable
-actual fun PlatformDatePicker(onDateSelected: (Long) -> Unit) {
-    // Android Material3 DatePicker
-}
-
-// iosMain
-@Composable
-actual fun PlatformDatePicker(onDateSelected: (Long) -> Unit) {
-    // iOS UIKit DatePicker bridge
-}
-```
-
-**Resources in Compose Multiplatform:**
-- Use `compose.resources` DSL for fonts, images, strings — not `R.drawable`
-- `Res.drawable.icon`, `Res.string.app_name` via the resources API
-- Place assets in `composeApp/src/commonMain/composeResources/`
-
----
-
-## Swift Interop
-
-KMP compiles shared code to an Xcode framework. Swift calls it natively:
-
-```swift
-// Swift — consuming KMP ViewModel
-import Shared  // the compiled KMP framework
-
-class UserListViewController: UIViewController {
-    private let viewModel = UserListViewModel(getUsersUseCase: KoinHelper().getUsersUseCase())
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        // Collect StateFlow as async sequence
-        Task {
-            for await state in viewModel.uiState {
-                render(state: state)
-            }
-        }
-    }
-}
-```
-
-**SKIE (Swift Kotlin Interface Enhancer):** Use the SKIE Gradle plugin for dramatically better Swift interop:
-- Kotlin `Flow<T>` → Swift `AsyncSequence<T>` (no manual bridging)
-- Kotlin sealed classes → Swift enums with `switch` exhaustiveness
-- Kotlin `suspend` functions → Swift `async` functions
-
-```kotlin
-// build.gradle.kts
-plugins {
-    id("co.touchlab.skie") version "..."
-}
-```
-
----
-
-## Testing
-
-```kotlin
-// commonTest — pure shared logic tests (no platform dependencies)
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlinx.coroutines.test.runTest
-
-class UserRepositoryTest {
-
-    @Test
-    fun `returns cached users when network is unavailable`() = runTest {
-        val fakeLocal = FakeUserLocalDataSource(listOf(User.mock))
-        val fakeRemote = FakeUserApiService(Result.failure(IOException("offline")))
-        val repository = UserRepositoryImpl(fakeLocal, fakeRemote)
-
-        val result = repository.getUsers()
-
-        assertEquals(listOf(User.mock), result.getOrNull())
-    }
-}
-```
-
-```kotlin
-// Shared test doubles in commonTest
-class FakeUserApiService(
-    private val response: Result<List<UserDto>> = Result.success(emptyList())
-) : UserApiService {
-    var callCount = 0
-    override suspend fun getUsers(): Result<List<UserDto>> {
-        callCount++
-        return response
-    }
-}
-```
-
-- `kotlin.test` for assertions — works on all platforms without JUnit dependency
-- `kotlinx.coroutines.test.runTest` for testing coroutines (replaces test dispatcher)
-- Use fakes over mocks in commonTest — Mockk and Mockito are JVM-only
-- Platform-specific tests in `androidTest` / `iosTest` source sets for integration testing
-
----
-
-## Architecture — Shared Clean Architecture
+## Structure
 
 ```
-commonMain/
-└── com.example.app/
-    ├── domain/
-    │   ├── model/           # Pure Kotlin domain entities (no Android/iOS dependencies)
-    │   │   └── User.kt
-    │   ├── repository/      # Repository interfaces
-    │   │   └── UserRepository.kt
-    │   └── usecase/         # Use cases / interactors
-    │       └── GetUsersUseCase.kt
-    ├── data/
-    │   ├── remote/          # Ktor API services, DTOs, mappers
-    │   ├── local/           # SQLDelight data sources, entity mappers
-    │   └── repository/      # Repository implementations
-    └── presentation/        # ViewModels, UI state classes
-        └── userlist/
-            ├── UserListViewModel.kt
-            └── UserListUiState.kt
+shared/src/commonMain/kotlin/com/example/
+  orders/domain/        # entities, use cases, ports (OrderRepository, Clock, SecureStore)
+  orders/data/          # Ktor + SQLDelight/Room adapters, DTOs, mappers
+  orders/presentation/  # ViewModels + UiState (if presentation is shared)
+  core/                 # Logger, CrashReporter, AppConfig ports; DI modules
+shared/src/androidMain  # actuals / adapters needing Context, Keystore, Android SDKs
+shared/src/iosMain      # actuals / adapters over Foundation, Security, UIKit
+androidApp/ iosApp/ desktopApp/   # platform entry points only
 ```
 
-**Rules:**
-- Domain layer has zero external dependencies — only Kotlin stdlib and coroutines
-- Data layer depends on domain; presentation depends on domain; never the reverse
-- DTOs exist only in the data layer — domain models are not serialization-annotated
-- Map DTOs → domain models at the repository boundary
+- Share domain, data, and presentation logic; keep platform UI native unless using Compose
+  Multiplatform. Entry points and app lifecycle stay per platform.
+- `commonMain` imports no `android.*`, `platform.*`, `java.*`, or vendor SDKs. Vendor SDKs
+  (Firebase, analytics, payments) sit behind ports implemented in platform source sets or Swift.
+- Prefer interfaces + DI over `expect`/`actual`. Use `expect fun`/`expect object` for small
+  platform facts; `expect class` needs `-Xexpect-actual-classes` and is rarely worth it.
+- `BuildConfig` is Android-only: pass app version, base URL, and flavor into shared code through
+  an `AppConfig` data class built by each entry point.
+- DTOs (`@Serializable`) stay in the data layer; map to domain models at the repository boundary.
 
----
+## Data and Networking
 
-## Naming Conventions
+- Ktor only in shared code (no Retrofit/OkHttp APIs in `commonMain`). Engines: `ktor-client-okhttp`
+  on Android and JVM, `ktor-client-darwin` on iOS. Set timeouts, `expectSuccess = true`, and map
+  `ResponseException`/`IOException` to domain errors in the adapter.
+- `kotlinx.serialization` only (`Json { ignoreUnknownKeys = true }`); validate decoded payloads
+  (ranges, required business fields) before mapping to domain.
+- Database: **SQLDelight 2** (SQL-first, `.sq` files, `.sqm` migrations) or **Room 3** (`androidx.room3`,
+  annotation DAOs, KSP, `BundledSQLiteDriver`). Both are KMP-ready; pick one per app.
+  Room 2.8 (`androidx.room`) also supports KMP for existing Room codebases.
+- Key-value: DataStore Preferences (`PreferenceDataStoreFactory.createWithPath`) or
+  multiplatform-settings for simple flags. Neither is encrypted.
 
-Same as Android Kotlin, plus KMP-specific:
-- Source sets: `commonMain`, `androidMain`, `iosMain` (camelCase with capital platform name)
-- `expect` declarations live in `commonMain`; `actual` in platform source sets
-- Platform-specific classes not exposed to common code: prefix with `Android` / `Ios` / `Desktop`
-- Shared module: `shared` (or by feature for large projects: `feature-auth`, `feature-orders`)
-- Framework basename matches module: `baseName = "Shared"` in Gradle
+Read `reference/data-and-networking.md` for Ktor client, SQLDelight, Room 3, and DataStore setup.
 
----
+## Concurrency
 
-## Build & CI
+- Suspend functions and `Flow` in shared APIs. Inject dispatchers (`AppDispatchers(io, default, main)`)
+  rather than referencing them inside classes.
+- `Dispatchers.IO` exists on JVM and Native (in shared Native code add `import kotlinx.coroutines.IO`);
+  it does not exist on JS/Wasm. If those targets are present, inject an IO dispatcher per platform.
+- `Dispatchers.Main`: Android and iOS provide it; desktop needs `kotlinx-coroutines-swing` (Compose
+  Desktop pulls it in).
+- `viewModelScope` (lifecycle ViewModel) or an injected scope that the owner cancels; never
+  `GlobalScope`. Always rethrow `CancellationException`; `runCatching` swallows it.
 
-```yaml
-# GitHub Actions — build all KMP targets
-- name: Build shared module
-  run: ./gradlew :shared:build
+## Presentation
 
-- name: Build Android app
-  run: ./gradlew :androidApp:assembleDebug  # or :composeApp:assembleDebug
+- Shared ViewModels extend `androidx.lifecycle.ViewModel` (KMP since 2.8) and expose one
+  `StateFlow<UiState>`; one-off events are state the UI acknowledges.
+- Swift consumption: SKIE (`co.touchlab.skie`) turns `Flow` into `AsyncSequence`, sealed types into
+  exhaustive enums, and `suspend` into `async` with cancellation. Pin the SKIE release that supports
+  your Kotlin version (0.10.15 supports 2.4.20).
+- Swift Export is Alpha in Kotlin 2.4: direct integration only, generics erased, and it cannot be
+  combined with SKIE or the Objective-C export. Evaluate it in a spike; keep production on
+  Obj-C export + SKIE until it stabilizes.
+- Without SKIE or Swift Export, `for await` over a Kotlin `StateFlow` does not work — expose a
+  callback-based `watch(onEach:)` wrapper returning a cancellable handle.
 
-- name: Build iOS framework
-  run: ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
+Read `reference/swift-interop.md` for SKIE setup, the no-SKIE wrapper, and Swift Export configuration.
 
-- name: Run shared tests
-  run: ./gradlew :shared:allTests
+## Compose Multiplatform
 
-- name: Run iOS tests (requires macOS runner)
-  run: ./gradlew :shared:iosSimulatorArm64Test
-  # or: xcodebuild test -workspace iosApp.xcworkspace ...
-```
+- CMP 1.12.1 (`org.jetbrains.compose` + `org.jetbrains.kotlin.plugin.compose`); iOS has been stable
+  since 1.8. Minimums: Android API 21, iOS 14 (Kotlin 2.4 defaults to 15).
+- Navigation 3 via `org.jetbrains.androidx.navigation3:navigation3-ui`; `@Serializable` `NavKey`s
+  shared in `commonMain`. Lifecycle/ViewModel via `org.jetbrains.androidx.lifecycle`.
+- Resources through `composeResources/` and the generated `Res` accessors, never `R.*` in common
+  code; enable `androidResources { enable = true }` in the `android {}` target.
+- Platform widgets (maps, camera, date pickers) via an interface or `expect`/`actual` composable
+  wrapping `AndroidView`/`UIKitView`. Respect iOS back-swipe and Android predictive back.
 
-- Use `macos-latest` runner in CI for iOS builds (Xcode requirement)
-- Cache Gradle and Kotlin Native caches aggressively — KMP builds are slow
-- Run `commonTest` on every PR; run platform tests before release
-- `konan.data.dir` Gradle property to redirect Kotlin Native toolchain cache
+Read `reference/compose-multiplatform.md` for the CMP module setup and Navigation 3 sample.
 
----
+## Dependency Injection
+
+- Koin 4.2 (`koin-core`, `koin-compose-viewmodel`) — runtime DSL, KMP-native, Navigation 3 support;
+  or Metro 1.x (`dev.zacsweers.metro`) — compile-time validated graphs via a compiler plugin.
+- Declare modules in `commonMain`; platform modules provide `Context`, drivers, secure storage.
+  Start the graph from each entry point (Android `Application`, iOS `@main` app init).
+- Hilt is Android-only — confine it to `androidApp` if used at all.
+
+## Errors
+
+- Sealed domain errors + `Outcome<T, E>` (or Arrow `Either`) returned from repositories; no
+  exceptions for expected failures, and exceptions never cross into Swift unannotated.
+- Kotlin exceptions reaching Swift crash unless the function is `@Throws(...)`; SKIE/Swift Export
+  still require you to model failures as values at the boundary.
+- Map transport and storage exceptions to domain errors in adapters; log unexpected ones via the
+  `Logger`/`CrashReporter` ports.
 
 ## Security
 
-- Secrets must never be in `commonMain` — inject via DI or `expect/actual`
-- Use platform Keystore / Keychain via `expect/actual` for sensitive storage
-- Ktor SSL certificate pinning: configure per-platform in `androidMain` / `iosMain`
-- `multiplatform-settings-secure` for encrypted settings on Android (EncryptedSharedPreferences) and iOS (Keychain)
-- Validate all data at network boundary before mapping to domain models
+- Secrets never live in `commonMain` or the repo; API keys that must ship are restricted
+  server-side (package/bundle ID) and treated as public.
+- Tokens: a `SecureStore` port. Android actual: Keystore + Tink + DataStore (see `mobile-android`).
+  iOS actual: Keychain (`kSecClassGenericPassword`, `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`)
+  via `platform.Security`, or multiplatform-settings `KeychainSettings` (marked experimental).
+- There is no `multiplatform-settings-secure` artifact; do not add EncryptedSharedPreferences-based
+  wrappers (deprecated).
+- Certificate pinning per engine: OkHttp `CertificatePinner` in `androidMain`, Darwin
+  `handleChallenge` in `iosMain`; ship backup pins.
+- Validate every network payload and deep-link parameter before mapping to domain types.
+
+## Observability
+
+- Kermit (`co.touchlab:kermit`) or a `Logger` port with platform sinks (Logcat, OSLog); no
+  `println`. Strip debug logs in release; never log tokens or PII.
+- Crash reporting behind a `CrashReporter` port (e.g. Crashlytics via CrashKiOS, Sentry Kotlin
+  Multiplatform); upload R8 mappings and dSYMs from CI.
+
+## Testing
+
+- `commonTest` with `kotlin.test`, `kotlinx-coroutines-test` (`runTest`, `StandardTestDispatcher`),
+  and Turbine for Flows. Tests run on every target via `allTests`.
+- Fakes for ports first; Mokkery (compiler plugin, all KMP targets) when a mock is warranted. MockK
+  and Mockito are JVM-only — use them only in `androidHostTest`/`jvmTest`.
+- Android host tests live in `androidHostTest` and device tests in `androidDeviceTest` (Android-KMP
+  plugin); iOS tests via `iosSimulatorArm64Test` on macOS runners.
+- Database tests with in-memory drivers; migration tests for every `.sqm` / Room schema version.
+- Ktor adapters tested with `MockEngine`; no real network in unit tests.
+
+Read `reference/testing.md` for commonTest, Mokkery, and MockEngine templates.
+
+_Versions verified September 2026._

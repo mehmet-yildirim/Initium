@@ -1,12 +1,9 @@
 ---
 name: design-apple-hig
-description: Apple Human Interface Guidelines for iOS, iPadOS, macOS, watchOS, and visionOS UI — Liquid Glass, layout and safe areas, navigation, typography and Dynamic Type, SF Symbols, touch targets, color, motion, and accessibility. Use when designing, building, or reviewing screens for Apple platforms (SwiftUI, UIKit, or cross-platform apps shipping to iOS).
+description: Apple Human Interface Guidelines for iOS, iPadOS, macOS, watchOS, tvOS, and visionOS UI — Liquid Glass, resizable layouts and safe areas, navigation, typography and Dynamic Type, SF Symbols, touch targets, color, motion, and accessibility. Use when designing, building, or reviewing screens for Apple platforms (SwiftUI, UIKit, or cross-platform apps shipping to iOS).
 globs:
-  - "**/*.swift"
-  - "**/*.storyboard"
-  - "**/*.xib"
-  - "**/Assets.xcassets/**"
-  - "**/ios/**"
+  - "**/*View.swift"
+  - "**/*.xcassets/**"
 alwaysApply: false
 ---
 <!-- Generated from .claude/skills by .initium/scripts/sync-skills.mjs — edit the skill, not this file. -->
@@ -49,6 +46,8 @@ Pair this skill with `mobile-ios` (code standards) and, for web-style surfaces i
   for controls over rich media and needs a dimming layer when the content behind is bright.
 - Remove custom backgrounds and borders from bars so the system material and scroll-edge
   effects can do their job.
+- iOS 27 lets users set Liquid Glass on a continuous slider from more transparent to more
+  tinted (Settings > Appearance). Design for the whole range: check both ends of the slider.
 - Verify with Reduce Transparency and Increase Contrast turned on.
 
 ## Layout and Safe Areas
@@ -60,6 +59,9 @@ Pair this skill with `mobile-ios` (code standards) and, for web-style surfaces i
   columns across a 13" display.
 - Support every size class the app runs in; test portrait, landscape, split view, and the
   largest Dynamic Type size.
+- With the iOS 27 SDK, iPhone apps are resizable (iPhone Mirroring, iPhone apps on iPad) and
+  `UIRequiresFullScreen` no longer opts out. Lay out by available size and size class, never by
+  device model, idiom, or orientation.
 - Concentric corners: a nested element's corner radius follows its container's curve.
 - Group related items with spacing and alignment before reaching for dividers or boxes.
 
@@ -109,6 +111,7 @@ Pair this skill with `mobile-ios` (code standards) and, for web-style surfaces i
 [Buttons](https://developer.apple.com/design/human-interface-guidelines/buttons)
 
 - Hit targets default to 44×44 pt; never below 28×28 pt. Leave space between adjacent targets.
+  Cross-platform target sizes and the WCAG mapping live in the `accessibility` skill.
 - One primary action per screen; destructive actions use the destructive role and confirm when
   irreversible.
 - Use system controls (Toggle, Picker, Menu, DatePicker) before custom widgets.
@@ -155,3 +158,7 @@ Pair this skill with `mobile-ios` (code standards) and, for web-style surfaces i
 - [ ] Semantic colors; light, dark, and increased-contrast checked
 - [ ] Reduce Motion and Reduce Transparency respected
 - [ ] VoiceOver walkthrough of the main flow completed
+- [ ] Liquid Glass legible at both ends of the iOS 27 transparency slider
+- [ ] Layout survives arbitrary window sizes (resizable iPhone app, iPad, Mac)
+
+_Versions verified September 2026._

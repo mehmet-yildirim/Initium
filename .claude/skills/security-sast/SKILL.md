@@ -1,413 +1,132 @@
 ---
 name: security-sast
-description: Security SAST patterns — language-specific vulnerability detection, OWASP Top 10, CVE scanning, secret detection. Apply when writing security-sensitive code or reviewing changes. Use when writing security-sensitive code (auth, input handling, crypto, file access) or reviewing changes for vulnerabilities.
-paths:
-  - "**/*.ts"
-  - "**/*.js"
-  - "**/*.py"
-  - "**/*.java"
-  - "**/*.kt"
-  - "**/*.cs"
-  - "**/*.go"
-  - "**/*.swift"
-  - "**/*.dart"
-  - "**/*.rb"
-  - "**/*.php"
+description: Application security review and secure-coding rules mapped to the OWASP Top 10:2025 and ASVS 5.0 — injection, access control, SSRF, crypto, secrets, deserialization, exceptional-condition handling — plus SAST and scanning tooling (Semgrep, CodeQL, gitleaks, TruffleHog, OSV-Scanner). Use when writing or reviewing security-sensitive code (auth, input handling, crypto, file or network access, error handling), triaging scanner findings, or wiring security scans into CI.
 ---
 
-# Security SAST — Vulnerability Detection Patterns
+# Secure Coding and SAST
 
-This rule provides language-specific security patterns to detect and prevent common vulnerabilities.
-Always apply when writing code that handles authentication, authorization, user input, data persistence,
-or external service communication.
+Universal rules and tooling live here; per-language examples live in `reference/<lang>.md`.
+Supply-chain controls (SBOM, signing, pinning, provenance) are in `security-supply-chain`; prompt
+injection and LLM-specific risks are in `ai-llm-apps`; workflow hardening is in `devops-cicd`.
 
-## Universal Rules (All Languages)
+## Baseline
 
-### Input Validation — Required at Every System Boundary
-```
-BOUNDARY: HTTP request body, query params, path params
-BOUNDARY: Message queue message body
-BOUNDARY: File uploads (name, size, type, content)
-BOUNDARY: External API responses
-BOUNDARY: Database records read then used in further operations
-BOUNDARY: CLI arguments
+- Risk taxonomy: **OWASP Top 10:2025**. Verification requirements: **OWASP ASVS 5.0.0** (target
+  L2 for most applications, L3 for high-value systems).
+- Treat every finding as a code defect with an owner and a fix-by date; suppressions need a
+  justification comment and a tracked issue.
 
-Rule: Validate schema + type + business rules BEFORE processing.
-Never trust data that crosses a trust boundary.
-```
+## Toolchain
 
-### SQL / NoSQL / Command Injection — Zero Tolerance
-```
-FORBIDDEN (all languages):
-  SQL: "SELECT * FROM users WHERE id = '" + userId + "'"
-  SQL: f"DELETE FROM orders WHERE id = {order_id}"
-  CMD: exec("git clone " + repoUrl)
-  CMD: subprocess.run(f"ls {path}", shell=True)
+| Concern | Tools | Gate |
+|---|---|---|
+| SAST (pattern) | Semgrep (`semgrep scan --config p/owasp-top-ten --sarif`) | PR, block on high |
+| SAST (dataflow) | CodeQL (`github/codeql-action` v4, `security-extended` suite) | PR + weekly |
+| Secrets | gitleaks (`gitleaks git`), TruffleHog (`trufflehog git file://. --results=verified,unknown`) | pre-commit + PR |
+| Dependency CVEs | OSV-Scanner v2 (`osv-scanner scan source -r .`), plus ecosystem tools (`npm audit`, `pip-audit`, `safety scan`, `govulncheck`, `cargo audit`) | PR, block on high/critical with a fix available |
+| Containers / IaC | Trivy or Grype (images), Checkov or Trivy config (IaC) | PR + registry |
+| Language linters | Bandit (Python), `eslint-plugin-security`, `gosec`, SpotBugs + FindSecBugs (JVM) | PR |
 
-REQUIRED: Parameterized queries, prepared statements, ORM query builders.
-REQUIRED: Allowlist validation before any shell execution.
-NEVER: shell=True / exec() / system() with any non-constant string.
-```
+- Upload SARIF to code scanning so findings appear on the PR diff.
+- Run secret scanning on the full history once, then incrementally; rotate first, then purge.
+- SBOM generation, signing and provenance: see `security-supply-chain`.
 
-### Secret / Credential Anti-Patterns
-```
-FORBIDDEN: Hardcoded passwords, API keys, tokens in any source file
-FORBIDDEN: Secrets in environment variable defaults in code
-FORBIDDEN: Logging of credentials, tokens, PII, or session data
-FORBIDDEN: Secrets in URLs (query params, path segments)
-FORBIDDEN: Secrets committed to git (including test fixtures)
+## OWASP Top 10:2025 — review checklist
 
-REQUIRED: Load secrets from environment variables or secrets manager at runtime
-REQUIRED: .env files with real values in .gitignore
-REQUIRED: rotate any accidentally committed secret immediately
-```
+| # | Category | Check before approving |
+|---|---|---|
+| A01 | Broken Access Control (includes SSRF) | Authorization in the service layer on every request; ownership checked with the session identity, never a client-supplied ID; deny by default; outbound URLs allowlisted |
+| A02 | Security Misconfiguration | No debug/stack traces in prod; security headers (CSP, HSTS, `X-Content-Type-Options`, `frame-ancestors`); least-privilege defaults; admin/actuator endpoints not public |
+| A03 | Software Supply Chain Failures | Lockfiles committed; deps and actions pinned; scans green; see `security-supply-chain` |
+| A04 | Cryptographic Failures | TLS 1.3 preferred (1.2 minimum); AES-GCM / ChaCha20-Poly1305; Argon2id/scrypt/bcrypt for passwords; CSPRNG for tokens; keys in a KMS |
+| A05 | Injection | Parameterized queries only; no shell with interpolated input; context-aware output encoding; no `eval` |
+| A06 | Insecure Design | Threat model for new flows; rate limits and quotas; business invariants enforced server-side |
+| A07 | Authentication Failures | MFA/passkeys available; lockout/backoff; session rotation on login and privilege change; tokens ≥128 bits entropy |
+| A08 | Software or Data Integrity Failures | No native deserialization of untrusted data; signed updates and webhooks verified (HMAC with constant-time compare) |
+| A09 | Security Logging and Alerting Failures | Auth, authz and validation failures logged with request/trace IDs; no secrets or PII in logs; alerts wired |
+| A10 | Mishandling of Exceptional Conditions | Fail closed; errors caught at boundaries and mapped to safe responses; resources released on every path; no partial state left behind |
 
----
+## Universal rules
 
-## JavaScript / TypeScript
+### Input and output
+- Validate every trust boundary (HTTP, queue messages, files, webhooks, CLI args, third-party API
+  responses) with a schema: structure, types, lengths, and business rules. Reject unknown keys.
+- Encode output for its context (HTML, attribute, URL, SQL identifier, shell); prefer framework
+  auto-escaping. Sanitize HTML only with a maintained sanitizer (DOMPurify in JS, `nh3` in
+  Python).
 
 ### Injection
-```typescript
-// CRITICAL — SQL injection
-// BAD:
-const user = await db.query(`SELECT * FROM users WHERE email = '${email}'`);
-// GOOD:
-const user = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+- SQL/NoSQL: placeholders or query builders; allowlist identifiers (sort columns, table names).
+- Commands: argument arrays, no shell; allowlist the binary and validate each argument.
+- Templates, LDAP, XPath, regex: never build from raw input; bound regex input size to avoid ReDoS.
 
-// CRITICAL — Command injection
-// BAD:
-exec(`git clone ${repoUrl}`);
-// GOOD:
-execFile('git', ['clone', repoUrl]);  // args as array, never shell=true
+### Access control and SSRF
+- Resolve the actor from the verified session/token; check permission and resource ownership in the
+  service layer, not only in routes or UI.
+- Outbound requests from user-controlled URLs: allowlist scheme and host, resolve DNS and reject
+  private, loopback, link-local and metadata ranges, disable redirects (or re-validate each hop),
+  set timeouts and response-size limits. Prefer an egress proxy with its own allowlist.
 
-// HIGH — Prototype pollution
-// BAD:
-Object.assign(target, userInput);  // if userInput has __proto__
-// GOOD:
-const clean = JSON.parse(JSON.stringify(userInput));  // or use lodash.merge with guard
-```
-
-### XSS
-```typescript
-// CRITICAL — DOM XSS
-// BAD:
-element.innerHTML = userInput;
-document.write(userInput);
-// GOOD:
-element.textContent = userInput;
-
-// CRITICAL — React XSS
-// BAD:
-<div dangerouslySetInnerHTML={{ __html: userInput }} />
-// GOOD — only with sanitized content:
-import DOMPurify from 'dompurify';
-<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(trustedMarkdown) }} />
-```
-
-### Authentication
-```typescript
-// HIGH — Weak random for tokens
-// BAD:
-const token = Math.random().toString(36);
-// GOOD:
-import { randomBytes } from 'node:crypto';
-const token = randomBytes(32).toString('hex');
-
-// HIGH — JWT: never trust without verification
-// BAD:
-const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-// GOOD:
-const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
-
-// HIGH — Timing attack on token comparison
-// BAD:
-if (userToken === storedToken)
-// GOOD:
-import { timingSafeEqual } from 'node:crypto';
-timingSafeEqual(Buffer.from(userToken), Buffer.from(storedToken))
-```
-
-### Path Traversal
-```typescript
-// HIGH — Path traversal
-// BAD:
-const file = fs.readFileSync(`./uploads/${req.params.filename}`);
-// GOOD:
-import { resolve, join } from 'node:path';
-const UPLOAD_DIR = resolve('./uploads');
-const filePath = join(UPLOAD_DIR, req.params.filename);
-if (!filePath.startsWith(UPLOAD_DIR + path.sep)) throw new Error('Path traversal detected');
-const file = fs.readFileSync(filePath);
-```
-
-### npm-specific
-```
-RULE: Run `npm audit --audit-level=high` in CI — fail on HIGH+
-RULE: No `--ignore-scripts` suppression without justification
-RULE: `package-lock.json` or `yarn.lock` committed and verified
-RULE: `npm ci` in CI — not `npm install` (respects lockfile)
-```
-
----
-
-## Python
-
-### Injection
-```python
-# CRITICAL — SQL injection
-# BAD:
-cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
-cursor.execute("SELECT * FROM users WHERE id = " + user_id)
-# GOOD:
-cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-
-# CRITICAL — Command injection
-# BAD:
-subprocess.run(f"ls {path}", shell=True)
-os.system(f"rm {filename}")
-# GOOD:
-subprocess.run(["ls", path])  # List form, no shell
-```
-
-### Deserialization
-```python
-# CRITICAL — Pickle deserialization of untrusted data
-# BAD:
-data = pickle.loads(user_data)  # RCE if user_data is malicious
-# GOOD:
-import json
-data = json.loads(user_data)  # JSON only; validate schema with Pydantic
-```
+### Secrets
+- No secrets in source, config committed to git, client bundles, mobile binaries, or container
+  layers. Load at runtime from a secrets manager or workload identity.
+- Mobile/front-end apps cannot keep secrets: call a backend that holds the credential, or exchange
+  a user session for short-lived scoped tokens.
+- Leaked secret: revoke and rotate immediately, then purge history; treat it as compromised.
 
 ### Cryptography
-```python
-# HIGH — Weak hashing for passwords
-# BAD:
-import hashlib
-hashed = hashlib.md5(password.encode()).hexdigest()
-# GOOD:
-from passlib.hash import argon2
-hashed = argon2.hash(password)
+- Use platform/vetted libraries only; never implement primitives. No MD5/SHA-1 for security, no
+  ECB, no static IVs, no custom token formats.
+- Passwords: Argon2id (preferred), scrypt, or bcrypt with a cost reviewed yearly; rehash on login
+  when parameters change.
+- Compare MACs and tokens in constant time; hash both inputs first when lengths can differ.
 
-# HIGH — Insecure random
-# BAD:
-import random
-token = random.randbytes(16)  # NOT cryptographically secure
-# GOOD:
-import secrets
-token = secrets.token_hex(32)
-```
+### Files
+- Resolve paths against a fixed root and verify containment (or use a rooted API such as Go
+  `os.Root`); generate server-side names for uploads; check size and content type by magic bytes.
+- Parse XML with DTDs/external entities disabled; parse YAML with safe loaders.
 
-### File Operations
-```python
-# HIGH — Path traversal
-# BAD:
-with open(f"/uploads/{filename}") as f: ...
-# GOOD:
-import pathlib
-base = pathlib.Path("/uploads").resolve()
-target = (base / filename).resolve()
-if not target.is_relative_to(base):
-    raise ValueError("Path traversal detected")
-```
+### Exceptional conditions (A10)
+- Security decisions fail closed: if the policy engine, token introspection or feature-flag store
+  errors, deny.
+- Catch at the boundary, log once with context, return an RFC 9457 problem response without stack
+  traces or internal identifiers.
+- Always release locks, transactions and file handles (`finally`, `using`, `defer`, `with`).
+- Set timeouts on every network call; treat timeouts and partial reads as errors, not empty data.
 
-### Python-specific
-```
-RULE: `safety check` or `pip-audit` in CI — fail on CRITICAL/HIGH CVEs
-RULE: Type annotations + mypy strict — catches None dereferences
-RULE: Pydantic or marshmallow for ALL external data validation
-RULE: Never `eval()` or `exec()` on any non-constant string
-```
+## Structure
 
----
+- Keep security controls in dedicated modules behind ports: `AuthorizationPolicy`,
+  `PasswordHasher`, `TokenVerifier`, `OutboundHttpClient` (with SSRF guard), `SecretStore`.
+- Vendor SDKs (KMS, secrets manager, IdP) only inside adapters; domain code depends on the port.
+- Typed security errors (`AccessDenied`, `InvalidToken`, `SsrfBlocked`) mapped to 401/403/400 at
+  the edge.
 
-## Java
+## Observability
 
-### Injection
-```java
-// CRITICAL — SQL injection
-// BAD:
-stmt.execute("SELECT * FROM users WHERE id = " + userId);
-// GOOD:
-PreparedStatement ps = conn.prepareStatement("SELECT * FROM users WHERE id = ?");
-ps.setString(1, userId);
+- Structured logs via the project logger with request and trace IDs; redact `Authorization`,
+  cookies, tokens, passwords and PII at the logger level.
+- Emit security events (login success/failure, permission denied, validation failure, rate-limit
+  hit) as distinct, alertable log events or metrics.
 
-// CRITICAL — JNDI injection (Log4Shell class)
-// BAD:
-logger.error("User: " + userInput);  // if Log4j 2.x < 2.17.1
-// GOOD: upgrade Log4j; disable JNDI lookups: log4j2.formatMsgNoLookups=true
+## Testing
 
-// HIGH — XML External Entity (XXE)
-// BAD:
-DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-DocumentBuilder db = dbf.newDocumentBuilder();
-// GOOD: disable external entities:
-dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-```
+- Unit tests for every authorization rule, including the negative case per role.
+- Regression test for each fixed vulnerability (the exploit input must now fail safely).
+- DAST (OWASP ZAP baseline) against a preview environment for web apps; fuzz parsers and
+  deserializers where the language has native fuzzing (Go, Rust, Java via Jazzer).
 
-### Deserialization
-```java
-// CRITICAL — Java deserialization of untrusted data
-// BAD:
-ObjectInputStream ois = new ObjectInputStream(untrustedStream);
-Object obj = ois.readObject();
-// GOOD: Use JSON (Jackson/Gson) or validate input before deserialization
-// OR: use a deserialization filter (Java 17+): ObjectInputFilter
-```
+## References
 
-### Cryptography
-```java
-// HIGH — Weak algorithm
-// BAD:
-MessageDigest md = MessageDigest.getInstance("MD5");
-Cipher c = Cipher.getInstance("DES");
-// GOOD:
-MessageDigest md = MessageDigest.getInstance("SHA-256");
-Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
-// Passwords: BCryptPasswordEncoder (Spring) or Argon2
-```
+- `reference/typescript.md` — Read when reviewing Node.js/TypeScript/browser code (prototype
+  pollution, XSS, JWT, SSRF, fail-closed examples).
+- `reference/python.md` — Read when reviewing Python services (pwdlib/argon2-cffi, pickle,
+  subprocess, SSRF).
+- `reference/java.md` — Read when reviewing Java/Spring code (Spring Security 6/7 lambda DSL, XXE,
+  deserialization filters).
+- `reference/go.md` — Read when reviewing Go code (`os.Root`, TLS 1.3, SSRF-safe dialer).
+- `reference/swift.md` — Read when reviewing iOS code (Keychain, logging privacy, ATS).
+- `reference/kotlin-android.md` — Read when reviewing Android code (no secrets in BuildConfig,
+  Keystore + Tink, exported components).
 
-### Spring Security
-```java
-// CRITICAL — CSRF disabled
-// BAD:
-http.csrf().disable()  // Never in production for stateful sessions
-// GOOD: enable CSRF, or use stateless JWT
-
-// HIGH — Actuator endpoints exposed
-// BAD (application.properties):
-management.endpoints.web.exposure.include=*
-// GOOD:
-management.endpoints.web.exposure.include=health,info
-management.endpoints.web.base-path=/internal/actuator
-```
-
----
-
-## Go
-
-### Injection
-```go
-// CRITICAL — SQL injection
-// BAD:
-db.Query("SELECT * FROM users WHERE id = " + id)
-// GOOD:
-db.Query("SELECT * FROM users WHERE id = $1", id)
-
-// HIGH — Command injection
-// BAD:
-exec.Command("sh", "-c", "ls " + userPath).Run()
-// GOOD:
-exec.Command("ls", userPath).Run()  // args as separate strings
-```
-
-### Cryptography
-```go
-// HIGH — Weak random
-// BAD:
-import "math/rand"
-token := rand.Int()
-// GOOD:
-import "crypto/rand"
-b := make([]byte, 32)
-rand.Read(b)
-
-// HIGH — Weak TLS config
-// BAD:
-tls.Config{InsecureSkipVerify: true}  // Never in production
-// GOOD:
-tls.Config{MinVersion: tls.VersionTLS12}
-```
-
-### Path Traversal
-```go
-// HIGH — Path traversal
-// BAD:
-filepath.Join("/uploads", r.URL.Query().Get("file"))
-// GOOD:
-base := filepath.Clean("/uploads")
-target := filepath.Join(base, filepath.Clean(r.URL.Query().Get("file")))
-if !strings.HasPrefix(target, base + string(os.PathSeparator)) {
-    http.Error(w, "forbidden", http.StatusForbidden); return
-}
-```
-
----
-
-## Mobile — iOS (Swift)
-
-```swift
-// HIGH — Sensitive data in UserDefaults (not encrypted)
-// BAD:
-UserDefaults.standard.set(authToken, forKey: "token")
-// GOOD:
-// Use Keychain via KeychainSwift library or Security framework
-
-// HIGH — Logging sensitive data
-// BAD:
-print("User token: \(token)")
-// GOOD: Remove ALL print/NSLog of sensitive data; use os.Logger with privacy labels
-// os.Logger().debug("Auth: \(token, privacy: .private)")
-
-// HIGH — Insecure random
-// BAD:
-let n = Int.random(in: 0..<100)  // OK for non-security; BAD for token generation
-// GOOD:
-import CryptoKit
-let bytes = SymmetricKey(size: .bits256)  // or SecRandomCopyBytes
-
-// HIGH — Certificate pinning bypass indicators
-// NEVER: URLSession(configuration: .default) with custom delegate that ignores errors
-// NEVER: challenge.sender?.continueWithoutCredential(for: challenge)
-```
-
----
-
-## Mobile — Android (Kotlin)
-
-```kotlin
-// HIGH — Hardcoded credentials
-// BAD:
-val apiKey = "sk-prod-1234567890"
-// GOOD: Load from BuildConfig (injected at build time, not in source)
-
-// HIGH — Sensitive data in SharedPreferences (unencrypted)
-// BAD:
-prefs.edit().putString("token", token).apply()
-// GOOD:
-EncryptedSharedPreferences.create("secure_prefs", masterKey, context,
-    AES256_SIV, AES256_GCM)
-
-// HIGH — Exported components without permission
-// BAD (AndroidManifest.xml):
-<activity android:name=".AdminActivity" android:exported="true" />
-// GOOD:
-<activity android:name=".AdminActivity" android:exported="false" />
-// Or: android:permission="com.example.ADMIN"
-
-// CRITICAL — SQL injection in SQLiteDatabase
-// BAD:
-db.rawQuery("SELECT * FROM users WHERE id = " + id, null)
-// GOOD:
-db.query("users", null, "id = ?", arrayOf(id), null, null, null)
-```
-
----
-
-## OWASP Top 10 — Quick Reference Checklist
-
-When reviewing any code change, mentally check:
-
-| # | Category | Quick Check |
-|---|----------|------------|
-| A01 | Broken Access Control | Is ownership verified before data access? |
-| A02 | Cryptographic Failures | Using strong algorithms? TLS everywhere? No PII in logs? |
-| A03 | Injection | All queries parameterized? No shell=True with user data? |
-| A04 | Insecure Design | Rate limiting? Account lockout? Business logic validated? |
-| A05 | Misconfiguration | No debug mode in prod? Security headers set? |
-| A06 | Vulnerable Components | Dependencies audited? No known CVEs in use? |
-| A07 | Auth Failures | Tokens cryptographically random? Sessions invalidated on logout? |
-| A08 | Data Integrity | No unsafe deserialization? Dependency lockfiles committed? |
-| A09 | Logging Failures | Auth failures logged? No PII in logs? Correlation IDs present? |
-| A10 | SSRF | User-supplied URLs allowlisted before fetch? Internal IPs blocked? |
+_Versions verified September 2026._

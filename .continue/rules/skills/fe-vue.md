@@ -1,134 +1,195 @@
 ---
 name: fe-vue
-description: Vue 3 development standards — Composition API, TypeScript, Pinia, Nuxt compatibility. Use when writing or reviewing Vue 3 or Nuxt code.
+description: Vue 3.5 standards (3.6 Vapor mode opt-in only) — <script setup lang="ts">, defineModel, reactive props destructure, useTemplateRef/useId, Pinia 4 setup stores, Vue Router 5 typed file-based routes, TanStack Query, Nuxt 4 (app/ directory, useFetch, server routes), v-html safety, vue-tsc, and Vitest + Vue Test Utils. Use when writing, reviewing, or configuring Vue components, composables, Pinia stores, Vue Router, or Nuxt apps.
 globs:
   - "**/*.vue"
-  - "**/src/components/**/*.ts"
-  - "**/src/composables/**"
-  - "**/src/stores/**"
+  - "**/nuxt.config.*"
 alwaysApply: false
 ---
 <!-- Generated from .claude/skills by .initium/scripts/sync-skills.mjs — edit the skill, not this file. -->
 
-# Vue 3 Development Standards
+# Vue 3 Standards
 
-Visual design quality (typography, color, layout, avoiding templated UI): `frontend-design` and `impeccable`; tokens: `design-tokens`.
+Vue and Nuxt rules. Language rules are in `lang-typescript`; E2E in `testing-e2e`; accessibility
+depth in `accessibility`; visual design in `frontend-design`, `impeccable`, `design-tokens`.
 
-## Composition API (Required)
-- Always use Composition API with `<script setup>` — never Options API in new code
-- `<script setup lang="ts">` for TypeScript support
-- `defineProps` and `defineEmits` with TypeScript generics (not runtime declarations)
-- `defineExpose` only when a parent truly needs to call child methods
+## Baseline
+
+- Vue 3.5 (latest 3.5.x). Vue 3.6 is a release candidate: Vapor mode (`<script setup vapor>`) is
+  opt-in per component (mixed apps need `vaporInteropPlugin`), Composition API only, no `v-memo`
+  or `getCurrentInstance()` — pilot it on a measured hot path behind a flag, not app-wide, until
+  3.6 is stable and your component libraries support it.
+- Pinia 4 (ESM-only; install `@vue/devtools-api` alongside), Vue Router 5, Nuxt 4 (Nuxt 3 reached
+  end of life on 2026-07-31). Vite for SPAs; Vitest for tests.
+
+## Toolchain
+
+- "Vue – Official" editor extension (formerly Volar); `vue-tsc --noEmit` in CI.
+- ESLint flat config with `eslint-plugin-vue` (`flat/recommended`), `typescript-eslint`, and
+  `eslint-plugin-vuejs-accessibility`; Prettier or Biome for formatting.
+- `npm audit` / `pnpm audit` in CI; Renovate/Dependabot per `security-supply-chain`.
+
+## Structure
+
+```
+src/
+├── app/                      # createApp, plugins, router, app.provide() of adapters
+├── features/projects/
+│   ├── domain/               # Types, pure rules — no Vue imports
+│   ├── application/          # Use cases + ports (ProjectRepository)
+│   ├── adapters/             # HTTP/SDK clients implementing ports; Zod-validated DTO mapping
+│   ├── stores/               # Pinia stores (call use cases/ports, not fetch)
+│   ├── composables/          # useProjectList, useProjectForm
+│   └── components/           # SFCs
+└── shared/                   # UI primitives, logger, env parsing
+```
+
+- `PascalCase.vue`, one component per file; SFC order `<script setup>` → `<template>` → `<style>`.
+- Vendor SDKs only inside `adapters/`; components and stores depend on ports provided via
+  `app.provide()` / `inject()` (or Nuxt plugins).
+
+## Components
+
+- `<script setup lang="ts">` only; no Options API in new code.
+- Type-based `defineProps` with reactive destructure and defaults (3.5); named-tuple `defineEmits`;
+  `defineModel()` for `v-model` instead of `modelValue` + `update:modelValue` boilerplate.
 
 ```vue
 <script setup lang="ts">
-interface Props {
-  userId: string;
-  initialData?: User;
+const { label, maxLength = 100 } = defineProps<{ label: string; maxLength?: number }>();
+const emit = defineEmits<{ submit: [value: string]; cancel: [] }>();
+const value = defineModel<string>({ required: true });
+const inputId = useId();
+const input = useTemplateRef<HTMLInputElement>('input');
+
+function focus() {
+  input.value?.focus();
 }
-interface Emits {
-  (e: 'update', user: User): void;
-  (e: 'delete', id: string): void;
-}
-const props = defineProps<Props>();
-const emit = defineEmits<Emits>();
+defineExpose({ focus });
 </script>
+
+<template>
+  <label :for="inputId">{{ label }}</label>
+  <input :id="inputId" ref="input" v-model="value" :maxlength="maxLength" @keydown.enter="emit('submit', value)" />
+</template>
 ```
 
-## Component Design
-- Single File Components (`.vue`) with order: `<script setup>` → `<template>` → `<style>`
-- One component per file
-- `PascalCase.vue` file naming; use as `<PascalCase />` in templates
-- Base/UI components prefix: `Base` or `App` (e.g., `BaseButton.vue`, `AppModal.vue`)
-- Feature components in `features/` subdirectories
+- `defineExpose` only when a parent must call an imperative method (focus, reset).
+- `v-for` always with a stable `:key`; never `v-if` and `v-for` on the same element.
+- Keep template expressions trivial — move logic to `computed`.
 
-## Reactivity
-- `ref()` for primitives; `reactive()` for objects (be aware of destructuring reactivity loss)
-- `computed()` for derived state — never recompute in template expressions
-- `watch()` for side effects triggered by state changes; `watchEffect()` for automatic dependency tracking
-- Avoid deep watchers (`deep: true`) — redesign state shape instead
-- `readonly()` to expose reactive state without allowing mutation
+## Reactivity and composables
 
-```ts
-// Composable pattern
-export function useCounter(initial = 0) {
-  const count = ref(initial);
-  const doubled = computed(() => count.value * 2);
-  function increment() { count.value++ }
-  return { count: readonly(count), doubled, increment };
-}
-```
+- `ref()` as the default for all state (Vue docs recommendation); `reactive()` only for a local
+  object you never destructure or replace. `shallowRef()` for large external data.
+- `computed()` for derived state; `watch()` for side effects with explicit sources; avoid
+  `deep: true` — reshape state instead.
+- Composables (`useX.ts`) return refs so consumers stay reactive; clean up in `onScopeDispose` /
+  `onUnmounted` (timers, listeners, `AbortController`). Returning `readonly(ref)` from a composable
+  is fine.
 
-## Composables
-- File naming: `use<FeatureName>.ts` in `src/composables/`
-- Composables encapsulate: reactive state + computed + watchers + lifecycle hooks
-- Always return refs (not raw values) so consumers stay reactive
-- Clean up resources in `onUnmounted()`: clear timers, remove listeners, abort requests
+## Pinia (state)
 
-## Pinia (State Management)
-- One store per feature domain: `useUserStore`, `useCartStore`
-- Prefer **Setup Stores** (Composition API style) for consistency with `<script setup>`
-- Never mutate state outside the store — use actions
-- Use `storeToRefs()` to destructure reactive state without losing reactivity
-- Pinia persists: `pinia-plugin-persistedstate` for local storage
+- One setup store per domain concept; stores orchestrate use cases and hold client state. Server
+  state (lists, details, caching, retries) belongs in TanStack Query (`@tanstack/vue-query`).
+- **Return state refs directly** — wrapping them in `readonly()` hides them from Pinia's state,
+  breaking SSR hydration, devtools, and `$patch`. Enforce "mutate only via actions" by convention
+  and lint/review.
 
 ```ts
-export const useUserStore = defineStore('user', () => {
+export const useSessionStore = defineStore('session', () => {
+  const users = inject(USER_REPOSITORY); // port provided in app/ via app.provide()
+  if (!users) throw new Error('USER_REPOSITORY not provided');
   const currentUser = ref<User | null>(null);
   const isAuthenticated = computed(() => currentUser.value !== null);
-  async function fetchUser(id: string) {
-    currentUser.value = await api.getUser(id);
+
+  async function loadCurrentUser(): Promise<Result<User, 'UNAUTHENTICATED' | 'NETWORK'>> {
+    const result = await users.getCurrent();
+    currentUser.value = result.ok ? result.value : null;
+    return result;
   }
-  return { currentUser: readonly(currentUser), isAuthenticated, fetchUser };
+
+  return { currentUser, isAuthenticated, loadCurrentUser };
 });
 ```
 
-## Vue Router
-- Always use `<RouterLink>` for navigation — never `<a href>` for internal routes
-- Navigation guards for auth: `router.beforeEach()` or route-level `meta`
-- Lazy-load route components: `component: () => import('./views/UserView.vue')`
-- Typed routes with `unplugin-typed-router` or `vue-router/auto`
-- Use `useRouter()` and `useRoute()` from Composition API — not `this.$router`
+- Destructure with `storeToRefs()`; call actions directly on the store.
+- Do not persist tokens or PII with `pinia-plugin-persistedstate`.
 
-## Template Best Practices
-- `v-for` always paired with `:key` — never use array index as key for dynamic lists
-- `v-if` and `v-for` never on the same element — use `<template>` wrapper
-- `v-model` with custom components: define `modelValue` prop + `update:modelValue` emit
-- Avoid complex expressions in templates — extract to computed properties
-- Event modifiers: `.prevent`, `.stop`, `.once` for cleaner event handling
+## Vue Router 5
 
-## TypeScript Integration
-- Enable Volar (Vue Language Features) in VS Code / Cursor
-- `vue-tsc` for type checking in CI: `vue-tsc --noEmit`
-- `defineProps<Props>()` provides full type safety
-- Use `PropType<T>` only for runtime prop declarations (not recommended — use TypeScript generics)
+- Typed file-based routing is built into Vue Router 5 (the former `unplugin-vue-router`): Vite
+  plugin from `vue-router/vite`, routes from `vue-router/auto-routes`, generated `route-map.d.ts`.
+  Migrating: remove `unplugin-vue-router` and update imports per the v4→v5 guide.
+- `<RouterLink>` for navigation; lazy-load route components; `useRoute()`/`useRouter()`.
+- Guards (`router.beforeEach`, route `meta`) are UX only — the API enforces authorization.
+
+## Errors
+
+- Adapters return typed results; UI maps error codes to messages. Never swallow.
+- `app.config.errorHandler` forwards uncaught component errors to the logger; `onErrorCaptured`
+  for local fallbacks (return `false` only after handling). Nuxt: `<NuxtErrorBoundary>`,
+  `createError`, `error.vue`.
+
+## Security
+
+- Template interpolation escapes output. `v-html` only with DOMPurify-sanitized content and a
+  comment naming the source; never on user or CMS input directly. Same for `innerHTML` in
+  directives.
+- Validate user-supplied URLs bound to `:href`/`:src` (allow `https:`/`http:`/`mailto:` only).
+- Anything in `import.meta.env.VITE_*` or Nuxt `runtimeConfig.public` is public — secrets stay in
+  private `runtimeConfig` read only in `server/`.
+- No tokens in `localStorage`; prefer HttpOnly `Secure` cookies. CSP with nonces (Nuxt:
+  `nuxt-security` module).
 
 ## Performance
-- `v-memo` for expensive list items with stable dependencies
-- `defineAsyncComponent()` for code-split heavy components
-- `<Suspense>` with async setup components
-- `v-once` for static content that never changes
-- Avoid large reactive objects — use `shallowRef()` / `shallowReactive()` for external data
 
-## Testing (Vitest + Vue Test Utils)
+- `defineAsyncComponent()` and lazy routes for code splitting; `v-memo`/`v-once` only where
+  profiling shows benefit; `shallowRef` for big immutable payloads.
+- Track Core Web Vitals (LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1 at p75) with `web-vitals`.
+
+## Nuxt 4
+
+- `app/` directory holds `pages/`, `components/`, `composables/`, `layouts/`, `app.vue`; `server/`
+  and `shared/` sit at the root. Keep auto-imports but import ports/adapters explicitly.
+- Data: `useFetch`/`useAsyncData` with a unique key; `$fetch` only in event handlers and server
+  code. `useState` for SSR-safe shared state — never a module-level `ref` (leaks across requests).
+- Server routes (`server/api/*.ts`): `defineEventHandler`, validate with
+  `readValidatedBody(event, schema.parse)` / `getValidatedQuery`, authenticate every handler, call
+  a use case, throw `createError({ statusCode })` for failures.
+- `useRuntimeConfig()` with `NUXT_*` env overrides; validate config at startup.
+- Nuxt 5 (Nitro 3, Vite 8) is scheduled; test early with `future.compatibilityVersion: 5` on a
+  branch only.
+
+## Observability
+
+- A `logger` module (behind a port) forwards to your telemetry SDK (OpenTelemetry web SDK, Sentry);
+  no `console.log` (`no-console` lint rule). Nuxt server logs structured JSON with request ids.
+- Never log tokens or form values containing PII.
+
+## Accessibility
+
+- Semantic elements, labelled inputs (`useId()` for ids), focus management on dialogs and route
+  changes, `eslint-plugin-vuejs-accessibility` in CI; axe checks per `accessibility`.
+
+## Testing
+
+- Vitest + Vue Test Utils or `@testing-library/vue`; query by role/label; `await` DOM updates
+  (`await nextTick()` / `findBy*`). Vitest browser mode (`vitest-browser-vue`) for real-browser
+  component tests.
+- `createTestingPinia()` (`@pinia/testing`) for store-dependent components; unit-test stores with a
+  fake port. Nuxt: `@nuxt/test-utils`.
+- E2E and visual tests: `testing-e2e`.
+
 ```ts
-import { mount } from '@vue/test-utils';
-import { createTestingPinia } from '@pinia/testing';
-
-it('displays user name', () => {
-  const wrapper = mount(UserCard, {
-    props: { userId: '1' },
-    global: { plugins: [createTestingPinia({ initialState: { user: { name: 'Alice' } } })] }
+it('emits submit with the typed value', async () => {
+  const wrapper = mount(TextField, {
+    props: { label: 'Name', modelValue: '', 'onUpdate:modelValue': (v: string) => wrapper.setProps({ modelValue: v }) },
   });
-  expect(wrapper.text()).toContain('Alice');
+  await wrapper.get('input').setValue('Apollo');
+  await wrapper.get('input').trigger('keydown.enter');
+  expect(wrapper.emitted('submit')?.[0]).toEqual(['Apollo']);
 });
 ```
-- Test component behavior via rendered output — not internal implementation
-- Mock Pinia stores with `createTestingPinia`
-- Use `await nextTick()` after state changes before asserting DOM
 
-## Nuxt 3 (if applicable)
-- Auto-imported components, composables, and utils — no manual imports needed
-- Use `useFetch()` / `useAsyncData()` for data fetching (SSR-aware)
-- Server routes in `server/api/` — `defineEventHandler` with H3
-- `useState()` for SSR-safe shared state (replaces `ref()` for cross-request state)
+_Versions verified September 2026._

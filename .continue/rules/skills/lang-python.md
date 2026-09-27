@@ -1,132 +1,193 @@
 ---
 name: lang-python
-description: Python development standards — FastAPI/Django, type hints, pytest, modern Python patterns. Use when writing or reviewing Python code.
+description: Python 3.14 standards for services and libraries — uv 0.12 project management with a committed uv.lock, ruff 0.16 lint/format including flake8-bandit (S) rules, strict type checking (mypy or pyright; ty beta optional), PEP 649 deferred annotations, FastAPI + Pydantic v2 + SQLAlchemy 2.1 in feature folders with hexagonal ports and adapters, typed domain errors, durable background jobs, structlog + OpenTelemetry, pip-audit, pytest 9. Use when writing, reviewing, or configuring Python code, pyproject.toml, or uv/ruff tooling.
 globs:
   - "**/*.py"
+  - "**/*.pyi"
   - "**/pyproject.toml"
+  - "**/uv.lock"
+  - "**/ruff.toml"
+  - "**/.python-version"
   - "**/requirements*.txt"
-  - "**/Pipfile"
-  - "**/setup.py"
 alwaysApply: false
 ---
 <!-- Generated from .claude/skills by .initium/scripts/sync-skills.mjs — edit the skill, not this file. -->
 
-# Python Development Standards
+# Python Standards
 
-## Code Style
-- Follow PEP 8; enforced by Ruff (linter + formatter)
-- Line length: 88 characters (Black/Ruff default)
-- Double quotes for strings (Ruff default)
-- Two blank lines between top-level definitions; one between methods
-- Imports: stdlib → third-party → internal, each group separated by blank line
-- Absolute imports preferred over relative imports
+## Baseline
 
-## Type Hints (Required)
-- Type hints on ALL public functions, methods, and class attributes
-- Use `from __future__ import annotations` for forward references (Python 3.10+)
-- Use `X | Y` union syntax (not `Union[X, Y]`)
-- Use `X | None` (not `Optional[X]`)
-- Use `list[T]`, `dict[K, V]`, `tuple[T, ...]` (not `List`, `Dict`, `Tuple`)
-- Strict mypy configuration: `strict = true` in `pyproject.toml`
+- New services target **Python 3.14** (`requires-python = ">=3.14"`, `.python-version` = `3.14`).
+  Libraries support **3.13+** unless a consumer needs older.
+- 3.13 moves to security-only fixes on 1 Oct 2026; plan upgrades off 3.12 and earlier now.
+- Python 3.15.0 is due 1 Oct 2026 — adopt it once your dependencies publish 3.15 wheels.
+- Annotations are evaluated lazily on 3.14 (PEP 649). **Do not add `from __future__ import
+  annotations`** — forward references work unquoted, and the future import turns annotations
+  into strings that break runtime introspection (Pydantic, FastAPI dependencies, dataclass tools)
+  for locally scoped types. Use `annotationlib` when you must read annotations yourself.
+- Libraries that still support 3.13 quote the few forward references they need instead of
+  adding the future import.
+- Free-threaded builds (`python3.14t`) are officially supported but opt-in. Use them for
+  CPU-bound work only after confirming every C extension declares free-threading support.
 
-```python
-# Preferred
-def get_user(user_id: int, include_deleted: bool = False) -> User | None:
-    ...
+## Toolchain
 
-# Avoid
-def get_user(user_id, include_deleted=False):
-    ...
+- **uv** is the package and project manager. Commit `uv.lock`; install with `uv sync --locked`
+  in CI and images; add deps with `uv add` (never hand-edit the lock). `uv lock --check` fails
+  CI when `pyproject.toml` and the lock drift apart.
+- Use `[dependency-groups]` (PEP 735) for `dev`/`test` tooling, not optional extras.
+- Build backend `uv_build` with the `src/` layout; metadata lives in the `[project]` table.
+  No `setup.py`, `setup.cfg`, `Pipfile`, or unpinned `requirements.txt` for new work —
+  export requirements from the lock only when a tool needs them.
+- **ruff** is the only linter and formatter (replaces black, isort, flake8, bandit plugins).
+  Keep the 0.16 defaults and add `S` (security), `T20` (no `print`), `ASYNC`, `BLE`
+  (blind `except`). Run `ruff format --check` and `ruff check` in CI.
+- Type checking is required: `mypy --strict` or pyright in strict mode. `ty` (Astral) is
+  still beta — fine as an extra fast editor check, not as the CI gate yet.
+- Vulnerability scanning: `pip-audit` against a hashed export of `uv.lock` in CI; `uv audit`
+  (preview) may replace it once stable. Add a minimum release age (`exclude-newer`) per
+  `security-supply-chain`.
+- Pre-commit hooks: ruff format, ruff check, type checker. Keep slow tests out of hooks.
+- `reference/tooling.md` — Read when writing `pyproject.toml`, ruff/mypy/pytest config, the
+  Dockerfile, or the CI job.
+
+## Style and naming
+
+- PEP 8 via `ruff format`: 88 columns, double quotes. Imports stdlib → third-party → local
+  (ruff `I`); absolute imports inside the package.
+- `snake_case` functions/variables/modules, `PascalCase` classes, `SCREAMING_SNAKE_CASE`
+  module constants, `_leading_underscore` for internals. Avoid `__name_mangling`.
+- Annotate every public function, method, and attribute. Use `X | None`, `list[T]`,
+  `dict[K, V]`, PEP 695 generics (`def first[T](xs: list[T]) -> T`, `type UserId = int`).
+- Prefer `@dataclass(frozen=True, slots=True)` for domain value objects, Pydantic models only
+  at boundaries (HTTP, messages, settings). `enum.StrEnum` for closed string sets.
+- `pathlib.Path` over `os.path`; `match` for branching on shapes; `typing.assert_never` to make
+  `match` over unions exhaustive.
+
+## Structure
+
+Feature folders, hexagonal inside each feature. Domain and application code never import
+FastAPI, SQLAlchemy, httpx, boto3, or any vendor SDK — those live in adapters behind ports.
+
 ```
-
-## Naming Conventions
-- Variables / functions / methods: `snake_case`
-- Classes: `PascalCase`
-- Constants: `SCREAMING_SNAKE_CASE` at module level
-- Private: `_single_underscore` prefix
-- "Truly private" (name mangling): `__double_underscore` — rarely needed
-- Type variables: `T`, `UserT`, `EntityT`
-
-## Project Structure
-```
-src/
-├── package_name/
-│   ├── __init__.py
-│   ├── api/            # FastAPI routers / Django views
-│   ├── core/           # Business logic (no framework deps)
-│   ├── models/         # Domain models / ORM models
-│   ├── repositories/   # Data access
-│   ├── services/       # Application services
-│   ├── schemas/        # Pydantic models (request/response DTOs)
-│   └── config.py       # Settings via pydantic-settings
+src/orders_service/
+├── main.py                    # app factory: lifespan, routers, exception handlers
+├── config.py                  # pydantic-settings Settings (env only, no secrets in code)
+├── shared/                    # logging, telemetry, db engine/session, base DomainError
+└── features/
+    └── orders/
+        ├── domain/            # entities, value objects, domain errors (stdlib only)
+        ├── application/       # use cases + ports (typing.Protocol)
+        └── adapters/
+            ├── http.py        # APIRouter, request/response schemas, dependencies
+            ├── persistence.py # SQLAlchemy repository implementing the port
+            └── customers.py   # httpx client implementing an outbound port
 tests/
-├── unit/
-├── integration/
-└── conftest.py
+├── unit/orders/               # use cases with in-memory fakes
+└── integration/               # HTTP + real Postgres (Testcontainers)
 ```
 
-## FastAPI Conventions
-- Use Pydantic v2 models for all request/response schemas
-- Annotate path operations with response models: `response_model=UserResponse`
-- Dependency injection via `Depends()` for services, auth, DB sessions
-- Use `APIRouter` grouped by feature; include in main `app` with prefix
-- Lifespan context manager for startup/shutdown (not deprecated events)
-- Background tasks for fire-and-forget work: `BackgroundTasks`
-- Structured error handling: `HTTPException` for HTTP errors; custom exception handlers
+- Ports are `typing.Protocol` classes owned by `application/`; adapters implement them.
+- Wire concrete adapters in one composition root (`main.py` lifespan + FastAPI `Depends`
+  providers). Use cases receive ports through `__init__`, never import adapters.
+- Configuration via `pydantic-settings`; validate at startup and fail fast.
+- `reference/fastapi-hexagonal.md` — Read when adding a feature end to end (domain, use case,
+  router, repository, error mapping, tests).
 
-```python
-@router.get("/users/{user_id}", response_model=UserResponse)
-async def get_user(
-    user_id: UUID,
-    service: Annotated[UserService, Depends(get_user_service)],
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> UserResponse:
-    user = await service.get_by_id(user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return UserResponse.model_validate(user)
-```
+## FastAPI
 
-## Django Conventions (if applicable)
-- Fat models / thin views is outdated — use service layer for business logic
-- No raw SQL in views; use ORM queryset methods
-- `select_related` / `prefetch_related` to prevent N+1 queries
-- Class-based views for standard CRUD; function views for complex custom logic
-- Use `django-ninja` or DRF for APIs; prefer `django-ninja` for new projects (Pydantic-native)
+- Pydantic v2 models for every request and response; return type annotations drive the
+  response model. Constrain inputs (`Field(gt=0, max_length=...)`, `EmailStr`, `UUID`).
+- `Annotated[T, Depends(provider)]` for sessions, auth, and use cases; one `APIRouter` per
+  feature, included with a prefix and tags.
+- Use the `lifespan` context manager for startup/shutdown; `on_event` is deprecated.
+- Code after `yield` in a dependency runs after the response is sent by default. Declare the
+  session/transaction dependency with `Depends(get_session, scope="function")` (FastAPI
+  ≥0.121) so commit or rollback finishes before the client sees a 2xx.
+- Routers translate HTTP ↔ commands and call a use case — no business logic, no ORM queries.
+- Derive the acting user from the verified token dependency, never from body or query params.
+- `BackgroundTasks` runs in-process after the response and is lost on restart or crash. Use it
+  only for best-effort work (a cache warm-up). Work that must happen (emails, payments,
+  webhooks) goes to a durable queue — **arq**, **Celery**, or **Dramatiq** — ideally via a
+  transactional outbox, with idempotent handlers and retries.
+- Django: keep business logic in services/use cases, not views or models; `select_related` /
+  `prefetch_related` against N+1; django-ninja (Pydantic-native) or DRF for APIs.
 
-## SQLAlchemy / Databases
-- Use SQLAlchemy 2.x with `async` session
-- Alembic for migrations — never auto-migrate in production
-- Use `select()` syntax (not legacy `session.query()`)
-- Explicit `async with session.begin()` transaction boundaries in services
-- No ORM calls in domain/core layer — use repository pattern
+## Errors
 
-## Error Handling
-- Use custom exception classes for domain errors
-- Never catch `Exception` without logging and re-raising or handling
-- Use `contextlib.suppress()` only for truly ignorable errors
-- Structured logging with `structlog` or `logging` (JSON format for production)
+- Define a typed hierarchy: `DomainError` base in `shared/`, specific subclasses per feature
+  (`OrderNotFound`, `CustomerBlocked`) carrying structured fields, not formatted strings.
+- Raise domain errors from domain/application code; map them to HTTP **once** with
+  `app.add_exception_handler(DomainError, ...)` returning RFC 9457 problem JSON.
+- `HTTPException` belongs only in the HTTP adapter (for example, auth failures). Never raise it
+  from use cases.
+- When the caller must branch on outcomes, return a union of result dataclasses and handle it
+  with an exhaustive `match` + `assert_never` instead of exceptions for control flow.
+- Never `except Exception: pass`. Catch the narrowest type, log with context, then re-raise or
+  translate (`raise OrderStoreUnavailable() from exc`). Use `except*` with `ExceptionGroup`
+  from `TaskGroup`.
+- The unhandled-exception handler logs the traceback and returns a generic 500 — no stack traces
+  or internal messages in responses.
 
-## Testing (pytest)
-- pytest with `pytest-asyncio` for async tests
-- `httpx.AsyncClient` for FastAPI integration tests (not TestClient for async routes)
-- Fixtures for database sessions with transaction rollback
-- `factory_boy` for test data factories
-- `pytest-cov` for coverage; target ≥ 85% for business logic
-- Test file naming: `test_<module>.py`; test functions: `test_does_x_when_y()`
-- Use `pytest.mark.parametrize` for data-driven tests
+## Concurrency and runtime
 
-## Modern Python Features (Python 3.12+)
-- `dataclasses` with `frozen=True` for value objects
-- `@dataclass(slots=True)` for memory efficiency
-- `tomllib` for TOML parsing (stdlib in 3.11+)
-- `asyncio.TaskGroup` for structured concurrency
-- Match/case (structural pattern matching) for complex conditionals
-- `pathlib.Path` everywhere — never `os.path`
-- `pydantic-settings` for environment variable configuration
+- Never block the event loop in `async def`: no `requests`, `time.sleep`, sync DB drivers, or
+  heavy CPU work. Use async clients (httpx, psycopg/asyncpg), `asyncio.to_thread` for
+  unavoidable blocking I/O, or a plain `def` endpoint (FastAPI runs it in a threadpool).
+- Structured concurrency with `asyncio.TaskGroup`; no orphaned `create_task` without a stored
+  reference and error handling. Bound every external call with `asyncio.timeout(...)` and
+  client-level timeouts.
+- CPU-bound parallelism: `ProcessPoolExecutor`, `InterpreterPoolExecutor` (3.14, PEP 734), or
+  the free-threaded build once dependencies support it.
+- One `httpx.AsyncClient` and one SQLAlchemy `AsyncEngine` per process, created in `lifespan`
+  and closed on shutdown. One `AsyncSession` per request/unit of work.
+- SQLAlchemy 2.x `select()` style only; explicit `async with session.begin()` boundaries in
+  use cases or a unit-of-work adapter. Alembic migrations run as a separate deploy step, never
+  on app startup (`db-migrations`).
+- Run with `uvicorn` (or `fastapi run`) behind the platform's process manager; expose liveness
+  and readiness endpoints; handle SIGTERM gracefully.
 
-## Tooling
-- Package manager: `uv` (preferred) or `poetry`
-- Linter + formatter: `ruff` (replaces flake8, isort, black)
-- Type checker: `mypy` in strict mode or `pyright`
-- Pre-commit hooks: ruff + mypy + pytest (fast tests only)
+## Security
+
+- SQL only through SQLAlchemy expressions or bound parameters (`text("... :id").bindparams`).
+  Never f-strings or `%` formatting into SQL, shell commands, or file paths.
+- `subprocess.run([...], shell=False)` with an argument list; validate anything user-derived.
+- Never `pickle`, `marshal`, `shelve`, or `yaml.load` on untrusted data — use
+  `yaml.safe_load` and Pydantic validation. No `eval`/`exec`.
+- Passwords: Argon2 via `pwdlib` or `argon2-cffi` (`passlib` is unmaintained). Tokens from
+  `secrets`, never `random`.
+- Settings read secrets from the environment / secret manager via `pydantic-settings`
+  (`SecretStr`); never log them. Keep `.env` out of git; ship `.env.example`.
+- Outbound HTTP: verify TLS (httpx default), set timeouts, allow-list hosts for any
+  user-supplied URL (SSRF). Deeper review: `security-sast` → `reference/python.md`.
+
+## Observability
+
+- Use `logging` or `structlog` configured once at startup; JSON output in production,
+  console renderer locally. **Never `print`** (ruff `T20` enforces it).
+- Log with key/value context (`log.info("order_placed", order_id=...)`), not f-string
+  messages; bind request/trace IDs per request. Never log tokens, passwords, or PII.
+- OpenTelemetry: `opentelemetry-distro` + `opentelemetry-exporter-otlp`, and
+  `opentelemetry-instrumentation-fastapi` (plus SQLAlchemy/httpx instrumentations) or run under
+  `opentelemetry-instrument`. Configure via `OTEL_*` env vars; correlate logs with trace IDs.
+- Metrics for queue depth, job failures, and external-call latency; health endpoints excluded
+  from tracing noise.
+
+## Testing
+
+- pytest 9 with `pytest-cov`; target ≥ 85 % on domain/application code. Names:
+  `tests/.../test_<module>.py`, `test_<does_x>_when_<y>()`. `pytest.mark.parametrize` for tables.
+- Unit-test use cases with in-memory fakes implementing the ports — no mocks of your own
+  domain, no database.
+- FastAPI `TestClient` works for sync **and** async endpoints — use it by default, as
+  `with TestClient(app) as client:` so lifespan runs. Use
+  `httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test")` only when the
+  test itself is `async` (mark with `@pytest.mark.anyio`); wrap the app in
+  `asgi_lifespan.LifespanManager` when that test needs lifespan.
+- Swap adapters with `app.dependency_overrides`, and clear them after each test.
+- Integration tests hit real Postgres via `testcontainers[postgres]` with Alembic migrations
+  applied; isolate with a transaction rolled back per test or a truncate fixture.
+- Test the security paths: 401 without a token, 403/404 for another user's resource,
+  422 for invalid payloads.
+
+_Versions verified September 2026._

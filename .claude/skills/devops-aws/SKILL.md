@@ -1,487 +1,162 @@
 ---
 name: devops-aws
-description: AWS deployment standards — ECS Fargate, EKS, Lambda, RDS, S3/CloudFront, ECR, ALB, VPC, IAM/OIDC, Secrets Manager, CloudWatch, Terraform, CDK. Use when deploying to or writing infrastructure for AWS.
+description: AWS deployment standards — multi-account Organizations with SCPs and IAM Identity Center, ECS Fargate on Graviton with render-and-deploy task definitions, EKS, Lambda, Aurora PostgreSQL 17/18 serverless, S3 + CloudFront with OAC, ECR, GitHub OIDC, Secrets Manager, AWS Backup, and ADOT/CloudWatch. Targets Terraform AWS provider 6.x, CDK v2 and SAM. Use when designing, writing, or reviewing AWS infrastructure, CDK/SAM apps, or AWS deploy pipelines.
 paths:
-  - "**/terraform/**/*.tf"
-  - "**/*.tf"
-  - "**/*.tfvars"
-  - "**/cdk/**/*.ts"
-  - "**/cdk/**/*.py"
-  - "**/*-task-definition*.json"
-  - "**/ecs*.json"
-  - "**/appspec.yml"
-  - "**/buildspec.yml"
-  - "**/.github/workflows/cd-aws*.yml"
-  - "**/.github/workflows/*aws*.yml"
+  - "**/aws/**"
+  - "**/cdk.json"
+  - "**/samconfig.toml"
 ---
 
 # AWS Deployment Standards
 
-## Architecture Patterns
+AWS-specific architecture and resources. Generic IaC rules (state backends, module layout, plan
+review, drift) are in `devops-terraform`; Kubernetes workload rules for EKS are in
+`devops-kubernetes`; pipeline hygiene is in `devops-cicd`; telemetry conventions are in
+`devops-observability`.
 
-### Container Workloads → ECS Fargate (default)
+## Baseline and toolchain (September 2026)
+
+- Terraform ≥ 1.11 (S3 native locking GA) with `hashicorp/aws ~> 6.0` (6.66 current) and
+  `terraform-aws-modules/vpc/aws ~> 6.0`. State: S3 backend with `use_lockfile = true`; no
+  DynamoDB lock table (`dynamodb_table` is deprecated). See `devops-terraform` for the rest.
+- CDK: `aws-cdk-lib` v2 (2.27x), TypeScript, `cdk-nag` in synth. SAM CLI 1.16x for Lambda-only apps.
+- Aurora PostgreSQL 17 or 18 (18.4 current). Never start new clusters on 15 or older.
+- Compute defaults to Graviton (ARM64) — Fargate, Lambda, RDS, ElastiCache — unless a dependency
+  ships x86-only binaries.
+- GitHub Actions: `aws-actions/configure-aws-credentials` v6, `amazon-ecr-login` v2,
+  `amazon-ecs-render-task-definition` v1, `amazon-ecs-deploy-task-definition` v2 — pinned by SHA.
+
+## Account structure
+
+- One AWS Organization; workloads never run in the management account.
+- OU layout: `Security` (log archive, audit/delegated admin), `Infrastructure` (network, shared
+  services), `Workloads/{Prod,NonProd}`, `Sandbox`. One account per environment per workload.
+- Use Control Tower (or Account Factory for Terraform) to vend accounts with baseline guardrails.
+- SCPs deny at minimum: leaving the organization, disabling CloudTrail/Config/GuardDuty/Security
+  Hub, unapproved regions, and root-user actions. Resource control policies (RCPs) restrict
+  external access to S3, KMS, Secrets Manager and STS.
+- Humans sign in via IAM Identity Center with permission sets mapped to IdP groups. No IAM users,
+  no long-lived access keys. Break-glass access is audited and alarmed.
+- CI assumes roles via GitHub OIDC; one deploy role per account/environment.
+
+Read `reference/organization.md` when writing SCPs, Identity Center assignments, or AWS Backup.
+
+## Architecture defaults
+
 ```
-Route 53 → CloudFront (CDN + WAF)
-              ↓
-         ALB (HTTPS, path routing)
-              ↓
-     ECS Fargate Service (auto-scaling)
-         ↓              ↓
-  Task Definition    Task Definition
-  (app container)   (sidecar: datadog/otel)
-              ↓
-  RDS Aurora PostgreSQL (private subnet)
-  ElastiCache Redis     (private subnet)
-```
-
-### Kubernetes Workloads → EKS
-Use EKS when: multi-team platform, advanced scheduling, GitOps, or existing Kubernetes expertise.
-Use ECS Fargate when: single team, simplicity preferred, AWS-native tooling sufficient.
-
-### Serverless → Lambda
-Use Lambda for: async event processing, scheduled jobs, lightweight APIs (< 15 min timeout, < 10k RPS).
-
----
-
-## Infrastructure as Code (Terraform)
-
-### Repository structure
-```
-infrastructure/
-├── modules/
-│   ├── ecs-service/         # Reusable ECS service module
-│   ├── rds-postgres/        # RDS PostgreSQL module
-│   ├── vpc/                 # VPC with public/private subnets
-│   └── ecr/                 # ECR repository module
-├── environments/
-│   ├── staging/
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── terraform.tfvars
-│   └── production/
-│       ├── main.tf
-│       ├── variables.tf
-│       └── terraform.tfvars
-├── backend.tf               # S3 remote state + DynamoDB locking
-└── providers.tf
+Route 53 → CloudFront (WAF, ACM cert, TLSv1.2_2025) → ALB (HTTPS) → ECS Fargate (ARM64, private subnets)
+                                                               ↓
+                                        Aurora PostgreSQL · ElastiCache (private subnets)
 ```
 
-### Remote state (required for team use)
-```hcl
-# backend.tf
-terraform {
-  backend "s3" {
-    bucket         = "myapp-terraform-state"
-    key            = "environments/production/terraform.tfstate"
-    region         = "eu-west-1"
-    encrypt        = true
-    dynamodb_table = "myapp-terraform-locks"
-  }
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-  required_version = ">= 1.6"
-}
-```
-
-### VPC (always use private subnets for app + DB)
-```hcl
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
-
-  name = "${var.app_name}-${var.environment}"
-  cidr = "10.0.0.0/16"
-
-  azs             = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
-  public_subnets  = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-  private_subnets = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
-
-  enable_nat_gateway     = true
-  single_nat_gateway     = var.environment == "staging"  # Cost saving in staging
-  enable_dns_hostnames   = true
-  enable_dns_support     = true
-}
-```
-
-### ECS Fargate service
-```hcl
-resource "aws_ecs_task_definition" "app" {
-  family                   = "${var.app_name}-${var.environment}"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = var.task_cpu
-  memory                   = var.task_memory
-  execution_role_arn       = aws_iam_role.ecs_execution.arn
-  task_role_arn            = aws_iam_role.ecs_task.arn
-
-  container_definitions = jsonencode([{
-    name      = var.app_name
-    image     = "${aws_ecr_repository.app.repository_url}:${var.image_tag}"
-    essential = true
-
-    portMappings = [{ containerPort = var.container_port, protocol = "tcp" }]
-
-    environment = [
-      { name = "NODE_ENV",  value = var.environment },
-      { name = "PORT",      value = tostring(var.container_port) }
-    ]
-
-    secrets = [
-      { name = "DATABASE_URL", valueFrom = "${aws_secretsmanager_secret.db_url.arn}" },
-      { name = "JWT_SECRET",   valueFrom = "${aws_secretsmanager_secret.jwt.arn}" }
-    ]
-
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        awslogs-group         = "/ecs/${var.app_name}/${var.environment}"
-        awslogs-region        = var.aws_region
-        awslogs-stream-prefix = "ecs"
-      }
-    }
-
-    healthCheck = {
-      command     = ["CMD-SHELL", "wget -qO- http://localhost:${var.container_port}/health/live || exit 1"]
-      interval    = 30
-      timeout     = 10
-      retries     = 3
-      startPeriod = 60
-    }
-  }])
-}
-
-resource "aws_ecs_service" "app" {
-  name            = "${var.app_name}-${var.environment}"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.app.arn
-  desired_count   = var.desired_count
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = module.vpc.private_subnets
-    security_groups  = [aws_security_group.ecs_tasks.id]
-    assign_public_ip = false
-  }
-
-  load_balancer {
-    target_group_arn = aws_lb_target_group.app.arn
-    container_name   = var.app_name
-    container_port   = var.container_port
-  }
-
-  deployment_circuit_breaker {
-    enable   = true
-    rollback = true    # Auto-rollback on deployment failure
-  }
-
-  lifecycle {
-    ignore_changes = [task_definition]  # Managed by CI/CD, not Terraform
-  }
-}
-```
-
----
-
-## Container Registry (ECR)
-
-```hcl
-resource "aws_ecr_repository" "app" {
-  name                 = "${var.app_name}-${var.environment}"
-  image_tag_mutability = "IMMUTABLE"  # Prevent tag overwriting
-
-  image_scanning_configuration {
-    scan_on_push = true    # Vulnerability scan on every push
-  }
-
-  encryption_configuration {
-    encryption_type = "AES256"
-  }
-}
-
-resource "aws_ecr_lifecycle_policy" "app" {
-  repository = aws_ecr_repository.app.name
-  policy = jsonencode({
-    rules = [{
-      rulePriority = 1
-      description  = "Keep last 10 images"
-      selection = {
-        tagStatus   = "any"
-        countType   = "imageCountMoreThan"
-        countNumber = 10
-      }
-      action = { type = "expire" }
-    }]
-  })
-}
-```
-
----
-
-## GitHub Actions — OIDC Authentication (no long-lived credentials)
-
-```hcl
-# One-time Terraform setup — create OIDC provider
-resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
-}
-
-resource "aws_iam_role" "github_actions_deploy" {
-  name = "github-actions-deploy-${var.environment}"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Federated = aws_iam_openid_connect_provider.github.arn }
-      Action    = "sts:AssumeRoleWithWebIdentity"
-      Condition = {
-        StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/${var.github_repo}:*"
-        }
-        StringEquals = {
-          "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-        }
-      }
-    }]
-  })
-}
-
-# Attach only necessary permissions (least privilege)
-resource "aws_iam_role_policy" "deploy" {
-  role = aws_iam_role.github_actions_deploy.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["ecr:GetAuthorizationToken"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["ecr:BatchCheckLayerAvailability", "ecr:PutImage", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload"]
-        Resource = aws_ecr_repository.app.arn
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["ecs:UpdateService", "ecs:DescribeServices"]
-        Resource = aws_ecs_service.app.id
-      }
-    ]
-  })
-}
-```
-
-```yaml
-# .github/workflows/cd-production.yml
-name: Deploy to Production (AWS)
-
-on:
-  push:
-    tags: ["v*"]
-
-permissions:
-  id-token: write
-  contents: read
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    environment: production
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC — no stored secrets)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
-
-      - name: Login to ECR
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push image
-        run: |
-          IMAGE_URI="${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}"
-          docker build -t "$IMAGE_URI" .
-          docker push "$IMAGE_URI"
-          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
-
-      - name: Deploy to ECS
-        run: |
-          aws ecs update-service \
-            --cluster "${{ vars.ECS_CLUSTER }}" \
-            --service "${{ vars.ECS_SERVICE }}" \
-            --force-new-deployment
-
-      - name: Wait for deployment
-        run: |
-          aws ecs wait services-stable \
-            --cluster "${{ vars.ECS_CLUSTER }}" \
-            --services "${{ vars.ECS_SERVICE }}"
-```
-
----
-
-## Secrets Management (AWS Secrets Manager)
-
-```hcl
-resource "aws_secretsmanager_secret" "db_url" {
-  name                    = "/${var.app_name}/${var.environment}/database-url"
-  recovery_window_in_days = var.environment == "production" ? 30 : 0
-}
-
-resource "aws_secretsmanager_secret_version" "db_url" {
-  secret_id     = aws_secretsmanager_secret.db_url.id
-  secret_string = "postgresql://${var.db_user}:${var.db_password}@${aws_db_instance.main.endpoint}/${var.db_name}"
-}
-```
-
-**Rules:**
-- Use Secrets Manager for sensitive values (DB passwords, API keys, JWT secrets)
-- Use Parameter Store (SSM) for non-sensitive config (feature flags, URLs, timeouts)
-- Never inject secrets as environment variables in ECS task definition plain text — use `secrets` array with ARN reference
-- Rotate secrets automatically: enable Rotation in Secrets Manager for DB credentials
-
----
-
-## Database (RDS Aurora Serverless v2)
-
-```hcl
-resource "aws_rds_cluster" "main" {
-  cluster_identifier      = "${var.app_name}-${var.environment}"
-  engine                  = "aurora-postgresql"
-  engine_version          = "15.4"
-  database_name           = var.db_name
-  master_username         = var.db_user
-  manage_master_user_password = true   # Automatic rotation via Secrets Manager
-
-  serverlessv2_scaling_configuration {
-    min_capacity = var.environment == "production" ? 0.5 : 0.5
-    max_capacity = var.environment == "production" ? 16  : 4
-  }
-
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  vpc_security_group_ids = [aws_security_group.rds.id]
-
-  backup_retention_period      = var.environment == "production" ? 35 : 7
-  preferred_backup_window      = "03:00-04:00"
-  deletion_protection          = var.environment == "production"
-  skip_final_snapshot          = var.environment != "production"
-
-  enabled_cloudwatch_logs_exports = ["postgresql"]
-}
-```
-
----
-
-## Static Frontend (S3 + CloudFront)
-
-```hcl
-resource "aws_s3_bucket" "frontend" {
-  bucket = "${var.app_name}-frontend-${var.environment}"
-}
-
-resource "aws_cloudfront_distribution" "frontend" {
-  enabled             = true
-  default_root_object = "index.html"
-
-  origin {
-    domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
-    origin_id                = "S3-${aws_s3_bucket.frontend.id}"
-    origin_access_control_id = aws_cloudfront_origin_access_control.main.id
-  }
-
-  default_cache_behavior {
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "S3-${aws_s3_bucket.frontend.id}"
-    viewer_protocol_policy = "redirect-to-https"
-    compress               = true
-
-    forwarded_values {
-      query_string = false
-      cookies { forward = "none" }
-    }
-
-    # Long cache for hashed assets; short for index.html
-    min_ttl     = 0
-    default_ttl = 86400
-    max_ttl     = 31536000
-  }
-
-  # SPA routing — return index.html for 404/403
-  custom_error_response {
-    error_code         = 404
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
-
-  restrictions { geo_restriction { restriction_type = "none" } }
-  viewer_certificate { cloudfront_default_certificate = true }
-}
-```
-
----
-
-## Monitoring (CloudWatch)
-
-```hcl
-# ECS service alarm — rollback if error rate spikes
-resource "aws_cloudwatch_metric_alarm" "ecs_error_rate" {
-  alarm_name          = "${var.app_name}-${var.environment}-high-error-rate"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 2
-  metric_name         = "HTTPCode_Target_5XX_Count"
-  namespace           = "AWS/ApplicationELB"
-  period              = 60
-  statistic           = "Sum"
-  threshold           = 10
-  alarm_actions       = [aws_sns_topic.alerts.arn]
-
-  dimensions = {
-    LoadBalancer = aws_lb.main.arn_suffix
-    TargetGroup  = aws_lb_target_group.app.arn_suffix
-  }
-}
-```
-
-```yaml
-# Application-level structured logging (ships to CloudWatch Logs Insights)
-# Use this query to find errors in production:
-# fields @timestamp, @message
-# | filter level = "error"
-# | sort @timestamp desc
-# | limit 100
-```
-
----
-
-## Cost Optimization
-
-- Use Fargate Spot for non-critical workloads (staging, batch jobs): up to 70% savings
-- Aurora Serverless v2 scales to 0 ACUs when idle (staging environment)
-- S3 Intelligent-Tiering for objects > 128KB not accessed frequently
-- Reserved instances for production RDS if usage is predictable
-- Enable AWS Cost Anomaly Detection with budget alerts
-
----
-
-## Security Checklist
-
-- [ ] All resources in private subnets; only ALB in public subnet
-- [ ] Security groups follow least-privilege (app SG only allows ALB SG; RDS SG only allows app SG)
-- [ ] No EC2 key pairs or direct SSH access — use AWS Systems Manager Session Manager
-- [ ] ECS tasks use task roles (not execution roles) for application AWS API calls
-- [ ] ECR image scanning enabled; block deployment if CRITICAL CVEs found
-- [ ] CloudTrail enabled in all regions; logs to S3 with integrity validation
-- [ ] AWS Config enabled for compliance drift detection
-- [ ] WAF attached to CloudFront and ALB in production
-- [ ] Database encryption at rest (enabled by default in RDS) and in transit (force SSL)
+- **ECS Fargate** is the default for containers: one team, AWS-native tooling, no cluster ops.
+- **EKS** when you need a multi-team platform, custom schedulers/operators, or GitOps across
+  clouds. Use EKS Auto Mode or Karpenter; EKS Pod Identity for AWS access; manifests follow
+  `devops-kubernetes`.
+- **Lambda** for event-driven and scheduled work (≤ 15 min). ARM64, provisioned concurrency only
+  where cold starts are measured to matter. Powertools for structured logs/tracing.
+- **Static frontends**: private S3 bucket + CloudFront with Origin Access Control.
+
+## ECS Fargate
+
+- Task definitions: `runtime_platform { cpu_architecture = "ARM64" }`, `awsvpc`, private subnets,
+  `assign_public_ip = false`, read-only root filesystem, non-root user, health check.
+- Secrets reach containers only through the `secrets` array (Secrets Manager / SSM ARNs); never
+  plain `environment` values.
+- Separate roles: the **execution role** pulls images and reads referenced secrets; the **task
+  role** carries the application's AWS permissions.
+- Deployments: Terraform creates the service and the initial task definition and sets
+  `lifecycle { ignore_changes = [task_definition] }`. CI registers each release as a new task
+  definition revision and updates the service (render → deploy). `update-service
+  --force-new-deployment` alone reuses the old revision and never ships a new image.
+- Enable the deployment circuit breaker with rollback. For zero-downtime validation use ECS native
+  blue/green (`deployment_configuration { strategy = "BLUE_GREEN" }`) — no CodeDeploy needed.
+- Fargate Spot for non-critical services and batch via capacity provider strategy.
+
+Read `reference/ecs-fargate.md` when writing task definitions, services, or ECR repositories.
+Read `reference/github-deploy.md` when writing the OIDC trust, deploy role, or the ECS deploy workflow.
+
+## Data
+
+- Aurora PostgreSQL serverless: `min_capacity = 0` with `seconds_until_auto_pause` for
+  non-production (true scale to zero; requires 13.15+/14.12+/15.7+/16.3+ and provider ≥ 5.81);
+  production keeps a warm minimum.
+- `manage_master_user_password = true` — RDS creates and rotates the master secret. Never pass a
+  password variable, never compose connection strings containing passwords in Terraform (it lands
+  in state). Applications use IAM database authentication or a dedicated app user whose secret is
+  rotated by Secrets Manager.
+- `storage_encrypted`, `deletion_protection` and final snapshots in production; enforce TLS with
+  `rds.force_ssl = 1`.
+- Secrets Manager for credentials and API keys; SSM Parameter Store for non-secret config.
+- S3: Block Public Access at account and bucket level, bucket-owner-enforced ownership, SSE-KMS
+  for sensitive data, versioning + lifecycle rules.
+
+Read `reference/data-and-edge.md` when writing Aurora, Secrets Manager, S3, or CloudFront resources.
+
+## Edge
+
+- CloudFront with an ACM certificate (us-east-1), `minimum_protocol_version = "TLSv1.2_2025"`
+  (or `TLSv1.3_2025` when all clients support it), `sni-only`.
+- Use managed cache policies (`Managed-CachingOptimized`, `Managed-CachingDisabled`) and origin
+  request policies via `cache_policy_id`; `forwarded_values` is legacy.
+- S3 origins use OAC (`origin_access_control_id`) with a bucket policy scoped to the distribution
+  ARN. Legacy OAI is not used for new distributions.
+- AWS WAF managed rule groups on CloudFront and public ALBs in production.
+
+## Networking
+
+- VPC per account/environment, three AZs, private subnets for tasks and data; only load
+  balancers in public subnets.
+- NAT gateway per AZ in production; single NAT in non-production. Add VPC endpoints (S3, ECR,
+  Secrets Manager, CloudWatch Logs, STS) to cut NAT cost and keep traffic private.
+- Security groups reference other security groups, never `0.0.0.0/0` on data tiers.
+- Shell access through SSM Session Manager or ECS Exec; no SSH keys, no bastions with public IPs.
+
+## Supply chain
+
+- ECR: `IMMUTABLE` tags, enhanced scanning (Amazon Inspector), lifecycle policy, KMS encryption.
+- Deploy by digest (`repo@sha256:…`), never `:latest`. Sign images and attach provenance
+  (see `devops-cicd`).
+- Pin CDK/SAM CLI and Lambda layer versions; commit `cdk.context.json`.
+
+## Security
+
+- Least privilege: scope IAM actions to resource ARNs; `iam:PassRole` only for the specific task
+  roles with `iam:PassedToService`.
+- GitHub OIDC trust: `aud = sts.amazonaws.com` and `sub` pinned to
+  `repo:<org>/<repo>:environment:<env>` — never `repo:<org>/<repo>:*`. The OIDC provider needs no
+  `thumbprint_list`.
+- Organization-wide CloudTrail (with log file validation) to the log-archive account; GuardDuty,
+  Security Hub, IAM Access Analyzer and AWS Config via delegated admin.
+- KMS customer-managed keys for regulated data with key policies naming the consuming roles.
+- Backups: AWS Backup plans selected by tag, vault lock in compliance mode for production,
+  copies to a separate account (or a logically air-gapped vault) and region; test restores quarterly.
+
+## Observability
+
+- Apps emit OpenTelemetry (see `devops-observability`). On ECS run the ADOT Collector as a
+  sidecar or use CloudWatch Application Signals; on EKS use the ADOT add-on.
+- Container logs: `awslogs` driver (or FireLens for routing) with a retention period set on every
+  log group — never infinite retention.
+- Alarms on ALB 5xx rate, target response time, ECS CPU/memory, Aurora ACU/connections, and DLQ
+  depth; wire critical alarms to the deployment (circuit breaker / blue-green rollback).
+- CloudWatch Logs Insights for structured JSON queries; include trace IDs in every log line.
+
+## Cost
+
+- Graviton everywhere possible; Fargate Spot and Aurora scale-to-zero outside production.
+- Savings Plans / reserved capacity only after 2–3 months of steady usage data.
+- Cost allocation tags via provider `default_tags`; AWS Budgets and Cost Anomaly Detection per
+  account.
+- S3 Intelligent-Tiering for large, unpredictably accessed data; VPC endpoints over NAT for
+  high-volume AWS API traffic.
+
+## Testing
+
+- `terraform test` / `tofu test` for modules (see `devops-terraform`); CDK assertions
+  (`Template.fromStack`) and `cdk-nag` for CDK.
+- Checkov or Trivy config scans in CI; IAM Access Analyzer policy validation for new policies.
+- Ephemeral sandbox accounts for apply-mode tests; destroy after the run.
+- Game days: restore from AWS Backup, fail an AZ, roll back a blue/green deployment.
+
+_Versions verified September 2026._

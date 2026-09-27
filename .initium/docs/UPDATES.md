@@ -19,6 +19,49 @@ See [.initium/docs/sync-guide.md](.initium/docs/sync-guide.md) for the full guid
 
 ---
 
+## v1.4.0 — Skills refresh: current versions, safer examples, 11 new skills
+
+**Date:** 2026-09-27
+**Commit:** (set by release)
+**Severity:** MINOR (one optional merge)
+
+### Why
+- An audit of all 37 skills found that most were written against 2023–2024 releases (Java 21,
+  .NET 8, Angular 17, Next.js 15, React Native before the New Architecture, Kotlin 1.9), and
+  several examples were unsafe or broken when copied: an unpinned `trivy-action@master` (the
+  action compromised in March 2026), a prototype-pollution "fix" that still pollutes, a Flyway
+  CI check that always passes, an ECS deploy that never ships the new image, auth tokens in
+  AsyncStorage, and ingress-nginx/Promtail after their end of life.
+- Path globs overlapped (`*.kt` loaded five skills, `*.tf` loaded AWS and GCP together), and
+  some skills were 600–775 lines long, which costs context on every match.
+- Common needs had no skill: end-to-end testing, accessibility, supply-chain security,
+  Kubernetes, REST/OpenAPI, Azure, Svelte, and mature languages (C, C++, Ruby, Scala).
+
+### New Files (skeleton-owned — auto-applied)
+- `.claude/skills/lang-c/`, `lang-cpp/`, `lang-ruby/`, `lang-scala/`
+- `.claude/skills/fe-svelte/`, `api-rest-openapi/`, `testing-e2e/`, `accessibility/`
+- `.claude/skills/security-supply-chain/`, `devops-kubernetes/`, `devops-azure/`
+- `.continue/rules/skills/` — generated rules for the 11 new skills
+
+### Updated Files (skeleton-owned — auto-applied)
+- All other stack skills: versions verified in September 2026, the house structure (toolchain,
+  structure, errors, security, observability, testing), corrected examples, and one owner per
+  path glob. Long skills keep a short `SKILL.md` and move recipes to `reference/*.md`.
+- `.initium/initium.json` — skills are now owned as folders (`.claude/skills/<name>/`) so
+  `reference/` files sync too.
+- `.claude/commands/skill.md` — new name prefixes (`api-`, `design-`, `testing-`)
+- `skills/README.md`, `README.md`, `README.tr.md`
+
+### Merge Required
+- `.continue/config.yaml` — optional: commented entries for the 11 new rules.
+
+### Migration Steps
+1. If you edited an Initium skill in place, move your changes into a `project-<topic>` skill
+   before syncing; Initium-owned skill folders are overwritten.
+2. Continue users: uncomment the new rules you need in `.continue/config.yaml`.
+
+---
+
 ## v1.3.0 — UI design skills: web craft, Apple HIG, Material 3, design tokens
 
 **Date:** 2026-09-27

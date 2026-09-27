@@ -80,8 +80,9 @@ rules:
   - .continue/rules/03-testing.md
   - .continue/rules/04-security.md
 
-  # --- Security SAST: always recommended for production projects ---
+  # --- Security: always recommended for production projects ---
   # - .continue/rules/skills/security-sast.md
+  # - .continue/rules/skills/security-supply-chain.md
 
   # --- Language skills: uncomment the one(s) for your project ---
   # Generated from .claude/skills/ — edit the SKILL.md and run node .initium/scripts/sync-skills.mjs
@@ -93,12 +94,17 @@ rules:
   # - .continue/rules/skills/lang-rust.md
   # - .continue/rules/skills/lang-kotlin.md       # (backend Kotlin; Android uses mobile-android)
   # - .continue/rules/skills/lang-php.md
+  # - .continue/rules/skills/lang-ruby.md
+  # - .continue/rules/skills/lang-scala.md
+  # - .continue/rules/skills/lang-c.md
+  # - .continue/rules/skills/lang-cpp.md
 
   # --- Frontend skills: uncomment the one(s) for your project ---
   # - .continue/rules/skills/fe-react.md
   # - .continue/rules/skills/fe-nextjs.md
   # - .continue/rules/skills/fe-vue.md
   # - .continue/rules/skills/fe-angular.md
+  # - .continue/rules/skills/fe-svelte.md
 
   # --- Mobile skills: uncomment one for your platform ---
   # - .continue/rules/skills/mobile-ios.md
@@ -113,12 +119,14 @@ rules:
   # - .continue/rules/skills/design-apple-hig.md
   # - .continue/rules/skills/design-material3.md
   # - .continue/rules/skills/design-tokens.md
+  # - .continue/rules/skills/accessibility.md
 
   # --- Backend / Architecture skills ---
   # - .continue/rules/skills/be-microservices.md
   # - .continue/rules/skills/be-node.md
   # - .continue/rules/skills/be-messaging.md
   # - .continue/rules/skills/be-graphql-grpc.md
+  # - .continue/rules/skills/api-rest-openapi.md
   # - .continue/rules/skills/db-migrations.md
 
   # --- AI / LLM applications ---
@@ -131,7 +139,12 @@ rules:
   # - .continue/rules/skills/devops-observability.md
   # - .continue/rules/skills/devops-aws.md
   # - .continue/rules/skills/devops-gcp.md
+  # - .continue/rules/skills/devops-azure.md
+  # - .continue/rules/skills/devops-kubernetes.md
   # - .continue/rules/skills/devops-onprem.md
+
+  # --- Testing ---
+  # - .continue/rules/skills/testing-e2e.md
 
   # --- Documentation ---
   # - .continue/rules/skills/docs-generation.md

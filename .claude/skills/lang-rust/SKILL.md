@@ -1,6 +1,6 @@
 ---
 name: lang-rust
-description: Rust development standards — edition 2024, ownership and error handling, Tokio async, Axum services, sqlx, tracing, clippy, cargo-nextest, and supply-chain checks with cargo-deny. Use when writing or reviewing Rust code or Cargo configuration.
+description: Rust development standards — Rust 1.98 stable, edition 2024 with a declared MSRV, ownership and error handling, Tokio async, Axum services, sqlx, tracing, clippy, cargo-nextest, and supply-chain checks with cargo-deny. Use when writing or reviewing Rust code or Cargo configuration.
 paths:
   - "**/*.rs"
   - "**/Cargo.toml"
@@ -11,9 +11,16 @@ paths:
 
 # Rust Development Standards
 
+Rust services and libraries. Container builds are in `devops-docker`; migration rules in
+`db-migrations`.
+
 ## Toolchain
 
-- Pin the toolchain in `rust-toolchain.toml`; use `edition = "2024"` for new crates.
+- Current stable is Rust 1.98 (six-week cadence). Pin the toolchain in `rust-toolchain.toml`; use
+  `edition = "2024"` for new crates, which requires Rust 1.85 or newer.
+- Declare the MSRV with `rust-version` in `Cargo.toml` (`[workspace.package]` for workspaces) and
+  run CI once on that version so the promise is tested. Libraries keep the MSRV conservative;
+  applications may track the pinned toolchain.
 - CI runs `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`,
   `cargo nextest run`, and `cargo deny check` (licenses, advisories, bans, sources).
 - Workspaces: shared dependency versions in `[workspace.dependencies]`; one crate per bounded
@@ -59,6 +66,21 @@ paths:
   (`cargo sqlx prepare`) so CI builds without a database.
 - Migrations via `sqlx migrate`; never string-format SQL.
 
+## Configuration and security
+
+- Load configuration once at startup into a typed struct (`serde::Deserialize`, e.g. with `figment`
+  or `config`), validate it, and fail fast; pass it down explicitly — no global mutable config.
+- Secrets come from the environment or a secret manager, are held as `SecretString`, and are
+  exposed only at the call site that needs them (`expose_secret()`); never log or `Debug` them.
+- Authorization happens in the application service using the authenticated principal carried in
+  request state, never IDs taken from the request body.
+- Parameterized queries only (sqlx bind parameters); `std::process::Command` with explicit args,
+  never a shell string built from input.
+- Password hashing with `argon2`; token randomness from the OS CSPRNG (`getrandom`), never a
+  seeded, non-cryptographic PRNG.
+- `cargo deny check advisories` (RustSec) fails CI on known vulnerabilities; review new transitive
+  dependencies with `cargo tree` before merging.
+
 ## Observability
 
 - `tracing` + `tracing-subscriber` with JSON output in production; `#[instrument(skip(secret))]`
@@ -70,3 +92,5 @@ paths:
 - Property tests with `proptest` for parsers and domain invariants.
 - Database tests use Testcontainers or `#[sqlx::test]` with isolated databases.
 - Snapshot tests (`insta`) for serialized API responses.
+
+_Versions verified September 2026._

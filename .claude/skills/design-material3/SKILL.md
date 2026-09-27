@@ -2,11 +2,9 @@
 name: design-material3
 description: Material Design 3 and M3 Expressive guidelines for Android (and Material-based web or Flutter) UI — color roles and dynamic color, type scale, shape, spring motion, touch targets, adaptive layouts and breakpoints, navigation components, edge-to-edge, predictive back, and accessibility. Use when designing, building, or reviewing Android screens or any UI that follows Material Design.
 paths:
-  - "**/*.kt"
-  - "**/res/values/**"
-  - "**/res/layout/**"
-  - "**/AndroidManifest.xml"
-  - "**/android/**"
+  - "**/ui/theme/**/*.kt"
+  - "**/*Screen.kt"
+  - "**/res/values*/themes.xml"
 ---
 
 # Material Design 3 — Working Summary
@@ -27,6 +25,11 @@ for Material-based web.
 
 - Use the Material components and theme tokens; customize through the theme
   (`MaterialTheme` / `MaterialExpressiveTheme`), never by hard-coding values in screens.
+- Know which library you ship: stable `androidx.compose.material3` 1.4 has no Expressive APIs.
+  Expressive lives in the 1.5.0 alpha line, where `MaterialExpressiveTheme`, the motion scheme,
+  FAB menu, split button, floating toolbar, flexible app bars, and `WideNavigationRail`/
+  `ShortNavigationBar` no longer need an opt-in; other Expressive components still require
+  `@OptIn(ExperimentalMaterial3ExpressiveApi::class)`. Check release notes before bumping.
 - Expressive does not mean decorated: emphasis (bigger type, bolder shape, livelier motion) is
   reserved for the one or two moments that matter on a screen.
 - Adaptive by default: every screen works from a compact phone to a desktop window.
@@ -104,6 +107,9 @@ for Material-based web.
 - Height classes: compact < 480 dp, medium 480–899 dp, expanded ≥ 900 dp.
 - Use `NavigationSuiteScaffold`, `ListDetailPaneScaffold`, and `SupportingPaneScaffold` with
   `currentWindowAdaptiveInfo()` instead of hand-rolled breakpoint logic.
+- With Navigation 3, use scene strategies from `androidx.compose.material3.adaptive:adaptive-navigation3`
+  (`rememberListDetailSceneStrategy()`, still `@ExperimentalMaterial3AdaptiveApi`) so list and
+  detail entries share one back stack; the `mobile-android` skill has the wiring sample.
 - Adapt by showing/hiding, levitating (sheets become side panels), or reflowing content — never
   by stretching a phone layout.
 - Support foldables (hinge-aware), keyboard/mouse input, and multi-window.
@@ -115,6 +121,10 @@ for Material-based web.
   display cutout) on every screen.
 - **Predictive back** animations are on by default when targeting API 36; use
   `BackHandler` / `PredictiveBackHandler` / `OnBackPressedCallback`, never `onBackPressed()`.
+- **Large screens:** targeting API 36, the system ignores `screenOrientation`, `resizeableActivity`,
+  and aspect-ratio limits on displays ≥ 600 dp wide (games excepted); a temporary opt-out
+  exists at 36 and is removed when targeting API 37. Design every screen to work in any
+  orientation and window size rather than locking to portrait.
 - Themed app icons (monochrome layer) and splash screen API for launch.
 
 ## Accessibility (non-negotiable)
@@ -134,4 +144,7 @@ for Material-based web.
 - [ ] Targets ≥ 48×48 dp
 - [ ] Layout adapts across compact → expanded (and large if tablets/desktop are supported)
 - [ ] Edge-to-edge insets handled; predictive back works
+- [ ] Works unlocked in both orientations on ≥ 600 dp windows
 - [ ] TalkBack walkthrough completed
+
+_Versions verified September 2026._

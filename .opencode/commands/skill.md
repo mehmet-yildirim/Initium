@@ -22,8 +22,9 @@ Modes (from `$ARGUMENTS`):
    decisions in `docs/architecture/decisions/`. Ask the developer for anything that cannot be
    inferred.
 4. **Name it.** Lowercase letters, digits, single hyphens, max 64 characters, matching the folder
-   name. Follow the existing prefixes: `lang-`, `fe-`, `be-`, `mobile-`, `devops-`, `db-`,
-   `security-`, `docs-`, `ai-`, or `project-` for project-specific skills.
+   name. Follow the existing prefixes: `lang-`, `fe-`, `be-`, `api-`, `mobile-`, `design-`,
+   `devops-`, `db-`, `security-`, `testing-`, `docs-`, `ai-`, or `project-` for project-specific
+   skills.
 5. **Write `.claude/skills/<name>/SKILL.md`:**
    ```markdown
    ---
