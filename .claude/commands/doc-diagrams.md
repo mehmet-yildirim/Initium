@@ -219,7 +219,7 @@ Save as `docs/diagrams/<flow-name>.puml`.
 Render locally with:
 ```bash
 # Docker (no install)
-docker run --rm -v "$(pwd)/docs/diagrams:/data" plantuml/plantuml:latest /data/<flow>.puml
+docker run --rm -v "$(pwd)/docs/diagrams:/data" plantuml/plantuml:1.2026.8 /data/<flow>.puml
 # Output: docs/diagrams/<flow>.png
 
 # Or with npm wrapper

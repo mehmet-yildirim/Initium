@@ -92,6 +92,7 @@ Kıdemli-acemi mühendis oranı değişir: **kıdemli veya orta seviye mühendis
 - Tüm AI araçlarının takım genelinde sorunsuz çalışmasını sağlar
 - Initium güncellemeleri mevcut olduğunda `/sync-initium` çalıştırır; `merge_required` dosyalarını takımla koordineli olarak birleştirir
 - `.cursor/rules/`, `.continue/rules/` ve AGENTS.md kurallarını korur
+- `.claude/skills/` dizinini `/skill update <ad>` ile güncel tutar; projeye özgü becerileri `/skill new <konu>` ile ekler
 - Hangi komutların az kullanıldığını veya kafa karışıklığına yol açtığını takip eder; promptları iyileştirir veya kalıpları belgeler
 - `.cursor/mcp.json` ve `.claude/settings.json`'ı yönetir — MCP sunucularını ve araç izinlerini etkinleştirir/devre dışı bırakır
 - `agent.config.yaml` ayarlamalarının sahibidir: güven eşikleri, yeniden deneme limitleri, otonom mod ayarları
@@ -117,7 +118,8 @@ Kıdemli-acemi mühendis oranı değişir: **kıdemli veya orta seviye mühendis
 
 **AI-native sorumluluklar:**
 - Otonom ajan `/security-audit`'i otomatik çalıştırır — Güvenlik Şampiyonu yalnızca kodu değil, üretilen raporları da inceler
-- AI yeni bir güvenlik deseni (iyi veya kötü) sunduğunda, `.claude/skills/security-sast/SKILL.md`'yi güçlendirmek veya önlemek için günceller
+- AI yeni bir güvenlik deseni (iyi veya kötü) sunduğunda, deseni pekiştirmek veya engellemek için `.claude/skills/security-sast/SKILL.md`'yi günceller
+- Bağımlılık ve CI tedarik zinciri politikasının sahibidir (`.claude/skills/security-supply-chain/`): sabitlenmiş action'lar, SBOM, provenance, `/upgrade security` sıklığı
 - İncelenmemiş güvenlik bulgularına sahip herhangi bir üretim dağıtımı için `AGENT_APPROVE_DEPLOY`'u engeller
 
 **Küçük takımlarda, Teknik Lider veya en güvenlik bilincine sahip geliştirici bu görevi üstlenir.**
@@ -153,7 +155,7 @@ Net sahiplik, ajanın doğru insanın doğru kararı onaylaması olmadan ilerlem
 
 ### 3–6 kişi (standart takım)
 
-- Teknik Lider, mimari + artırma onaylarının sahibidir
+- Teknik Lider, mimari + eskalasyon onaylarının sahibidir
 - 1–2 geliştirici belirli alan alanlarına sahip olur
 - AI İş Akışı Koordinatörü rolü üç ayda bir döner
 - Güvenlik Şampiyonu rolü en güvenlik bilincine sahip geliştiriciye atanır (yarı zamanlı)
@@ -207,6 +209,7 @@ Yeni mühendislerin hızla verimli hale gelmesi için:
 | `docs/guides/ai-workflow.tr.md` | Tam AI-native geliştirme iş akışı referansı |
 | `docs/guides/onboarding.tr.md` | Yeni geliştiriciler için adım adım kurulum |
 | `docs/context/domain-boundaries.md` | Otonom ajanın üzerinde çalışacağı ve çalışmayacağı şeyler |
-| `.initium/docs/agent/autonomous-workflow.md` | Ajan durum makinesi, artırma kapıları, devam etme mantığı |
-| `.initium/docs/agent/escalation-protocol.md` | Artırma önem seviyeleri ve insan yanıt prosedürleri |
+| `.initium/docs/agent/autonomous-workflow.md` | Ajan durum makinesi, eskalasyon kapıları, devam etme mantığı |
+| `.initium/docs/agent/escalation-protocol.md` | Eskalasyon önem seviyeleri ve insan yanıt prosedürleri |
+| `skills/README.md` | 48 teknoloji becerisinin dizini ve her birinin kapsamı |
 | `agent.config.yaml` | Otonom ajan yapılandırması — mod, eşikler, tracker anahtarları |

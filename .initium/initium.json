@@ -2,7 +2,7 @@
   "_comment": "This file tracks which version of Initium this project is based on. Update it after running .initium/scripts/sync.sh.",
   "skeleton": {
     "repository": "https://github.com/mehmet-yildirim/Initium",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "commit": "TODO: set by .initium/scripts/sync.sh",
     "syncedAt": "TODO: set by .initium/scripts/sync.sh",
     "releaseNotesUrl": "https://github.com/mehmet-yildirim/Initium/blob/main/.initium/docs/UPDATES.md"
@@ -259,7 +259,9 @@
       "docs/guides/onboarding.tr.md",
       ".initium/docs/sync-guide.md",
       "docs/guides/team.md",
-      "docs/guides/team.tr.md"
+      "docs/guides/team.tr.md",
+      "docs/guides/existing-project.md",
+      "docs/guides/existing-project.tr.md"
     ],
     "project_owned": [
       "AGENTS.md",

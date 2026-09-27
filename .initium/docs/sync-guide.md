@@ -29,7 +29,7 @@ Every file in Initium is classified into one of three categories, defined in `.i
 ### `skeleton_owned` — Safe to overwrite
 
 These files contain **no project-specific content**. Initium owns them completely.
-Updates are applied automatically by `sync-initium.sh`.
+Updates are applied automatically by `.initium/scripts/sync.sh`.
 
 Examples:
 - All `.claude/commands/*.md` — slash command definitions
@@ -41,7 +41,8 @@ Examples:
 - `.agent-templates/` — runtime templates
 
 **You can still extend these in your project** — just know they will be overwritten on sync.
-If you have project-specific additions, keep them in a separate file.
+Keep project-specific additions in a separate file, or list the file under your local
+`project_owned` (see [Handling Conflicts](#when-a-skeleton_owned-file-was-customised-locally)).
 
 ### `merge_required` — Review and cherry-pick
 
@@ -70,7 +71,45 @@ if Initium was updated (so you can read the new guidance):
 - `docs/context/` — your project brief, tech stack, domain glossary
 - `docs/architecture/` — your system architecture and ADRs
 - `.env`, `.env.example` — your environment variables
+- `DESIGN.md`, `PRODUCT.md`, `CHANGELOG.md`, `LICENSE`, `CODE_OF_CONDUCT.md`, `README*`
 - `.initium/initium.json` — version tracking (updated by sync script only)
+
+**Your local list wins.** Ownership lists come from the Initium version you sync to, with one
+exception: every path under `fileOwnership.project_owned` in *your* `.initium/initium.json` is
+never written, even when Initium owns it. The sync reports these as **Protected**. A trailing `/`
+protects a whole folder. Your additions survive syncs — the script only rewrites `version`,
+`commit`, and `syncedAt` in your local `initium.json`.
+
+---
+
+## Adopting Initium in an Existing Project
+
+A repository that was not cloned from Initium can adopt it with the same script. Bootstrap
+`.initium/` from a release (v1.5.0 or later), then sync:
+
+```bash
+git checkout -b chore/adopt-initium
+git remote add skeleton https://github.com/mehmet-yildirim/Initium.git
+git fetch --no-tags skeleton "+refs/tags/v1.5.0:refs/initium/v1.5.0"
+git restore --source=refs/initium/v1.5.0 --worktree -- .initium/
+bash .initium/scripts/sync.sh --ref v1.5.0 --dry-run
+bash .initium/scripts/sync.sh --ref v1.5.0
+```
+
+While `skeleton.commit` is not yet recorded, the sync runs in **adoption mode**:
+
+- An existing file that Initium also owns is kept unless it is byte-identical to some Initium
+  version (then it is simply updated). Kept files are listed as **Existing kept**.
+- Missing `merge_required` files are added; existing ones go through the normal merge prompt.
+- Missing project templates (`AGENTS.md`, `CLAUDE.md`, `agent.config.yaml`, `docs/context/`,
+  `docs/architecture/`, …) are created. `README*`, `LICENSE`, `CHANGELOG.md`,
+  `CODE_OF_CONDUCT.md`, and `.env` are never added.
+
+Adoption mode ends once `initium.json` records the commit. From the next sync on, Initium-owned
+files are updated normally — so add every "Existing kept" file you want to keep to your local
+`project_owned` before that sync. The full walkthrough (conflicts, `AGENTS.md`/`CLAUDE.md`, CI,
+`/init` on an existing codebase) is in
+[docs/guides/existing-project.md](../../docs/guides/existing-project.md).
 
 ---
 
@@ -296,9 +335,13 @@ to a skill rule), the sync will overwrite it. Solutions:
 .claude/skills/project-java/SKILL.md       ← project-owned (your additions)
 ```
 
-**Option B — Move to merge_required**
-Edit `.initium/initium.json` → `fileOwnership.merge_required` to add your file.
-The sync script will then prompt before overwriting.
+**Option B — Take ownership locally**
+Add the path to `fileOwnership.project_owned` in your `.initium/initium.json`. The sync never
+writes it again and lists it as **Protected**; compare with Initium's version when you want to
+pick up improvements:
+```bash
+git show refs/initium/<tag>:<file> | diff -u - <file>
+```
 
 ### When an Initium file is removed
 
@@ -323,13 +366,17 @@ to Initium while still pulling upstream improvements via your fork.
 
 ## FAQ
 
+**Q: Can I add Initium to a repository that was not cloned from it?**
+Yes — see [Adopting Initium in an Existing Project](#adopting-initium-in-an-existing-project).
+The first sync keeps your existing files and only adds what is missing.
+
 **Q: Will sync break my running application?**
 No. The sync only touches AI configuration files (`.claude/`, `.cursor/`, `.continue/`,
 `docs/`, `scripts/`). It never modifies your application source code, tests, or data.
 
 **Q: What if I've modified a skeleton_owned file?**
 Your modification will be overwritten. Either move your additions to a separate file,
-or reclassify the file as `merge_required` in `.initium/initium.json`.
+or add the file to `project_owned` in your `.initium/initium.json` so the sync skips it.
 
 **Q: Can I sync a specific file only?**
 Yes: `git restore --source=refs/initium/<tag> --worktree -- .claude/commands/loop.md`

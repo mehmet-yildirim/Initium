@@ -134,7 +134,7 @@ Reasoning:
 - Close or transition the issue
 
 **If ESCALATE:**
-- Create escalation notification (see `docs/guides/agent/escalation-protocol.md`)
+- Create escalation notification (see `.initium/docs/agent/escalation-protocol.md`)
 - Add label: `ai-agent-needs-triage`
 - Add comment: "Domain relevance is ambiguous (confidence: X.XX). [Question].
   Please comment AGENT_RESUME to accept or AGENT_REJECT to decline."

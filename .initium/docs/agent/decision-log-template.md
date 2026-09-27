@@ -1,7 +1,9 @@
 # Decision Log Template
 
-Every significant agent decision is recorded as a JSONL entry in `.agent/audit/<date>-decisions.jsonl`.
-This file provides the schema and examples for the audit trail.
+Every significant agent decision is recorded as a JSONL entry in `.agent/audit/<date>-decisions.jsonl`
+(`agent.config.yaml → observability.audit_log.path`). This file provides the schema and examples for
+the audit trail; the authoritative JSON Schema is [`schemas/decision.json`](schemas/decision.json).
+Jira webhook deliveries are logged separately to `.agent/audit/<date>-webhooks.jsonl`.
 
 The audit log serves as:
 - **Accountability**: what did the agent do and why?
@@ -13,7 +15,8 @@ The audit log serves as:
 
 ## JSONL Entry Schema
 
-Each line in the audit log is a valid JSON object:
+Each line in the audit log is a valid JSON object. Required fields: `id`, `taskId`, `phase`,
+`action`, `timestamp`, `confidence` (use `null` when not applicable), `reasoning`.
 
 ```json
 {
@@ -21,19 +24,24 @@ Each line in the audit log is a valid JSON object:
   "taskId": "PROJ-42",
   "agentId": "my-project-agent",
   "timestamp": "ISO-8601",
-  "phase": "triage | requirements | architect | implement | qa | deploy | monitor",
+  "phase": "triage | requirements | architect | implement | docs_sync | qa | pr | ci | deploy | monitor",
   "action": "<see action types below>",
   "input": { },
   "output": { },
   "confidence": 0.0,
   "reasoning": "Human-readable explanation of why this decision was made",
+  "risk": "low | medium | high | null",
+  "alternatives": [ { "description": "...", "rejectionReason": "..." } ],
   "escalated": false,
   "humanOverride": false,
+  "reversible": true,
   "durationMs": 1234,
   "tokensUsed": 1500,
   "costUsd": 0.012
 }
 ```
+
+The `id` must match `^dec-[A-Z]+-[0-9]+-[0-9]+$` — for task `PROJ-42` that is `dec-PROJ-42-001`.
 
 ---
 
@@ -108,11 +116,11 @@ Each line in the audit log is a valid JSON object:
 ## Example Audit Log Entries
 
 ```jsonl
-{"id":"dec-PROJ42-001","taskId":"PROJ-42","agentId":"my-project-agent","timestamp":"2024-03-09T10:00:00Z","phase":"triage","action":"triage_started","input":{"issueTitle":"Add discount code to checkout","issueType":"Story","priority":"High"},"output":{},"confidence":null,"reasoning":"New issue detected in JIRA polling","escalated":false,"humanOverride":false,"durationMs":0,"tokensUsed":0,"costUsd":0}
+{"id":"dec-PROJ-42-001","taskId":"PROJ-42","agentId":"my-project-agent","timestamp":"2024-03-09T10:00:00Z","phase":"triage","action":"triage_started","input":{"issueTitle":"Add discount code to checkout","issueType":"Story","priority":"High"},"output":{},"confidence":null,"reasoning":"New issue detected in JIRA polling","escalated":false,"humanOverride":false,"durationMs":0,"tokensUsed":0,"costUsd":0}
 
-{"id":"dec-PROJ42-002","taskId":"PROJ-42","agentId":"my-project-agent","timestamp":"2024-03-09T10:00:15Z","phase":"triage","action":"triage_accepted","input":{"issueTitle":"Add discount code to checkout"},"output":{"confidence":0.92,"signals":["checkout","discount","order"]},"confidence":0.92,"reasoning":"Issue involves discount codes applied at checkout. Checkout and payment processing are core domain. Keywords 'discount', 'checkout' match strong_include_keywords. No exclusion keywords detected.","escalated":false,"humanOverride":false,"durationMs":15000,"tokensUsed":850,"costUsd":0.007}
+{"id":"dec-PROJ-42-002","taskId":"PROJ-42","agentId":"my-project-agent","timestamp":"2024-03-09T10:00:15Z","phase":"triage","action":"triage_accepted","input":{"issueTitle":"Add discount code to checkout"},"output":{"confidence":0.92,"signals":["checkout","discount","order"]},"confidence":0.92,"reasoning":"Issue involves discount codes applied at checkout. Checkout and payment processing are core domain. Keywords 'discount', 'checkout' match strong_include_keywords. No exclusion keywords detected.","escalated":false,"humanOverride":false,"durationMs":15000,"tokensUsed":850,"costUsd":0.007}
 
-{"id":"dec-PROJ42-007","taskId":"PROJ-42","agentId":"my-project-agent","timestamp":"2024-03-09T11:45:00Z","phase":"implement","action":"implement_test_failed","input":{"task":"TASK-003: Add discount validation service","attempt":1},"output":{"failingTest":"checkout.service.test.ts:87","error":"TypeError: Cannot read properties of undefined"},"confidence":null,"reasoning":"Test fixture missing 'discountCode' field setup. Attempting fix.","escalated":false,"humanOverride":false,"durationMs":45000,"tokensUsed":2100,"costUsd":0.018}
+{"id":"dec-PROJ-42-007","taskId":"PROJ-42","agentId":"my-project-agent","timestamp":"2024-03-09T11:45:00Z","phase":"implement","action":"implement_test_failed","input":{"task":"TASK-003: Add discount validation service","attempt":1},"output":{"failingTest":"checkout.service.test.ts:87","error":"TypeError: Cannot read properties of undefined"},"confidence":null,"reasoning":"Test fixture missing 'discountCode' field setup. Attempting fix.","escalated":false,"humanOverride":false,"durationMs":45000,"tokensUsed":2100,"costUsd":0.018}
 ```
 
 ---
@@ -126,11 +134,11 @@ grep '"taskId":"PROJ-42"' .agent/audit/2024-03-09-decisions.jsonl | jq .
 # Count escalations today
 grep '"escalated":true' .agent/audit/$(date +%Y-%m-%d)-decisions.jsonl | wc -l
 
-# Total cost for a task
-grep '"taskId":"PROJ-42"' .agent/audit/*.jsonl | jq '.costUsd' | paste -sd+ | bc
+# Total cost for a task (-h drops file-name prefixes so jq sees pure JSON)
+grep -h '"taskId":"PROJ-42"' .agent/audit/*-decisions.jsonl | jq -s 'map(.costUsd // 0) | add'
 
 # View all failed QA runs
-grep '"action":"qa_completed_fail"' .agent/audit/*.jsonl | jq '{task: .taskId, time: .timestamp}'
+grep -h '"action":"qa_completed_fail"' .agent/audit/*-decisions.jsonl | jq '{task: .taskId, time: .timestamp}'
 ```
 
 ---
@@ -138,6 +146,7 @@ grep '"action":"qa_completed_fail"' .agent/audit/*.jsonl | jq '{task: .taskId, t
 ## Retention
 
 - Audit logs are JSONL files rotated daily
-- Retention: 90 days (configurable in agent.config.yaml)
+- Retention: 90 days recommended. `agent.config.yaml` has no retention key — enforce it with
+  logrotate or your log shipper
 - Logs must not be deleted while a related task is still in flight
 - For compliance requirements: archive to S3/GCS before local deletion

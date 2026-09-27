@@ -136,8 +136,8 @@ gradle-app.setting
 !gradle-wrapper.properties
 .gradletasknamecache
 
-# Spring Boot
-HELP.md
+# Spring Boot — anchored: case-insensitive filesystems would also ignore .claude/commands/help.md
+/HELP.md
 spring-shell.log
 
 # =============================================================================

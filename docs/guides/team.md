@@ -41,7 +41,7 @@ The ratio of senior to junior engineers shifts: **prefer senior or mid-level eng
 **AI-native responsibilities:**
 - Set `AGENT_APPROVE_DESIGN` on JIRA/GitHub when the autonomous agent escalates architecture decisions
 - Block merges of AI-generated code that violates layer boundaries or introduces inappropriate patterns
-- Review the agent's `docs/guides/agent/` configuration and tuning
+- Review the agent's configuration (`agent.config.yaml`) and the agent docs in `.initium/docs/agent/`
 
 **TODO: Assigned to:** `<name>`
 
@@ -92,6 +92,7 @@ The ratio of senior to junior engineers shifts: **prefer senior or mid-level eng
 - Keep all AI tooling running smoothly across the team
 - Run `/sync-initium` when Initium updates are available; coordinate merging `merge_required` files with the team
 - Maintain `.cursor/rules/`, `.continue/rules/`, and AGENTS.md conventions
+- Keep `.claude/skills/` current with `/skill update <name>`; add project-specific skills with `/skill new <topic>`
 - Track which commands are underused or causing confusion; improve prompts or document patterns
 - Manage `.cursor/mcp.json` and `.claude/settings.json` — enable/disable MCP servers and tool permissions
 - Own `agent.config.yaml` tuning: confidence thresholds, retry limits, autonomous mode settings
@@ -118,6 +119,7 @@ The ratio of senior to junior engineers shifts: **prefer senior or mid-level eng
 **AI-native responsibilities:**
 - The autonomous agent runs `/security-audit` automatically — the Security Champion reviews the generated reports, not just the code
 - When AI introduces a new security pattern (good or bad), update `.claude/skills/security-sast/SKILL.md` to reinforce or prevent it
+- Own dependency and CI supply-chain policy (`.claude/skills/security-supply-chain/`): pinned actions, SBOMs, provenance, `/upgrade security` cadence
 - Block `AGENT_APPROVE_DEPLOY` for any production deployment with unreviewed security findings
 
 **On small teams, the Tech Lead or most security-aware developer fills this role.**
@@ -207,6 +209,7 @@ For new engineers to become productive quickly:
 | `docs/guides/ai-workflow.md` | Full AI-native development workflow reference |
 | `docs/guides/onboarding.md` | Step-by-step setup for new developers |
 | `docs/context/domain-boundaries.md` | What the autonomous agent will and will not work on |
-| `docs/guides/agent/autonomous-workflow.md` | Agent state machine, escalation gates, resume logic |
-| `docs/guides/agent/escalation-protocol.md` | Escalation severity levels and human response procedures |
+| `.initium/docs/agent/autonomous-workflow.md` | Agent state machine, escalation gates, resume logic |
+| `.initium/docs/agent/escalation-protocol.md` | Escalation severity levels and human response procedures |
+| `skills/README.md` | Index of the 48 stack skills and what each covers |
 | `agent.config.yaml` | Autonomous agent configuration — mode, thresholds, tracker keys |

@@ -25,7 +25,7 @@
     },
     "phase": {
       "type": "string",
-      "enum": ["triage", "requirements", "architect", "implement", "qa", "pr", "ci", "deploy", "monitor", "done", "abandoned"]
+      "enum": ["triage", "requirements", "architect", "implement", "docs_sync", "qa", "pr", "ci", "deploy", "monitor", "done", "abandoned"]
     },
     "status": {
       "type": "string",

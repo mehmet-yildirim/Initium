@@ -48,7 +48,7 @@ List what the system must DO:
 - **Security**: e.g., requires authentication; authorization rules
 - **Scalability**: e.g., must handle N records
 - **Reliability**: e.g., retry behavior, error recovery
-- **Accessibility**: e.g., WCAG 2.1 AA for UI features
+- **Accessibility**: e.g., WCAG 2.2 AA for UI features
 
 ### Out of Scope
 Explicitly list what this feature does NOT include.

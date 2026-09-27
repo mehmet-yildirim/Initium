@@ -56,6 +56,21 @@ After setup, code with the AI loop:
 
 > **New to the project or unsure what to do?** Type `/help` in Claude Code or Cursor — the AI will guide you to the right command for your situation.
 
+### Already have a repository?
+
+Don't clone — bring Initium into it. The first sync keeps every file you already have and only
+adds what is missing; `/init` then reads your code to fill in `AGENTS.md` and `docs/context/`.
+
+```bash
+git checkout -b chore/adopt-initium
+git remote add skeleton https://github.com/mehmet-yildirim/Initium.git
+git fetch --no-tags skeleton "+refs/tags/v1.5.0:refs/initium/v1.5.0"
+git restore --source=refs/initium/v1.5.0 --worktree -- .initium/
+bash .initium/scripts/sync.sh --ref v1.5.0 --dry-run   # preview, then run without --dry-run
+```
+
+Full walkthrough — conflicts, `AGENTS.md`/`CLAUDE.md`, CI, monorepos: [docs/guides/existing-project.md](docs/guides/existing-project.md).
+
 ---
 
 ## Customization Checklist
@@ -185,6 +200,7 @@ After setup, code with the AI loop:
 │   │   ├── ai-workflow.md             # AI-Native development workflow (English)
 │   │   ├── ai-workflow.tr.md          # AI-Native development workflow (Turkish)
 │   │   ├── onboarding.md              # New developer onboarding guide
+│   │   ├── existing-project.md        # Adding Initium to an existing repository
 │   │   ├── team.md                    # Team roles and AI-native optimization
 │   │   ├── agent/                     # Autonomous agent documentation
 │   │   │   ├── autonomous-workflow.md    # State machine, phases, gates, resume
@@ -538,6 +554,7 @@ See [.initium/docs/sync-guide.md](.initium/docs/sync-guide.md) for the full guid
 | [docs/guides/team.tr.md](docs/guides/team.tr.md) | Ekip rolleri ve optimizasyon kılavuzu (Türkçe) |
 | [docs/guides/onboarding.md](docs/guides/onboarding.md) | New developer setup guide |
 | [docs/guides/onboarding.tr.md](docs/guides/onboarding.tr.md) | Yeni geliştirici kurulum kılavuzu (Türkçe) |
+| [docs/guides/existing-project.md](docs/guides/existing-project.md) | Adding Initium to an existing repository |
 | [.initium/docs/sync-guide.md](.initium/docs/sync-guide.md) | How to apply Initium updates to your project |
 | [.initium/docs/agent/autonomous-workflow.md](.initium/docs/agent/autonomous-workflow.md) | Agent state machine, phases, gates |
 | [.initium/docs/agent/docker-agent.md](.initium/docs/agent/docker-agent.md) | Containerized agent setup, env vars, troubleshooting |

@@ -8,6 +8,11 @@
     project_owned), auto-applies safe files, removes files Initium deleted (only when
     unmodified locally), and prompts for manual review on files you have customised.
 
+    Files listed under fileOwnership.project_owned in your local initium.json are never
+    written. On the first sync (no commit recorded yet — e.g. adopting Initium in an existing
+    repository) existing files that match no Initium version are kept, missing merge_required
+    files are added, and missing project-owned templates are created.
+
     Exit codes: 0 success / up to date, 1 error, 10 update available (-Check only).
 
 .PARAMETER Auto
@@ -274,7 +279,8 @@ $ProjectOwned  = @($remoteJson.fileOwnership.project_owned)
 $MergeRequired = @($remoteJson.fileOwnership.merge_required)
 $RemovedList   = if ($remoteJson.fileOwnership.PSObject.Properties.Name -contains 'removed') { @($remoteJson.fileOwnership.removed) } else { @() }
 
-if (Test-GitObject "$CurrentCommit^{commit}") {
+$FirstSync = -not (Test-GitObject "$CurrentCommit^{commit}")
+if (-not $FirstSync) {
     $changedFiles = @(Invoke-Git diff --name-only $CurrentCommit $Target | Where-Object { $_ })
 } else {
     $changedFiles = @(Invoke-Git ls-tree -r --name-only $Target | Where-Object { $_ })
@@ -282,6 +288,32 @@ if (Test-GitObject "$CurrentCommit^{commit}") {
 
 $applied = 0; $skipped = 0
 $updatedFiles = @(); $addedFiles = @(); $removedFiles = @(); $keptModified = @(); $needsMerge = @()
+$protected = @(); $existingKept = @()
+$LocalProjectOwned = @($localJson.fileOwnership.project_owned)
+
+# True when the local file is byte-identical to some version Initium shipped at this path.
+function Test-InitiumVersion {
+    param([string]$File)
+    $localBlob = "$(Invoke-Git hash-object -- $File)".Trim()
+    $history = @(Invoke-Git log --format= --raw --no-abbrev $Target -- $File)
+    foreach ($line in $history) {
+        $fields = "$line" -split '\s+'
+        if ($fields.Count -ge 4 -and $fields[3] -eq $localBlob) { return $true }
+    }
+    return $false
+}
+
+function Add-FromTarget {
+    param([string]$File, [string]$Label)
+    if ($DryRun) {
+        Write-Host "  [DRY-RUN WOULD ADD] $File" -ForegroundColor Green
+    } else {
+        Write-FromTarget $File
+        Write-OK "  ${Label}: $File"
+    }
+    $script:addedFiles += $File
+    $script:applied++
+}
 
 # ---------------------------------------------------------------------------
 # Apply skeleton_owned files (changed + missing locally)
@@ -292,6 +324,12 @@ $candidates = @($changedFiles | Where-Object { Test-InList $_ $SkeletonOwned })
 $candidates += @($SkeletonOwned | Where-Object { $_ -and -not $_.EndsWith('/') -and -not (Test-Path $_) })
 foreach ($file in ($candidates | Select-Object -Unique)) {
     if (-not (Test-GitObject "${Target}:$file")) { continue }
+    if (Test-InList $file $LocalProjectOwned) { $protected += $file; continue }
+    if ($FirstSync -and (Test-Path $file -PathType Leaf) -and -not (Test-InitiumVersion $file)) {
+        Write-Warn "  Existing project file kept: $file"
+        $existingKept += $file
+        continue
+    }
     $isNew = -not (Test-Path $file)
     $action = if ($isNew) { 'Added' } else { 'Updated' }
     if ($DryRun) {
@@ -340,7 +378,10 @@ if ($removedFiles.Count -eq 0 -and $keptModified.Count -eq 0) { Write-Info 'No r
 Write-Heading 'Merge-Required Files (manual review needed)'
 
 foreach ($file in $changedFiles) {
-    if ((Test-InList $file $MergeRequired) -and (Test-GitObject "${Target}:$file")) { $needsMerge += $file }
+    if (-not (Test-InList $file $MergeRequired) -or -not (Test-GitObject "${Target}:$file")) { continue }
+    if (Test-InList $file $LocalProjectOwned) { $protected += $file; continue }
+    if ($FirstSync -and -not (Test-Path $file)) { Add-FromTarget $file 'Added (no local version)'; continue }
+    $needsMerge += $file
 }
 
 if ($needsMerge.Count -eq 0) {
@@ -400,7 +441,22 @@ if ($needsMerge.Count -eq 0) {
 # ---------------------------------------------------------------------------
 # Project-owned templates changed in Initium (informational only)
 # ---------------------------------------------------------------------------
-$projectTemplateChanges = @($changedFiles | Where-Object { Test-InList $_ $ProjectOwned })
+# First sync: create project-owned templates the repository does not have yet.
+$adoptSkip = @('README.md', 'README.tr.md', 'LICENSE', 'CODE_OF_CONDUCT.md', 'CHANGELOG.md', '.env', '.initium/initium.json')
+if ($FirstSync) {
+    Write-Heading 'Adding Missing Project Templates (first sync)'
+    $templatesAdded = 0
+    foreach ($entry in $ProjectOwned) {
+        foreach ($file in @(Invoke-Git ls-tree -r --name-only $Target -- $entry | Where-Object { $_ })) {
+            if ($adoptSkip -contains $file -or (Test-Path $file)) { continue }
+            Add-FromTarget $file 'Added template'
+            $templatesAdded++
+        }
+    }
+    if ($templatesAdded -eq 0) { Write-Info 'All project templates already exist.' }
+}
+
+$projectTemplateChanges = @(if (-not $FirstSync) { $changedFiles | Where-Object { Test-InList $_ $ProjectOwned } })
 if ($projectTemplateChanges.Count -gt 0) {
     Write-Heading 'Initium Template Files Changed (for your reference)'
     Write-Warn 'These project-owned files were updated in the Initium template:'
@@ -442,6 +498,16 @@ if ($keptModified.Count -gt 0) {
 }
 if ($projectTemplateChanges.Count -gt 0) {
     Write-Host "  Template notices : $($projectTemplateChanges.Count) project-owned files changed in Initium" -ForegroundColor Cyan
+}
+if ($protected.Count -gt 0) {
+    Write-Host "  Protected        : $($protected.Count) files listed in your local project_owned" -ForegroundColor Cyan
+}
+if ($existingKept.Count -gt 0) {
+    Write-Host "  Existing kept    : $($existingKept.Count) project files differ from Initium and were not overwritten:" -ForegroundColor Yellow
+    foreach ($file in $existingKept) { Write-Host "      $file" }
+    Write-Host "    Compare: git diff refs/initium/${TargetRef}:<file> <file>"
+    Write-Host '    Keep yours permanently: add the path to fileOwnership.project_owned in .initium/initium.json'
+    Write-Host "    Take Initium's: delete the file and run the sync again"
 }
 Write-Host ''
 if (-not $DryRun) {

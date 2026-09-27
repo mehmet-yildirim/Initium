@@ -1,7 +1,12 @@
 # Jira Server — Autonomous Agent Setup Guide
 
 **Audience:** Platform operators and DevOps engineers responsible for deploying the autonomous
-AI development agent against an on-premise Jira Server installation.
+AI development agent against an on-premise Jira Server or Data Center installation.
+
+> **Jira Server reached end of support in February 2024** — no security fixes are published for
+> it. Self-managed installations should run **Jira Data Center** (a Long Term Support release such
+> as 9.12 or 10.3, or the current 11.x line). Everything in this guide applies to both; where
+> behaviour differs, Data Center is called out. "Jira Server" below means any self-managed Jira.
 
 **Scope:** End-to-end setup from Jira Server admin configuration through network topology,
 credential management, MCP server wiring, agent configuration, webhook setup, validation,
@@ -32,9 +37,9 @@ security hardening, and troubleshooting.
 ## 1. Architecture Overview
 
 ```mermaid
-graph LR
+flowchart LR
     subgraph onprem["ON-PREMISE NETWORK"]
-        JS["Jira Server\n(8.x / 9.x)\n:8080 or :443"]
+        JS["Jira Data Center / Server\n(9.12 LTS · 10.x · 11.x)\n:8080 or :443"]
         DB[("Jira DB\nPostgreSQL")]
 
         subgraph agent["AI Agent Host — Linux server / VM"]
@@ -60,8 +65,8 @@ graph LR
 | Base URL | `https://jira.yourcompany.com` | `https://yourcompany.atlassian.net` |
 | REST API version | `/rest/api/2/` | `/rest/api/3/` |
 | Authentication | Basic Auth (user:password) **or** Personal Access Token (8.14+) | API Token (always) |
-| OAuth | OAuth 1.0a (complex) | OAuth 2.0 (simpler) |
-| Webhooks | Admin Console → System → Webhooks | Atlassian Connect / Admin Console |
+| OAuth | OAuth 2.0 (Data Center 8.22+) or OAuth 1.0a | OAuth 2.0 (3LO) |
+| Webhooks | Administration → System → WebHooks (Data Center 10+ can sign payloads with a secret) | Administration → System → WebHooks, or Forge / Connect apps (secret supported) |
 | User identifier | Username (login name) | Email address |
 | Network | Reachable only within corporate network / VPN | Public internet |
 | Certificates | Often self-signed or internal CA | Public CA |
@@ -78,7 +83,7 @@ graph LR
 | CPU | 2 vCPU | 4 vCPU |
 | RAM | 4 GB | 8 GB |
 | Disk | 20 GB | 50 GB (for audit logs) |
-| Node.js | 20.x LTS | 22.x LTS |
+| Node.js | 22.x LTS | 24.x LTS |
 | Network | Bidirectional to Jira Server | Same subnet preferred |
 | Outbound HTTPS | `api.anthropic.com:443` | — |
 
@@ -86,7 +91,7 @@ graph LR
 
 | Requirement | Notes |
 |-------------|-------|
-| **Version** | Jira Software 8.x or 9.x (8.14+ strongly preferred for PAT support) |
+| **Version** | Jira Software Data Center on a supported release (9.12 LTS, 10.x, or 11.x). Legacy Server 8.14+ still works (PAT support) but is unsupported |
 | **Admin access** | You need Jira System Administrator rights |
 | **REST API enabled** | Enabled by default; verify at `<jira-url>/rest/api/2/serverInfo` |
 | **Webhook plugin** | Built-in since Jira 6; no plugin needed |
@@ -148,7 +153,7 @@ The agent needs to transition issues through your workflow. Map your workflow st
 1. Go to **Jira Administration → Issues → Workflows**
 2. View the workflow used by your target projects
 3. Note the exact transition names (they are case-sensitive in JQL and API calls)
-4. Update `agent.config.yaml` → `jira.status_transitions` to match (see Section 7)
+4. Update `agent.config.yaml` → `issue_tracker.jira.status_transitions` to match (see Section 7)
 
 Common workflow mapping (adjust to yours):
 
@@ -226,11 +231,14 @@ Authorization: Basic base64("ai-agent:password")
 
 The MCP server handles encoding automatically when you provide `JIRA_USERNAME` and `JIRA_API_TOKEN` (set token = password in this case).
 
-### Option C: OAuth 1.0a (Advanced — for enterprise SSO environments)
+### Option C: OAuth (Advanced — for enterprise SSO environments)
 
-Only needed if your Jira Server is configured to reject Basic Auth and require OAuth. This is uncommon for service accounts.
+Only needed if your Jira is configured to reject Basic Auth and PATs. This is uncommon for service
+accounts. Data Center 8.22+ supports OAuth 2.0 incoming links (Administration → Applications →
+Application links); older releases only offer OAuth 1.0a.
 
-Setup is complex and out of scope for this guide. Refer to [Atlassian OAuth 1.0a documentation](https://developer.atlassian.com/server/jira/platform/oauth/) if required.
+Setup is out of scope for this guide — see Atlassian's Data Center OAuth 2.0 provider documentation
+if required.
 
 ### Self-Signed / Internal CA Certificates
 
@@ -291,9 +299,9 @@ export HTTP_PROXY=http://proxy.yourcompany.com:8080
 export HTTPS_PROXY=http://proxy.yourcompany.com:8080
 export NO_PROXY=localhost,127.0.0.1,jira.yourcompany.com
 
-# For Node.js MCP servers, also set:
-export NODE_TLS_REJECT_UNAUTHORIZED=0   # ONLY if using internal CA that can't be imported
-# Better alternative: set NODE_EXTRA_CA_CERTS instead
+# For Node.js MCP servers behind an internal CA, trust the CA explicitly:
+export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/internal-ca.crt
+# Never set NODE_TLS_REJECT_UNAUTHORIZED=0 — it disables certificate checks for every connection
 ```
 
 **If agent runs inside the corporate network (recommended):**
@@ -310,7 +318,7 @@ If the agent host is not directly reachable from Jira Server, options:
 | Option | Use When | Notes |
 |--------|---------|-------|
 | Direct network path | Agent on same corporate network | Simplest; configure firewall rule |
-| Nginx reverse proxy | Agent behind NAT | Route `jira.yourcompany.com → agent-host:3001` |
+| Nginx reverse proxy | Agent behind NAT, or to inject the secret header / add TLS | Route a dedicated hostname (e.g. `agent-webhooks.yourcompany.com`) → `agent-host:3001` (see § 9.3) |
 | ngrok tunnel | Development / testing only | `ngrok http 3001` — NOT for production |
 | VPN + direct path | Agent in different subnet | Establish VPN between networks |
 
@@ -320,17 +328,15 @@ If the agent host is not directly reachable from Jira Server, options:
 
 ### 6.1 Install the Jira MCP Server
 
-On the agent host:
+The Initium MCP configuration (`.cursor/mcp.json`) launches `mcp-server-jira` through `npx`, so
+no global install is required. It ships disabled — set `"disabled": false` (or remove the key) to
+enable it. Before relying on it, confirm the package version you use supports Jira Server / Data
+Center REST v2 with PAT (Bearer) auth; if it does not, use an MCP server that does, and keep the
+same environment variable names.
 
 ```bash
-# Install globally (used by Claude Code's MCP integration)
-npm install -g mcp-server-jira
-
-# Verify installation
-mcp-server-jira --version
-
-# Alternative: use npx (no global install needed — Claude Code handles this)
-npx mcp-server-jira --help
+# Pin a version for reproducible behaviour
+npx -y mcp-server-jira@<version> --help
 ```
 
 ### 6.2 Test the MCP Server Manually
@@ -368,7 +374,8 @@ Expected: a JSON response listing available tools (`jira_get_issue`, `jira_searc
         "JIRA_EMAIL":     "${env:JIRA_EMAIL}",
         "JIRA_API_TOKEN": "${env:JIRA_API_TOKEN}"
       },
-      "description": "On-premise Jira Server — REST API v2"
+      "description": "On-premise Jira Server — REST API v2",
+      "disabled": false
     }
   }
 }
@@ -393,7 +400,9 @@ Expected: a JSON response listing available tools (`jira_get_issue`, `jira_searc
 
 ## 7. agent.config.yaml — Jira Server Section
 
-Complete configuration for on-premise Jira Server. Replace all `YOUR_*` placeholders:
+Configuration for on-premise Jira Server / Data Center. Replace all `YOUR_*` placeholders. Only
+keys that exist in the shipped `agent.config.yaml` are shown; settings that the agent reads from
+the environment instead (TLS CA, webhook secret) are covered in Sections 8 and 9.
 
 ```yaml
 agent:
@@ -411,27 +420,18 @@ issue_tracker:
     server_url: "https://jira.yourcompany.com"    # No trailing slash
     # Include port if non-standard:
     # server_url: "https://jira.yourcompany.com:8443"
-
-    api_version: "2"                              # MUST be "2" for Jira Server
-                                                  # (Cloud uses "3")
+    # Server / Data Center use REST API v2 (/rest/api/2/); Cloud uses v3.
 
     project_key: "YOUR_PROJECT_KEY"               # e.g., "MYAPP", "BACKEND"
 
     # -----------------------------------------------------------------------
     # Credentials (resolved from environment at runtime)
     # -----------------------------------------------------------------------
-    # For Jira Server 8.14+ with PAT:
-    username_env: "JIRA_EMAIL"                    # Contains the login USERNAME (not email)
-    api_token_env: "JIRA_API_TOKEN"               # Contains the PAT token
+    email_env: "JIRA_EMAIL"                       # On Server / DC: the login USERNAME (not email)
+    api_token_env: "JIRA_API_TOKEN"               # PAT (8.14+) — or the account password on
+                                                  # older releases (Basic Auth)
 
-    # For Jira Server < 8.14 (Basic Auth with password):
-    # username_env: "JIRA_EMAIL"                  # Login username
-    # api_token_env: "JIRA_PASSWORD"              # Account password
-
-    # -----------------------------------------------------------------------
-    # TLS — for internal CA or self-signed certificates
-    # -----------------------------------------------------------------------
-    # ca_cert_path: "/etc/ssl/certs/internal-ca.crt"   # Uncomment if needed
+    # TLS for internal CAs is configured with NODE_EXTRA_CA_CERTS (Section 4), not here.
 
     # -----------------------------------------------------------------------
     # Backlog Query (JQL)
@@ -442,8 +442,10 @@ issue_tracker:
       AND status = "To Do"
       AND issuetype in (Story, Task, Bug)
       AND priority in (High, Highest)
-      AND labels not in ("agent-rejected", "agent-in-progress", "agent-done")
+      AND (labels is EMPTY OR labels not in ("ai-agent-accepted", "ai-agent-rejected"))
       ORDER BY priority DESC, created ASC
+    # `labels not in (...)` alone also excludes issues with no labels — keep the
+    # `labels is EMPTY OR` guard. The ai-agent-* labels are the ones /triage applies.
 
     # -----------------------------------------------------------------------
     # Polling (used when webhooks are not configured)
@@ -460,26 +462,11 @@ issue_tracker:
       review:     "Submit for Review"    # Transition to "In Review"
       done:       "Mark as Done"         # Transition to "Done"
       blocked:    "Block"                # Transition to "Blocked"
-      rejected:   "Reject"              # Transition to "Rejected"
+      rejected:   "Reject"               # Transition to "Rejected"
 
-    # -----------------------------------------------------------------------
-    # Labels the agent applies to issues it processes
-    # -----------------------------------------------------------------------
-    labels:
-      accepted:    "agent-accepted"
-      in_progress: "agent-in-progress"
-      rejected:    "agent-rejected"
-      escalated:   "agent-escalated"
-      done:        "agent-done"
-
-    # -----------------------------------------------------------------------
-    # Webhook receiver (for event-driven mode — see Section 9)
-    # -----------------------------------------------------------------------
-    webhook:
-      enabled: true
-      receiver_host: "http://YOUR_AGENT_HOST_IP:3001"  # Reachable FROM Jira Server
-      path: "/jira-webhook"
-      secret: "${env:JIRA_WEBHOOK_SECRET}"             # Shared secret for validation
+    # Labels are fixed by the commands, not configured here: /triage applies
+    # ai-agent-accepted / ai-agent-rejected / ai-agent-needs-triage.
+    # The webhook receiver is configured with environment variables (Section 9).
 
 domain:
   boundaries_file: "docs/context/domain-boundaries.md"
@@ -487,7 +474,6 @@ domain:
   rejection_threshold: 0.30
 
 autonomy:
-  mode: semi-autonomous
   gates:
     triage:
       confidence_threshold: 0.80
@@ -600,11 +586,16 @@ JIRA_API_TOKEN=$(aws secretsmanager get-secret-value \
 
 **Systemd environment file (for service deployments):**
 ```ini
-# /etc/systemd/system/ai-agent.service
+# Drop-in shared by the ai-agent-* units in Sections 9 and 10
 [Service]
 EnvironmentFile=/opt/ai-agent/.env
-ExecStart=/usr/bin/claude --headless /opt/ai-agent/project
+WorkingDirectory=/opt/ai-agent/project
 ```
+
+Claude Code runs non-interactively with `claude -p "<prompt>"`. Unattended runs also need a
+permission policy — either allow-list tools in `.claude/settings.json` or pass
+`--dangerously-skip-permissions` on an isolated host (see the containerized setup in
+[docker-agent.md](docker-agent.md)).
 
 ### 8.3 Validate Secrets Are Loaded
 
@@ -617,7 +608,7 @@ for var in "${required_vars[@]}"; do
   if [ -z "${!var}" ]; then
     echo "MISSING: $var"
   else
-    echo "OK: $var (length: ${#!var})"
+    echo "OK: $var"
   fi
 done
 ```
@@ -631,97 +622,62 @@ updated — eliminating the polling delay.
 
 ### 9.1 Start the Webhook Receiver
 
-The agent exposes a simple HTTP server on port 3001 that receives Jira events.
+Initium ships the receiver as `.agent-templates/webhook-receiver.mjs`. Copy it into the
+git-ignored `.agent/` directory so you can customise it per deployment:
 
-Create the webhook receiver script at `.agent/webhook-receiver.mjs`:
-
-```javascript
-// .agent/webhook-receiver.mjs
-// Listens for Jira Server webhook events and triggers the agent loop
-
-import { createServer } from 'node:http';
-import { createHmac, timingSafeEqual } from 'node:crypto';
-import { execSync } from 'node:child_process';
-import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
-
-const PORT = process.env.WEBHOOK_PORT ?? 3001;
-const SECRET = process.env.JIRA_WEBHOOK_SECRET;
-const LOG_DIR = '.agent/audit';
-
-if (!SECRET) { console.error('JIRA_WEBHOOK_SECRET not set'); process.exit(1); }
-if (!existsSync(LOG_DIR)) mkdirSync(LOG_DIR, { recursive: true });
-
-const log = (entry) => {
-  const line = JSON.stringify({ timestamp: new Date().toISOString(), ...entry });
-  appendFileSync(`${LOG_DIR}/${new Date().toISOString().split('T')[0]}-webhooks.jsonl`, line + '\n');
-  console.log(line);
-};
-
-function validateSignature(body, signature) {
-  // Jira Server webhooks can optionally send a shared secret in a custom header.
-  // Since Jira Server does not natively sign webhook payloads (unlike GitHub),
-  // we validate by checking a shared secret sent in a custom header.
-  // Configure your Jira webhook with a secret header: X-Jira-Secret: <secret>
-  return timingSafeEqual(
-    Buffer.from(signature ?? '', 'utf8'),
-    Buffer.from(SECRET, 'utf8')
-  );
-}
-
-createServer((req, res) => {
-  if (req.method !== 'POST' || req.url !== '/jira-webhook') {
-    res.writeHead(404); res.end(); return;
-  }
-
-  const secretHeader = req.headers['x-jira-secret'];
-  if (!validateSignature(null, secretHeader)) {
-    log({ event: 'webhook_rejected', reason: 'invalid_secret', ip: req.socket.remoteAddress });
-    res.writeHead(401); res.end('Unauthorized'); return;
-  }
-
-  let body = '';
-  req.on('data', chunk => { body += chunk; if (body.length > 1e6) req.destroy(); });
-  req.on('end', () => {
-    try {
-      const payload = JSON.parse(body);
-      const { webhookEvent, issue } = payload;
-
-      log({ event: 'webhook_received', webhookEvent, issueKey: issue?.key, issueSummary: issue?.fields?.summary });
-
-      // Trigger triage only for relevant events
-      const triggerEvents = ['jira:issue_created', 'jira:issue_updated'];
-      if (triggerEvents.includes(webhookEvent) && issue?.key) {
-        // Fire and forget — agent handles async
-        setImmediate(() => {
-          try {
-            execSync(`claude --headless "/triage ${issue.key}: ${issue.fields.summary}"`, {
-              cwd: process.cwd(),
-              env: process.env,
-              stdio: 'inherit',
-              timeout: 300_000  // 5 minute timeout for triage
-            });
-          } catch (err) {
-            log({ event: 'triage_trigger_error', issueKey: issue.key, error: err.message });
-          }
-        });
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ received: true, issueKey: issue?.key }));
-    } catch (err) {
-      log({ event: 'webhook_parse_error', error: err.message });
-      res.writeHead(400); res.end('Bad Request');
-    }
-  });
-}).listen(PORT, '0.0.0.0', () => {
-  log({ event: 'webhook_receiver_started', port: PORT });
-  console.log(`Jira webhook receiver listening on :${PORT}/jira-webhook`);
-});
+```bash
+cd /opt/ai-agent/project
+mkdir -p .agent
+cp .agent-templates/webhook-receiver.mjs .agent/webhook-receiver.mjs
 ```
 
-Start the receiver:
+What it does:
+
+- Accepts `POST` on `WEBHOOK_PATH` only (404 otherwise); rejects bodies over 1 MB (413) and
+  invalid JSON (400).
+- Checks the source IP against `JIRA_SERVER_IP` (403) and the `X-Jira-Secret` header against
+  `JIRA_WEBHOOK_SECRET` with a timing-safe compare (401).
+- Acknowledges with `200` immediately, then triages `jira:issue_created` / `jira:issue_updated`
+  events and dispatches comments that start with an `AGENT_*` command (see
+  [docker-agent.md](docker-agent.md#webhook-receiver-architecture) for the mapping).
+- Logs every event to `.agent/audit/<date>-webhooks.jsonl`, relative to its working directory.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `JIRA_WEBHOOK_SECRET` | — (required; exits if unset) | Expected `X-Jira-Secret` value |
+| `WEBHOOK_PORT` | `3001` | Listen port (binds `0.0.0.0`) |
+| `WEBHOOK_PATH` | `/jira-webhook` | Accepted path (exact match — no query string) |
+| `JIRA_SERVER_IP` | _(unset)_ | Comma-separated IP allowlist of the direct peer |
+| `CLAUDE_BIN` | `claude` | Agent CLI binary started with `-p` |
+
+> **Webhook input is untrusted.** Issue summaries and comments are written by any Jira user. The
+> template never passes them to a shell or into the prompt — it runs `claude -p` via `execFile`
+> with only a validated issue key and an allow-listed `AGENT_*` token. Keep that property if you
+> customise `.agent/webhook-receiver.mjs`, and keep the receiver reachable only from Jira (or your
+> proxy).
+
+Run it as a service:
+
+```ini
+# /etc/systemd/system/ai-agent-webhook-receiver.service
+[Unit]
+Description=AI Agent — Jira webhook receiver
+After=network-online.target
+
+[Service]
+User=ai-agent
+WorkingDirectory=/opt/ai-agent/project
+EnvironmentFile=/opt/ai-agent/.env
+ExecStart=/usr/bin/node .agent/webhook-receiver.mjs
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
 ```bash
-JIRA_WEBHOOK_SECRET=your-secret node .agent/webhook-receiver.mjs &
+sudo systemctl daemon-reload
+sudo systemctl enable --now ai-agent-webhook-receiver
 ```
 
 ### 9.2 Configure the Webhook in Jira Server Admin
@@ -735,10 +691,10 @@ JIRA_WEBHOOK_SECRET=your-secret node .agent/webhook-receiver.mjs &
    |-------|-------|
    | **Name** | `AI Agent — Issue Events` |
    | **Status** | Enabled |
-   | **URL** | `http://YOUR_AGENT_HOST_IP:3001/jira-webhook` |
-   | **Secret** | Leave blank (Jira Server doesn't natively sign; we use a custom header below) |
+   | **URL** | The proxy URL from § 9.3, e.g. `https://agent-webhooks.yourcompany.com/jira-webhook` |
+   | **Secret** | Optional. Data Center 10+ signs payloads with it (`X-Hub-Signature: sha256=…`), but the stock receiver does not verify that header — it authenticates with `X-Jira-Secret` (§ 9.3) |
    | **Events — Issue** | ✅ Created, ✅ Updated |
-   | **Events — Comment** | ✅ Created (for `AGENT_RESUME` commands) |
+   | **Events — Comment** | ✅ Created (for `AGENT_*` commands) |
    | **Events — Other** | Leave unchecked |
    | **JQL Filter** | `project = "YOUR_PROJECT_KEY" AND issuetype in (Story, Task, Bug)` |
 
@@ -746,38 +702,40 @@ JIRA_WEBHOOK_SECRET=your-secret node .agent/webhook-receiver.mjs &
 
 ### 9.3 Add the Shared Secret Header
 
-Jira Server webhook configuration does not support custom request headers natively through
-the UI. To send the shared secret header, use one of these approaches:
+Jira's webhook form does not support custom request headers. To send the shared secret header,
+use one of these approaches:
 
 **Option A: Nginx reverse proxy with header injection (recommended)**
 
 ```nginx
 # /etc/nginx/sites-available/jira-webhook-proxy
 server {
-    listen 3002;
-    location /jira-webhook {
-        proxy_pass http://localhost:3001/jira-webhook;
-        proxy_set_header X-Jira-Secret "your-shared-secret";
+    listen 443 ssl;
+    server_name agent-webhooks.yourcompany.com;
+    ssl_certificate     /etc/ssl/certs/agent.crt;
+    ssl_certificate_key /etc/ssl/private/agent.key;
+
+    location = /jira-webhook {
+        allow 10.0.1.50;   # Jira node IP(s)
+        deny  all;
+        proxy_pass http://127.0.0.1:3001/jira-webhook;
+        proxy_set_header X-Jira-Secret "<JIRA_WEBHOOK_SECRET>";
         proxy_set_header X-Real-IP $remote_addr;
     }
 }
 ```
 
-Set the Jira webhook URL to `http://YOUR_AGENT_HOST_IP:3002/jira-webhook`.
-The nginx proxy injects the secret header before forwarding to the receiver.
+Point the Jira webhook at the proxy URL. The proxy restricts callers to Jira and injects the
+secret header. Set `JIRA_SERVER_IP=127.0.0.1` so the receiver only accepts traffic that came
+through the proxy, and block port 3001 at the host firewall. Keep the nginx file readable only
+by root — it contains the secret.
 
-**Option B: IP allowlist only (simpler, less secure)**
+**Option B: IP allowlist without a proxy (simpler, less secure)**
 
-Allow only the Jira Server's IP in the webhook receiver:
-```javascript
-// Add to webhook receiver:
-const ALLOWED_IPS = new Set(['10.0.1.50']);  // Jira Server IP
-if (!ALLOWED_IPS.has(req.socket.remoteAddress)) {
-  res.writeHead(403); res.end('Forbidden'); return;
-}
-```
-
-And remove the secret header validation.
+Set `JIRA_SERVER_IP` to the Jira node IP(s). The receiver still requires `X-Jira-Secret`, and Jira
+cannot send it, so this option only works if you edit `.agent/webhook-receiver.mjs` to drop the
+secret check — or, on Data Center 10+, replace it with verification of the `X-Hub-Signature`
+HMAC-SHA256 signature using the webhook's Secret field.
 
 ### 9.4 Test the Webhook
 
@@ -799,7 +757,7 @@ curl -X POST http://localhost:3001/jira-webhook \
   }'
 
 # Expected response:
-# {"received":true,"issueKey":"PROJ-99"}
+# {"received":true,"issueKey":"PROJ-99","webhookEvent":"jira:issue_created"}
 ```
 
 Check the webhook log:
@@ -831,7 +789,7 @@ Type=oneshot
 User=ai-agent
 WorkingDirectory=/opt/ai-agent/project
 EnvironmentFile=/opt/ai-agent/.env
-ExecStart=/usr/bin/claude --headless "/groom"
+ExecStart=/usr/bin/claude -p "/groom"
 StandardOutput=append:/var/log/ai-agent/groom.log
 StandardError=append:/var/log/ai-agent/groom.log
 TimeoutStartSec=600
@@ -866,9 +824,8 @@ sudo systemctl status ai-agent-groom.timer
 
 ```cron
 # /etc/cron.d/ai-agent
-*/15 * * * * ai-agent cd /opt/ai-agent/project && \
-  source .env && \
-  /usr/bin/claude --headless "/groom" >> /var/log/ai-agent/groom.log 2>&1
+# cron runs /bin/sh (no `source`) and does not support line continuations
+*/15 * * * * ai-agent cd /opt/ai-agent/project && set -a && . /opt/ai-agent/.env && set +a && /usr/bin/claude -p "/groom" >> /var/log/ai-agent/groom.log 2>&1
 ```
 
 ---
@@ -887,9 +844,9 @@ curl -sf \
 
 # 2. Agent host → Anthropic API
 curl -sf \
-  -H "Authorization: Bearer $ANTHROPIC_API_KEY" \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
-  "https://api.anthropic.com/v1/models" | jq '.models[0].id'
+  "https://api.anthropic.com/v1/models" | jq '.data[0].id'
 
 # 3. Agent host → GitHub API
 curl -sf \
@@ -926,11 +883,11 @@ curl -sf \
 cd /opt/ai-agent/project
 
 # Test 1: Triage a single known issue
-claude --headless "/triage YOUR_PROJECT_KEY-1"
+claude -p "/triage YOUR_PROJECT_KEY-1"
 # Expected: JSON output with confidence score and ACCEPT/REJECT/ESCALATE decision
 
-# Test 2: Run grooming (dry run — check output before it modifies Jira)
-claude --headless "/groom"
+# Test 2: Run grooming (this updates Jira — use a test project first)
+claude -p "/groom"
 # Expected: list of triaged issues with decisions, no errors
 
 # Test 3: Check state directory was created
@@ -949,7 +906,7 @@ ls -la .agent/
    ```
 5. Verify in Jira that the issue has been:
    - Transitioned to "In Progress"
-   - Labelled `agent-accepted`
+   - Labelled `ai-agent-accepted`
    - Commented with the triage decision
 
 ---
@@ -965,8 +922,8 @@ Specifically verify:
 curl -s \
   -H "Authorization: Bearer $JIRA_API_TOKEN" \
   "$JIRA_URL/rest/api/2/mypermissions?projectKey=YOUR_PROJECT_KEY" | \
-  jq '.permissions | {DELETE_ISSUES, ADMINISTER_PROJECTS}'
-# Both should be false or absent
+  jq '.permissions | {DELETE_ISSUES: .DELETE_ISSUES.havePermission, ADMINISTER_PROJECTS: .ADMINISTER_PROJECTS.havePermission}'
+# Both should be false
 ```
 
 ### 12.2 Rotate Credentials
@@ -981,14 +938,16 @@ curl -s \
 
 ### 12.3 Audit Log Protection
 
-```bash
-# Prevent audit log tampering
-chmod 550 .agent/audit/
-chmod 440 .agent/audit/*.jsonl
+The agent and receiver must keep appending to `.agent/audit/`, so do not make it read-only.
+Protect the logs instead by shipping them off-host as they are written:
 
-# Forward logs to a centralized log system (immutable)
-# Example: ship to ELK / Splunk / CloudWatch
-# Install filebeat or fluent-bit and configure to tail .agent/audit/*.jsonl
+```bash
+# Forward logs to a centralized, append-only log system
+# Example: ship to ELK / Splunk / CloudWatch / Loki
+# Install Fluent Bit or the OpenTelemetry Collector and tail .agent/audit/*.jsonl
+
+# Optional (ext4, root): allow appends only, blocking edits and deletes of closed days' logs
+sudo chattr +a .agent/audit/$(date -d yesterday +%Y-%m-%d)-*.jsonl
 ```
 
 ### 12.4 Network Security
@@ -1078,11 +1037,16 @@ Check the Jira webhook delivery status periodically:
 2. Click on your webhook to view recent delivery history
 3. Failed deliveries indicate the agent webhook receiver is unreachable
 
-Automate via Jira REST API:
+Automate via the Jira webhooks REST API (requires an administrator token; the agent's service
+account normally cannot call it):
 ```bash
-curl -sf \
-  -H "Authorization: Bearer $JIRA_API_TOKEN" \
-  "$JIRA_URL/rest/api/2/webhook" | jq '.[] | {name, url, lastUpdated}'
+# Data Center 10+
+curl -sf -H "Authorization: Bearer $JIRA_ADMIN_TOKEN" \
+  "$JIRA_URL/rest/jira-webhook/1.0/webhooks" | jq .
+
+# Older Server / Data Center releases
+curl -sf -H "Authorization: Bearer $JIRA_ADMIN_TOKEN" \
+  "$JIRA_URL/rest/webhooks/1.0/webhook" | jq '.[] | {name, url, enabled}'
 ```
 
 ---
@@ -1100,6 +1064,8 @@ curl -sf \
 | HTTP 403 Forbidden | Missing permission | Review Section 3.2; grant the required permission |
 | HTTP 404 on issue | Wrong project key or issue doesn't exist | Verify `project_key` in agent.config.yaml |
 | Webhook not received | Network path blocked | Verify firewall rule; test with curl from Jira Server host |
+| Webhook returns 401 | `X-Jira-Secret` missing — Jira cannot send it directly | Route the webhook through the header-injecting proxy (§ 9.3) |
+| Webhook returns 403 | Peer IP not in `JIRA_SERVER_IP` | Behind a proxy the peer is the proxy (`127.0.0.1`) |
 
 ### Debugging Commands
 
@@ -1141,7 +1107,7 @@ curl -s -H "Authorization: Bearer $JIRA_API_TOKEN" \
   jq '.transitions[] | {id, name, to: .to.name}'
 ```
 
-Update `agent.config.yaml` → `status_transitions` with the exact names returned.
+Update `agent.config.yaml` → `issue_tracker.jira.status_transitions` with the exact names returned.
 
 ### Agent Gets Stuck
 
@@ -1153,7 +1119,7 @@ for f in .agent/state/*.json; do
 done
 
 # Force-resume a specific task
-claude --headless "/loop resume PROJ-42"
+claude -p "/loop resume PROJ-42"
 
 # Emergency stop
 touch .agent/STOP
@@ -1173,7 +1139,7 @@ touch .agent/STOP
 
 - [ ] Review `.agent/audit/` logs for anomalous patterns
 - [ ] Check Jira webhook delivery health in admin console
-- [ ] Verify PAT expiry date: `curl ... /myself | jq .tokenExpiry` (if field is exposed)
+- [ ] Verify PAT expiry date (as the `ai-agent` user): `curl -s -H "Authorization: Bearer $JIRA_API_TOKEN" "$JIRA_URL/rest/pat/latest/tokens" | jq '.[] | {name, expiringAt}'`
 - [ ] Review `domain-boundaries.md` — is scope still accurate?
 - [ ] Check API cost report against budget
 
@@ -1181,7 +1147,7 @@ touch .agent/STOP
 
 - [ ] Rotate credentials per Section 12.2 schedule
 - [ ] Review and prune `.agent/audit/` logs older than retention policy
-- [ ] Update `mcp-server-jira` package: `npm update -g mcp-server-jira`
+- [ ] Review the pinned `mcp-server-jira` version in `.cursor/mcp.json` and bump it deliberately
 - [ ] Review escalation log — high escalation rate signals domain config needs tuning
 
 ### PAT Rotation Procedure

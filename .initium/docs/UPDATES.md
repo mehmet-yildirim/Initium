@@ -15,7 +15,60 @@ Derived projects reference this file to decide what to apply.
 bash .initium/scripts/sync.sh
 ```
 
-See [.initium/docs/sync-guide.md](.initium/docs/sync-guide.md) for the full guide.
+See [sync-guide.md](sync-guide.md) for the full guide, and
+[existing-project.md](../../docs/guides/existing-project.md) to adopt Initium in an existing repository.
+
+---
+
+## v1.5.0 — Adopt Initium in existing projects; refreshed guides
+
+**Date:** 2026-09-27
+**Commit:** (set by release)
+**Severity:** MINOR (security fix in a template; two optional merges)
+
+### Why
+- Adding Initium to a repository that was not cloned from it was undocumented, and the first
+  sync overwrote any existing file Initium also ships (`CONTRIBUTING.md`, `.devcontainer/`,
+  `.cursor/rules/*.mdc`, …). Paths in a project's own `project_owned` list were ignored when
+  Initium owned them.
+- `.agent-templates/webhook-receiver.mjs` built shell commands from the Jira issue summary and
+  comment body — any Jira user could run commands on the agent host. It also called a
+  non-existent `claude --headless` flag and `/loop` / `/escalate` subcommands that do not exist.
+- The guides still listed the command set of v1.0 and linked to moved files
+  (`docs/agent/` → `.initium/docs/agent/`); `/infra` had no Azure path; `/init`, `/doc-site`,
+  `/doc-diagrams`, and `/infra` examples used unpinned actions and removed tools.
+
+### New Files (skeleton-owned — auto-applied)
+- `docs/guides/existing-project.md`, `docs/guides/existing-project.tr.md` — adoption walkthrough
+
+### Updated Files (skeleton-owned — auto-applied)
+- `.initium/scripts/sync.sh`, `sync.ps1` — paths in your local `project_owned` are never
+  written (reported as **Protected**). On the first sync (no recorded commit), existing files
+  that match no Initium version are kept (**Existing kept**), and missing `merge_required`
+  files and project templates are added.
+- `.agent-templates/webhook-receiver.mjs` — runs `claude -p` through `execFile` (no shell) with
+  a validated issue key and an allow-listed `AGENT_*` token only; new `CLAUDE_BIN` variable.
+- `.claude/commands/init.md` — existing-codebase mode: `/init` with no arguments (or
+  `existing:`) reads manifests, scripts, the tree, and CI instead of inferring a layout, only
+  replaces `TODO`s, and never edits existing CI. CI example pinned by SHA.
+- `.claude/commands/infra.md` — `azure init`, skill loading, S3 native locking, Gateway API,
+  OpenBao / CloudNativePG / Grafana Alloy for on-prem.
+- `.claude/commands/doc-site.md`, `doc-diagrams.md`, `help.md` and their `.opencode/` mirrors
+- `docs/guides/team*.md`, `onboarding.tr.md`, `docs/guides/workflows/*`, `.initium/docs/agent/*`,
+  `.initium/docs/sync-guide.md` — current commands, paths, and tooling
+
+### Merge Required
+- `docs/guides/onboarding.md`, `docs/guides/ai-workflow.md` — rewritten for the 40 current
+  commands, skills, and the adoption path. Take Initium's version unless you added project notes.
+- `.gitignore` — `HELP.md` (Spring Boot) is now anchored as `/HELP.md`. On macOS and Windows the
+  unanchored pattern also ignored `.claude/commands/help.md` and `.opencode/commands/help.md`, so
+  `/help` was silently left out of commits. Apply this one-line change even if you skip the rest.
+
+### Migration Steps
+1. If you deployed the webhook receiver, replace `.agent/webhook-receiver.mjs` with the new
+   template (re-apply your customisations) — the old copy is exploitable by any Jira user.
+2. If you customised an Initium-owned file and want to keep it, add its path to
+   `fileOwnership.project_owned` in `.initium/initium.json` before syncing.
 
 ---
 

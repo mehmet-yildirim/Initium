@@ -27,6 +27,50 @@ Multiple scopes can be combined in one call:
 /init domain: ... | stack: ... | agent: ...
 ```
 
+### Existing codebase (Initium added to a project that already has code)
+```
+/init
+/init existing: Billing service for the Acme storefront; owned by the payments team
+```
+With no arguments, or with `existing:`, the project itself is the source of truth — see Step 0.
+
+---
+
+## Step 0: Detect an Existing Codebase
+
+Treat the repository as an **existing codebase** when `$ARGUMENTS` is empty or starts with
+`existing:`, or when any application manifest exists outside `.initium/`, `.claude/`, `.cursor/`,
+`.opencode/`, `.continue/` and `docs/` (`package.json`, `pyproject.toml`, `requirements*.txt`,
+`go.mod`, `pom.xml`, `build.gradle*`, `Cargo.toml`, `*.csproj`, `*.sln`, `composer.json`,
+`Gemfile`, `pubspec.yaml`, `Package.swift`).
+
+In existing-codebase mode, derive facts from the code instead of inferring "plausible" ones:
+
+| Fact | Where to read it |
+|------|------------------|
+| Name, purpose | `README*`, manifest `name` / `description`, the optional `existing:` text |
+| Language, framework, runtime | Manifests and lockfiles, `.nvmrc` / `.tool-versions` / `.python-version`, `Dockerfile` |
+| Commands | `package.json` scripts, `Makefile`, `justfile`, `Taskfile.yml`, `tox.ini` / `noxfile.py`, existing CI jobs |
+| Repository layout | The real top-level tree (two levels deep, skipping vendored and build output) |
+| Database, ORM, migrations | Driver/ORM dependencies, `migrations/`, `prisma/`, `alembic/`, `db/changelog/` |
+| Tests | Test framework dependency and where test files actually live |
+| Deployment | `Dockerfile`, `compose*.yml`, `k8s/` / `helm/` / `charts/`, `*.tf`, existing workflow files |
+| Domain terms, entities | Model/entity/schema names, route names, README vocabulary |
+
+Rules for existing-codebase mode:
+- **Never overwrite content the project already wrote.** Only replace `TODO` placeholders. If
+  `AGENTS.md` has no Initium sections, append the missing ones (Essential Commands, Repository
+  Layout, Architecture, Testing Standards, Git & PR Workflow, Do Not, Domain Glossary) below the
+  existing text instead of rewriting it.
+- If `CLAUDE.md` exists and does not import `@AGENTS.md`, move its project-specific content into
+  `AGENTS.md` and make `CLAUDE.md` the import stub — show the diff and ask before doing this.
+- Document the architecture that exists, not the one the rules prefer. Record gaps against
+  `.cursor/rules/02-architecture.mdc` in `docs/architecture/overview.md` under "Known deviations"
+  rather than proposing a rewrite.
+- Do not touch CI (see 2i). Report what exists instead.
+- Ask clarifying questions only for what the code cannot tell you (business purpose, users,
+  out-of-scope areas, issue tracker).
+
 ---
 
 ## Step 1: Parse Input
@@ -35,6 +79,7 @@ Identify the mode from `$ARGUMENTS`:
 
 - If it starts with a known scope keyword (`domain:`, `stack:`, `ci:`, `agent:`, `glossary:`) →
   **targeted mode**: only populate the matching sections
+- If Step 0 detected an existing codebase → **full mode, sourced from the code**
 - Otherwise → **full mode**: populate all TODO files
 
 For **full mode**, extract these signals from the description:
@@ -205,12 +250,14 @@ Replace only the TODO values — do not change any non-TODO config:
 
 ### 2i. .github/workflows/ci.yml (targeted with `ci:` scope only)
 
-Generate real CI job steps for the detected stack:
+Generate real CI job steps for the detected stack. Pin every action by full commit SHA with a
+version comment — take current SHAs from the `devops-cicd` and `security-supply-chain` skills:
 
 **lint job:**
 ```yaml
-- uses: actions/setup-node@v4       # or setup-python, setup-go, etc.
-  with: { node-version: '22' }
+- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+- uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0 — or setup-python, setup-go, etc.
+  with: { node-version: '24' }
 - run: bun install                   # actual install command
 - run: bun lint                      # actual lint command
 ```
@@ -218,23 +265,28 @@ Generate real CI job steps for the detected stack:
 **test job:**
 ```yaml
 - run: bun test --coverage
-- uses: codecov/codecov-action@v4
 ```
 
 **security job:**
 ```yaml
-- uses: aquasecurity/trivy-action    # or snyk, dependabot, etc.
-- run: npm audit --audit-level=high
+- uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0 (PRs)
+- run: npm audit --audit-level=high  # or pip-audit, govulncheck, osv-scanner, etc.
 ```
 
 **build job:**
 ```yaml
 - run: bun build                     # or: docker build, mvn package, etc.
-- uses: docker/build-push-action     # if Docker deployment detected
+- uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0 — if Docker deployment detected
 ```
 
 Only generate this section when `ci:` scope is explicitly requested, or as part of full init
 when the deployment target is clear enough to generate accurate steps.
+
+**Existing codebase:** never edit or replace existing workflow files. If the project already has
+CI under another name and `.github/workflows/ci.yml` is the unmodified Initium placeholder, report
+the duplication and recommend deleting the placeholder (or adding the missing jobs — dependency
+review, SHA pinning — to the project's own workflow). Generate `ci.yml` only on an explicit
+`/init ci:` request.
 
 ---
 
