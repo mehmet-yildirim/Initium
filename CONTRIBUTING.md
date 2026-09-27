@@ -2,6 +2,9 @@
 
 This guide is for contributors who want to improve **Initium itself** — the rules, skills, prompts, scripts, and documentation that ship with this template. If you are customizing Initium for your own project, see the [README](README.md) and [docs/guides/ai-workflow.md](docs/guides/ai-workflow.md) instead.
 
+By participating you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md). Contributions are
+accepted under the project's [MIT License](LICENSE).
+
 ## Who This Is For
 
 - Adding or improving skill files (language, framework, DevOps)
