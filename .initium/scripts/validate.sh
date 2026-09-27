@@ -37,8 +37,8 @@ check_exists() {
     pass "Found: $file"
     return 0
   else
+    # Record and continue: under `set -e` a non-zero return would abort all remaining checks.
     fail "Missing: $file"
-    return 1
   fi
 }
 
@@ -169,6 +169,8 @@ check_exists ".initium/docs/UPDATES.md"
 check_exists ".initium/scripts/sync.sh"
 check_exists ".initium/scripts/sync.ps1"
 check_exists ".initium/scripts/sync.cmd"
+check_exists ".initium/scripts/check-update.mjs"
+check_exists ".github/workflows/initium-sync.yml"
 check_exists ".initium/docs/sync-guide.md"
 check_exists ".claude/commands/sync-initium.md"
 

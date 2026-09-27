@@ -10,7 +10,10 @@
 ::   .initium\scripts\sync.cmd              Interactive mode
 ::   .initium\scripts\sync.cmd --auto       Auto-apply skeleton-owned files
 ::   .initium\scripts\sync.cmd --dry-run    Preview changes; apply nothing
-::   .initium\scripts\sync.cmd --check      Check if update is available
+::   .initium\scripts\sync.cmd --check      Check if update is available (exit 10 = yes)
+::   .initium\scripts\sync.cmd --check --json  Same, as JSON
+::   .initium\scripts\sync.cmd --ref v1.2.0 Sync to a specific tag or branch
+::   .initium\scripts\sync.cmd --channel main  Track main instead of release tags
 ::   .initium\scripts\sync.cmd --help       Show help
 :: =============================================================================
 
@@ -25,11 +28,13 @@ if /I "%~1"=="--help" (
     echo    .initium\scripts\sync.cmd              Interactive mode
     echo    .initium\scripts\sync.cmd --auto       Auto-apply skeleton-owned files
     echo    .initium\scripts\sync.cmd --dry-run    Preview only; no changes applied
-    echo    .initium\scripts\sync.cmd --check      Check for update availability
+    echo    .initium\scripts\sync.cmd --check      Check for update availability ^(exit 10 = yes^)
+    echo    .initium\scripts\sync.cmd --ref ^<tag^>  Sync to a specific tag or branch
+    echo    .initium\scripts\sync.cmd --channel main   Track main instead of release tags
     echo.
     echo  What it does:
     echo    1. Adds the upstream Initium repo as a git remote ^(once^)
-    echo    2. Fetches latest commits from Initium
+    echo    2. Resolves the target: latest release tag ^(default^) or main
     echo    3. skeleton_owned files  -^> applied automatically ^(safe^)
     echo    4. merge_required files  -^> shown as diff; you choose per file
     echo    5. project_owned files   -^> never touched ^(your customisations^)
@@ -62,6 +67,15 @@ if "%~1"=="" goto run
 if /I "%~1"=="--auto"     set PS_ARGS=%PS_ARGS% -Auto
 if /I "%~1"=="--dry-run"  set PS_ARGS=%PS_ARGS% -DryRun
 if /I "%~1"=="--check"    set PS_ARGS=%PS_ARGS% -Check
+if /I "%~1"=="--json"     set PS_ARGS=%PS_ARGS% -Json
+if /I "%~1"=="--ref" (
+    set PS_ARGS=%PS_ARGS% -Ref "%~2"
+    shift
+)
+if /I "%~1"=="--channel" (
+    set PS_ARGS=%PS_ARGS% -Channel %~2
+    shift
+)
 shift
 goto parse_args
 

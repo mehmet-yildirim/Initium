@@ -1,0 +1,116 @@
+# =============================================================================
+# Initium sync — weekly check for a new Initium release; opens a PR with the update.
+#
+# - Follows agent.config.yaml → initium_sync.channel ("tags" = released versions only).
+# - Applies only Initium-owned files; merge_required files are listed in the PR for manual
+#   review and project-owned files are never touched. The PR is never merged automatically.
+# - Requires: Settings → Actions → General → "Allow GitHub Actions to create and approve pull
+#   requests". PRs opened with the default GITHUB_TOKEN do not trigger other workflows (CI);
+#   add a fine-grained token or GitHub App token as the INITIUM_SYNC_TOKEN secret
+#   (contents + pull requests: read/write) if CI must run on the sync PR.
+# =============================================================================
+name: Initium sync
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Initium tag or branch to sync to (empty = follow initium_sync.channel)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: initium-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Check and propose Initium update
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.INITIUM_SYNC_TOKEN || github.token }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Read settings
+        id: settings
+        run: |
+          auto_pr=$(awk '/^initium_sync:/{s=1;next} s&&/^[^[:space:]#]/{exit} s&&$1=="auto_pr:"{print $2;exit}' agent.config.yaml 2>/dev/null || true)
+          repo=$(grep '"repository"' .initium/initium.json | head -1 | sed 's/.*"repository": *"\([^"]*\)".*/\1/')
+          is_upstream=false
+          [ "${repo%.git}" = "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" ] && is_upstream=true
+          echo "auto_pr=${auto_pr:-true}" >> "$GITHUB_OUTPUT"
+          echo "is_upstream=$is_upstream" >> "$GITHUB_OUTPUT"
+
+      - name: Sync from Initium
+        id: sync
+        if: steps.settings.outputs.is_upstream == 'false'
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          args=(--auto --summary "$RUNNER_TEMP/initium-sync.md")
+          [ -n "$REF" ] && args+=(--ref "$REF")
+          bash .initium/scripts/sync.sh "${args[@]}"
+
+      - name: Open pull request
+        if: >-
+          steps.sync.outputs.update_available == 'true' &&
+          steps.sync.outputs.applied != '0' &&
+          steps.settings.outputs.auto_pr != 'false'
+        env:
+          GH_TOKEN: ${{ secrets.INITIUM_SYNC_TOKEN || github.token }}
+          VERSION: ${{ steps.sync.outputs.target_version }}
+          CURRENT: ${{ steps.sync.outputs.current_version }}
+          VALIDATION: ${{ steps.sync.outputs.validation }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          branch="chore/initium-sync-v${VERSION}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "::notice::Branch $branch already exists — an Initium $VERSION sync PR was already proposed."
+            exit 0
+          fi
+
+          git switch -c "$branch"
+          git add -A
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "chore: sync Initium to v${VERSION}" -m "Automated by .github/workflows/initium-sync.yml"
+          git push origin "$branch"
+
+          draft=()
+          [ "$VALIDATION" = "failed" ] && draft=(--draft)
+          gh pr create \
+            --base "$BASE" \
+            --head "$branch" \
+            --title "chore: sync Initium to v${VERSION} (from v${CURRENT})" \
+            --body-file "$RUNNER_TEMP/initium-sync.md" \
+            "${draft[@]}"
+
+      - name: Report
+        if: always()
+        env:
+          UPDATE: ${{ steps.sync.outputs.update_available }}
+          VERSION: ${{ steps.sync.outputs.target_version }}
+          IS_UPSTREAM: ${{ steps.settings.outputs.is_upstream }}
+          AUTO_PR: ${{ steps.settings.outputs.auto_pr }}
+        run: |
+          if [ "$IS_UPSTREAM" = "true" ]; then
+            echo "This is the Initium repository itself — nothing to sync." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$UPDATE" = "true" ]; then
+            echo "Initium v${VERSION} is available (auto_pr=${AUTO_PR})." >> "$GITHUB_STEP_SUMMARY"
+            [ -f "$RUNNER_TEMP/initium-sync.md" ] && cat "$RUNNER_TEMP/initium-sync.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Initium is up to date." >> "$GITHUB_STEP_SUMMARY"
+          fi

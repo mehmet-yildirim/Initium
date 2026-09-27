@@ -2,7 +2,7 @@
   "_comment": "This file tracks which version of Initium this project is based on. Update it after running .initium/scripts/sync.sh.",
   "skeleton": {
     "repository": "https://github.com/mehmet-yildirim/Initium",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "commit": "TODO: set by .initium/scripts/sync.sh",
     "syncedAt": "TODO: set by .initium/scripts/sync.sh",
     "releaseNotesUrl": "https://github.com/mehmet-yildirim/Initium/blob/main/.initium/docs/UPDATES.md"
@@ -148,6 +148,8 @@
       ".continue/rules/skills/security-sast.md",
       ".initium/scripts/sync-opencode-commands.sh",
       ".initium/scripts/sync-skills.mjs",
+      ".initium/scripts/check-update.mjs",
+      ".github/workflows/initium-sync.yml",
       "opencode.json",
       ".opencode/README.md",
       ".claude/hooks/audit-log.mjs",
@@ -244,6 +246,32 @@
       "docs/guides/onboarding.md",
       "docs/guides/ai-workflow.md",
       "SECURITY.md"
+    ],
+    "_removed_comment": "Files Initium deleted. sync removes a local copy only if it is identical to the last Initium version.",
+    "removed": [
+      ".cursor/rules/skills/be-microservices.mdc",
+      ".cursor/rules/skills/db-migrations.mdc",
+      ".cursor/rules/skills/devops-aws.mdc",
+      ".cursor/rules/skills/devops-cicd.mdc",
+      ".cursor/rules/skills/devops-docker.mdc",
+      ".cursor/rules/skills/devops-gcp.mdc",
+      ".cursor/rules/skills/devops-onprem.mdc",
+      ".cursor/rules/skills/docs-generation.mdc",
+      ".cursor/rules/skills/fe-angular.mdc",
+      ".cursor/rules/skills/fe-nextjs.mdc",
+      ".cursor/rules/skills/fe-react.mdc",
+      ".cursor/rules/skills/fe-vue.mdc",
+      ".cursor/rules/skills/lang-dotnet.mdc",
+      ".cursor/rules/skills/lang-go.mdc",
+      ".cursor/rules/skills/lang-java.mdc",
+      ".cursor/rules/skills/lang-python.mdc",
+      ".cursor/rules/skills/lang-typescript.mdc",
+      ".cursor/rules/skills/mobile-android.mdc",
+      ".cursor/rules/skills/mobile-flutter.mdc",
+      ".cursor/rules/skills/mobile-ios.mdc",
+      ".cursor/rules/skills/mobile-kmp.mdc",
+      ".cursor/rules/skills/mobile-reactnative.mdc",
+      ".cursor/rules/skills/security-sast.mdc"
     ]
   }
 }

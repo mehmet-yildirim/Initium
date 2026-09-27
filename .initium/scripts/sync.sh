@@ -7,17 +7,27 @@
 #
 # Usage:
 #   bash .initium/scripts/sync.sh                  # Interactive mode
-#   bash .initium/scripts/sync.sh --auto           # Apply skeleton_owned files without prompting
+#   bash .initium/scripts/sync.sh --auto           # Non-interactive: apply skeleton_owned files, skip merges
 #   bash .initium/scripts/sync.sh --dry-run        # Show what would change, apply nothing
-#   bash .initium/scripts/sync.sh --check          # Just report version status, exit
+#   bash .initium/scripts/sync.sh --check          # Report version status (exit 10 = update available)
+#   bash .initium/scripts/sync.sh --check --json   # Same, as JSON on stdout
+#
+# Options:
+#   --ref <tag|branch>    Sync to a specific Initium tag or branch
+#   --channel tags|main   Default target when --ref is not given
+#                         (default: agent.config.yaml → initium_sync.channel, else "tags")
+#   --summary <file>      Write a Markdown summary (used as the PR body by CI)
 #
 # What it does:
 #   1. Fetches the Initium repo (adds as 'skeleton' remote if needed)
-#   2. Reads initium.json to classify every file by ownership
-#   3. For skeleton_owned files  → auto-applies (safe overwrite)
-#   4. For merge_required files  → shows diff, asks you to confirm each
-#   5. For project_owned files   → skips (never touched)
-#   6. Updates initium.json with the new version
+#   2. Resolves the target: latest release tag (channel "tags") or main
+#   3. skeleton_owned files  → auto-applied (safe overwrite)
+#   4. Files removed from Initium → deleted locally if unmodified
+#   5. merge_required files  → diff shown; you choose per file (skipped in --auto)
+#   6. project_owned files   → never touched
+#   7. Updates initium.json with the new version and commit
+#
+# Exit codes: 0 success / up to date, 1 error, 10 update available (--check only)
 # =============================================================================
 
 set -euo pipefail
@@ -27,15 +37,22 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 SKELETON_JSON=".initium/initium.json"
 SKELETON_REMOTE="skeleton"
+AGENT_CONFIG="agent.config.yaml"
+EXIT_UPDATE_AVAILABLE=10
+RELEASE_NOTES_MAX_LINES=400
 
-# Colours
-RED='\033[0;31m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'
-CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
+# Colours (disabled when output is not a terminal)
+if [ -t 1 ]; then
+  RED='\033[0;31m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'
+  CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
+else
+  RED=''; YELLOW=''; GREEN=''; CYAN=''; BOLD=''; NC=''
+fi
 
 info()    { echo -e "${CYAN}[INFO]${NC}  $*"; }
 success() { echo -e "${GREEN}[OK]${NC}    $*"; }
 warn()    { echo -e "${YELLOW}[WARN]${NC}  $*"; }
-error()   { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
+error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 heading() { echo -e "\n${BOLD}$*${NC}"; echo "$(printf '─%.0s' {1..60})"; }
 
 # Extract all string values from a named JSON array (pure awk, no jq required).
@@ -53,28 +70,73 @@ _json_array() {
   '
 }
 
+# Read a scalar value from a top-level JSON string field in initium.json.
+_json_field() {
+  grep "\"$1\"" "$SKELETON_JSON" | head -1 | sed "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/"
+}
+
+# Read a flat key from a top-level YAML section: _yaml_value <section> <key>
+_yaml_value() {
+  [ -f "$AGENT_CONFIG" ] || return 0
+  awk -v s="$1" -v k="$2" '
+    $0 ~ "^" s ":" { in_s=1; next }
+    in_s && /^[^[:space:]#]/ { exit }
+    in_s && $1 == k ":" { sub(/#.*/, ""); print $2; exit }
+  ' "$AGENT_CONFIG" | tr -d '"'"'"
+}
+
 # ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
 AUTO=false
 DRY_RUN=false
 CHECK_ONLY=false
+JSON=false
+REF=""
+CHANNEL=""
+SUMMARY_FILE=""
 
-for arg in "$@"; do
-  case "$arg" in
+while [ $# -gt 0 ]; do
+  case "$1" in
     --auto)     AUTO=true ;;
     --dry-run)  DRY_RUN=true ;;
     --check)    CHECK_ONLY=true ;;
+    --json)     JSON=true ;;
+    --ref)      REF="${2:?--ref needs a value}"; shift ;;
+    --channel)  CHANNEL="${2:?--channel needs a value}"; shift ;;
+    --summary)  SUMMARY_FILE="${2:?--summary needs a file path}"; shift ;;
     --help|-h)
-      echo "Usage: bash .initium/scripts/sync.sh [--auto|--dry-run|--check]"
-      echo ""
-      echo "  --auto      Apply all skeleton_owned files without prompting"
-      echo "  --dry-run   Show what would change; apply nothing"
-      echo "  --check     Show version status only; apply nothing"
+      sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'
       exit 0 ;;
-    *) warn "Unknown argument: $arg" ;;
+    *) warn "Unknown argument: $1" ;;
   esac
+  shift
 done
+
+# With --json, human-readable output goes to stderr; only the JSON result goes to stdout.
+if [ "$JSON" = true ]; then
+  exec 3>&1 1>&2
+fi
+
+[ -n "$CHANNEL" ] || CHANNEL="$(_yaml_value initium_sync channel)"
+[ -n "$CHANNEL" ] || CHANNEL="tags"
+case "$CHANNEL" in tags|main) ;; *) error "Invalid channel '$CHANNEL' (expected: tags | main)" ;; esac
+
+is_interactive() { [ "$AUTO" = false ] && [ -t 0 ]; }
+
+# ask "<prompt>" <y|n default> — returns the default when not interactive
+ask() {
+  local answer
+  if ! is_interactive; then [ "$2" = "y" ]; return; fi
+  read -r -p "$1" answer
+  answer="${answer:-$2}"
+  [[ "$answer" =~ ^[Yy]$ ]]
+}
+
+emit_output() {
+  [ -n "${GITHUB_OUTPUT:-}" ] && echo "$1=$2" >> "$GITHUB_OUTPUT"
+  return 0
+}
 
 # ---------------------------------------------------------------------------
 # Pre-flight checks
@@ -84,13 +146,11 @@ heading "Pre-flight Checks"
 [ -f "$SKELETON_JSON" ] || error ".initium/initium.json not found. Is this an Initium-based project?"
 command -v git >/dev/null 2>&1 || error "git is required but not found"
 
-# Check working tree is clean
 if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
   warn "Your working tree has uncommitted changes."
-  warn "Stash or commit them before syncing: git stash"
   if [ "$DRY_RUN" = false ] && [ "$CHECK_ONLY" = false ]; then
-    read -r -p "Continue anyway? [y/N] " confirm
-    [[ "$confirm" =~ ^[Yy]$ ]] || exit 1
+    is_interactive || error "Commit or stash your changes before a non-interactive sync."
+    ask "Continue anyway? [y/N] " n || exit 1
   fi
 fi
 
@@ -99,16 +159,18 @@ success "Working directory: $(pwd)"
 # ---------------------------------------------------------------------------
 # Read initium.json
 # ---------------------------------------------------------------------------
-SKELETON_REPO=$(grep '"repository"'  "$SKELETON_JSON" | sed 's/.*"repository": *"\([^"]*\)".*/\1/')
-CURRENT_COMMIT=$(grep '"commit"'     "$SKELETON_JSON" | sed 's/.*"commit": *"\([^"]*\)".*/\1/')
-CURRENT_SYNCED=$(grep '"syncedAt"'   "$SKELETON_JSON" | sed 's/.*"syncedAt": *"\([^"]*\)".*/\1/')
+SKELETON_REPO=$(_json_field repository)
+CURRENT_COMMIT=$(_json_field commit)
+CURRENT_SYNCED=$(_json_field syncedAt)
+CURRENT_VERSION=$(_json_field version)
 
-info "Initium repo   : $SKELETON_REPO"
-info "Last synced at : $CURRENT_SYNCED"
-info "Last sync SHA  : $CURRENT_COMMIT"
+info "Initium repo    : $SKELETON_REPO"
+info "Current version : $CURRENT_VERSION"
+info "Last synced at  : $CURRENT_SYNCED"
+info "Channel         : ${REF:-$CHANNEL}"
 
 # ---------------------------------------------------------------------------
-# Set up Initium remote
+# Set up Initium remote and resolve the target
 # ---------------------------------------------------------------------------
 heading "Connecting to Initium Repository"
 
@@ -118,37 +180,83 @@ if ! git remote get-url "$SKELETON_REMOTE" &>/dev/null; then
 else
   EXISTING_URL=$(git remote get-url "$SKELETON_REMOTE")
   if [ "$EXISTING_URL" != "$SKELETON_REPO" ]; then
-    warn "Remote '$SKELETON_REMOTE' points to $EXISTING_URL"
-    warn "Expected: $SKELETON_REPO"
-    read -r -p "Update remote URL? [y/N] " confirm
-    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+    warn "Remote '$SKELETON_REMOTE' points to $EXISTING_URL (initium.json says $SKELETON_REPO)"
+    if ask "Update remote URL? [y/N] " n || ! is_interactive; then
       git remote set-url "$SKELETON_REMOTE" "$SKELETON_REPO"
+      info "Remote URL updated to $SKELETON_REPO"
     fi
   fi
 fi
 
+# Latest stable release tag (vMAJOR.MINOR.PATCH, no pre-releases)
+latest_release_tag() {
+  git ls-remote --tags --refs --sort=-v:refname "$SKELETON_REMOTE" 'v*' 2>/dev/null \
+    | awk '{print $2}' | sed 's|refs/tags/||' \
+    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true
+}
+
+# Fetched refs live under refs/initium/ so upstream tags never mix with project tags.
+fetch_tag()    { git fetch --quiet --no-tags "$SKELETON_REMOTE" "+refs/tags/$1:refs/initium/$1"; }
+fetch_branch() { git fetch --quiet --no-tags "$SKELETON_REMOTE" "+refs/heads/$1:refs/initium/$1"; }
+
+TARGET_REF=""
+TARGET_VERSION=""
 info "Fetching Initium..."
-git fetch "$SKELETON_REMOTE" --quiet
-LATEST_COMMIT=$(git rev-parse "$SKELETON_REMOTE/main")
-LATEST_SHORT=$(git rev-parse --short "$SKELETON_REMOTE/main")
-
-success "Latest Initium commit: $LATEST_SHORT"
-
-# Compare versions
-if [ "$CURRENT_COMMIT" = "$LATEST_COMMIT" ]; then
-  success "Already up to date — Initium commit matches your last sync."
-  [ "$CHECK_ONLY" = true ] && exit 0
-  echo ""
-  read -r -p "Force re-sync anyway? [y/N] " confirm
-  [[ "$confirm" =~ ^[Yy]$ ]] || { info "Nothing to do."; exit 0; }
+if [ -n "$REF" ]; then
+  if git ls-remote --exit-code --tags --refs "$SKELETON_REMOTE" "refs/tags/$REF" >/dev/null 2>&1; then
+    fetch_tag "$REF"; TARGET_VERSION="${REF#v}"
+  else
+    fetch_branch "$REF" || error "Ref '$REF' not found in $SKELETON_REPO"
+  fi
+  TARGET_REF="$REF"
+elif [ "$CHANNEL" = "tags" ]; then
+  TARGET_REF=$(latest_release_tag)
+  if [ -n "$TARGET_REF" ]; then
+    fetch_tag "$TARGET_REF"; TARGET_VERSION="${TARGET_REF#v}"
+  else
+    warn "No release tags found in Initium — falling back to main"
+    TARGET_REF="main"; fetch_branch main
+  fi
 else
-  info "Updates available since your last sync."
+  TARGET_REF="main"; fetch_branch main
 fi
 
+TARGET=$(git rev-parse "refs/initium/$TARGET_REF^{commit}")
+TARGET_SHORT=$(git rev-parse --short "$TARGET")
+if [ -z "$TARGET_VERSION" ]; then
+  TARGET_VERSION=$(git show "$TARGET:.initium/docs/UPDATES.md" 2>/dev/null \
+    | grep -m1 "^## v" | sed 's/^## v//' | awk '{print $1}' || true)
+  TARGET_VERSION="${TARGET_VERSION:-unknown}"
+fi
+
+success "Target: $TARGET_REF ($TARGET_SHORT, version $TARGET_VERSION)"
+
+UPDATE_AVAILABLE=true
+[ "$CURRENT_COMMIT" = "$TARGET" ] && UPDATE_AVAILABLE=false
+emit_output update_available "$UPDATE_AVAILABLE"
+emit_output target_version "$TARGET_VERSION"
+emit_output target_ref "$TARGET_REF"
+emit_output current_version "$CURRENT_VERSION"
+
 if [ "$CHECK_ONLY" = true ]; then
-  echo ""
-  echo "Run 'bash .initium/scripts/sync.sh' to apply updates."
+  if [ "$JSON" = true ]; then
+    printf '{"current":"%s","latest":"%s","ref":"%s","commit":"%s","updateAvailable":%s}\n' \
+      "$CURRENT_VERSION" "$TARGET_VERSION" "$TARGET_REF" "$TARGET" "$UPDATE_AVAILABLE" >&3
+  fi
+  if [ "$UPDATE_AVAILABLE" = true ]; then
+    info "Update available: $CURRENT_VERSION → $TARGET_VERSION"
+    echo "Run 'bash .initium/scripts/sync.sh' to apply updates."
+    exit "$EXIT_UPDATE_AVAILABLE"
+  fi
+  success "Already up to date."
   exit 0
+fi
+
+if [ "$UPDATE_AVAILABLE" = false ]; then
+  success "Already up to date — Initium $TARGET_VERSION matches your last sync."
+  ask "Force re-sync anyway? [y/N] " n || { info "Nothing to do."; exit 0; }
+else
+  info "Update available: $CURRENT_VERSION → $TARGET_VERSION"
 fi
 
 # ---------------------------------------------------------------------------
@@ -158,23 +266,19 @@ heading "What Changed in Initium"
 
 echo ""
 echo "Commits since your last sync:"
-git log --oneline "$CURRENT_COMMIT..$SKELETON_REMOTE/main" 2>/dev/null || \
-  git log --oneline "$SKELETON_REMOTE/main" --max-count=20
+git log --oneline "$CURRENT_COMMIT..$TARGET" 2>/dev/null || \
+  git log --oneline "$TARGET" --max-count=20
 
 echo ""
-info "Full migration notes: $SKELETON_REPO/blob/main/.initium/docs/UPDATES.md"
+info "Full migration notes: $SKELETON_REPO/blob/$TARGET_REF/.initium/docs/UPDATES.md"
 echo ""
-if [ "$AUTO" = false ]; then
-  read -r -p "Continue with sync? [Y/n] " confirm
-  [[ "$confirm" =~ ^[Nn]$ ]] && { info "Sync cancelled."; exit 0; }
-fi
+ask "Continue with sync? [Y/n] " y || { info "Sync cancelled."; exit 0; }
 
 # ---------------------------------------------------------------------------
-# Read file ownership lists — always from the Initium remote so newly
-# added files in the latest Initium version are included, regardless of
-# what the local initium.json says.
+# Read file ownership lists — always from the target Initium version so newly
+# added files are included, regardless of what the local initium.json says.
 # ---------------------------------------------------------------------------
-REMOTE_SKELETON_JSON=$(git show "$SKELETON_REMOTE/main:.initium/initium.json")
+REMOTE_SKELETON_JSON=$(git show "$TARGET:.initium/initium.json")
 
 SKELETON_OWNED=()
 while IFS= read -r line; do SKELETON_OWNED+=("$line"); done < <(printf '%s\n' "$REMOTE_SKELETON_JSON" | _json_array "skeleton_owned")
@@ -186,16 +290,29 @@ while IFS= read -r line; do MERGE_REQUIRED+=("$line"); done < <(printf '%s\n' "$
 # ---------------------------------------------------------------------------
 # Get list of changed files in Initium since last sync
 # ---------------------------------------------------------------------------
-if git cat-file -e "$CURRENT_COMMIT" 2>/dev/null; then
-  CHANGED_FILES=$(git diff --name-only "$CURRENT_COMMIT" "$SKELETON_REMOTE/main")
+if git cat-file -e "$CURRENT_COMMIT^{commit}" 2>/dev/null; then
+  CHANGED_FILES=$(git diff --name-only "$CURRENT_COMMIT" "$TARGET")
 else
   # First sync — list every file tracked in the Initium tree
-  CHANGED_FILES=$(git ls-tree -r --name-only "$SKELETON_REMOTE/main")
+  CHANGED_FILES=$(git ls-tree -r --name-only "$TARGET")
 fi
 
 APPLIED=0
 SKIPPED=0
+UPDATED_FILES=()
+ADDED_FILES=()
+REMOVED_FILES=()
+KEPT_MODIFIED=()
 NEEDS_MERGE=()
+
+matches_entry() {  # matches_entry <file> <entry> — exact or directory-prefix match
+  [[ "$1" == "$2" ]] || [[ "$1" == "$2"* && "${2: -1}" == "/" ]]
+}
+
+write_from_target() {
+  mkdir -p "$(dirname "$1")"
+  git show "$TARGET:$1" > "$1"
+}
 
 # ---------------------------------------------------------------------------
 # Apply skeleton_owned files
@@ -203,39 +320,23 @@ NEEDS_MERGE=()
 heading "Applying Initium-Owned Files (safe overwrite)"
 
 for file in $CHANGED_FILES; do
-  # Check if this file is skeleton_owned
   is_skeleton_owned=false
   for owned in "${SKELETON_OWNED[@]}"; do
-    # Support directory prefix matching (e.g., "docs/guides/agent/schemas/")
-    if [[ "$file" == "$owned" ]] || [[ "$file" == "$owned"* && "${owned: -1}" == "/" ]]; then
-      is_skeleton_owned=true
-      break
-    fi
+    if matches_entry "$file" "$owned"; then is_skeleton_owned=true; break; fi
   done
+  [ "$is_skeleton_owned" = true ] || continue
+  git cat-file -e "$TARGET:$file" 2>/dev/null || continue
 
-  if [ "$is_skeleton_owned" = false ]; then
-    continue
-  fi
-
-  # Check if file exists in Initium
-  if ! git show "$SKELETON_REMOTE/main:$file" &>/dev/null; then
-    warn "  REMOVED in Initium: $file"
-    if [ "$DRY_RUN" = false ] && [ "$AUTO" = true ]; then
-      warn "    Leaving local copy — remove manually if no longer needed"
-    fi
-    continue
-  fi
-
+  action="Updated"
+  [ -f "$file" ] || action="Added"
   if [ "$DRY_RUN" = true ]; then
-    echo -e "  ${GREEN}[DRY-RUN WOULD UPDATE]${NC} $file"
-    APPLIED=$((APPLIED + 1))
+    echo -e "  ${GREEN}[DRY-RUN WOULD $(echo "$action" | tr '[:lower:]' '[:upper:]')]${NC} $file"
   else
-    # Create parent directory if needed
-    mkdir -p "$(dirname "$file")"
-    git show "$SKELETON_REMOTE/main:$file" > "$file"
-    success "  Updated: $file"
-    APPLIED=$((APPLIED + 1))
+    write_from_target "$file"
+    success "  $action: $file"
   fi
+  if [ "$action" = "Added" ]; then ADDED_FILES+=("$file"); else UPDATED_FILES+=("$file"); fi
+  APPLIED=$((APPLIED + 1))
 done
 
 # ---------------------------------------------------------------------------
@@ -245,33 +346,63 @@ done
 # ---------------------------------------------------------------------------
 heading "Adding Missing Initium-Owned Files"
 
-ADDED_NEW=0
 for file in "${SKELETON_OWNED[@]}"; do
-  # Skip directory entries (trailing slash)
   [[ "${file: -1}" == "/" ]] && continue
-  # Skip files that already exist locally
   [ -f "$file" ] && continue
-  # Skip files that don't exist in Initium (e.g. stale entries)
-  if ! git show "$SKELETON_REMOTE/main:$file" &>/dev/null; then
-    continue
-  fi
+  git cat-file -e "$TARGET:$file" 2>/dev/null || continue
 
   if [ "$DRY_RUN" = true ]; then
     echo -e "  ${GREEN}[DRY-RUN WOULD ADD]${NC} $file"
-    APPLIED=$((APPLIED + 1))
-    ADDED_NEW=$((ADDED_NEW + 1))
   else
-    mkdir -p "$(dirname "$file")"
-    git show "$SKELETON_REMOTE/main:$file" > "$file"
+    write_from_target "$file"
     success "  Added (new): $file"
+  fi
+  ADDED_FILES+=("$file")
+  APPLIED=$((APPLIED + 1))
+done
+
+[ ${#ADDED_FILES[@]} -eq 0 ] && info "No missing Initium-owned files."
+
+# ---------------------------------------------------------------------------
+# Remove files that Initium deleted
+# Candidates: the target's "removed" list plus every skeleton_owned entry in
+# the local initium.json (the ownership list of the version you synced last).
+# A file is deleted only if it is byte-identical to Initium's last version of
+# it; locally modified copies are kept and reported.
+# ---------------------------------------------------------------------------
+heading "Removing Files Deleted from Initium"
+
+REMOVAL_CANDIDATES=$(
+  { printf '%s\n' "$REMOTE_SKELETON_JSON" | _json_array "removed"
+    _json_array "skeleton_owned" < "$SKELETON_JSON"; } | sort -u
+)
+
+for file in $REMOVAL_CANDIDATES; do
+  [[ "${file: -1}" == "/" ]] && continue
+  [ -f "$file" ] || continue
+  git cat-file -e "$TARGET:$file" 2>/dev/null && continue
+
+  deleting_commit=$(git log -1 --format=%H "$TARGET" -- "$file" 2>/dev/null || true)
+  if [ -z "$deleting_commit" ] || ! git cat-file -e "$deleting_commit^:$file" 2>/dev/null; then
+    continue
+  fi
+
+  if git show "$deleting_commit^:$file" | cmp -s - "$file"; then
+    if [ "$DRY_RUN" = true ]; then
+      echo -e "  ${GREEN}[DRY-RUN WOULD REMOVE]${NC} $file"
+    else
+      if git ls-files --error-unmatch "$file" >/dev/null 2>&1; then git rm -q "$file"; else rm -f "$file"; fi
+      success "  Removed: $file"
+    fi
+    REMOVED_FILES+=("$file")
     APPLIED=$((APPLIED + 1))
-    ADDED_NEW=$((ADDED_NEW + 1))
+  else
+    warn "  Removed in Initium but modified locally — kept: $file"
+    KEPT_MODIFIED+=("$file")
   fi
 done
 
-if [ "$ADDED_NEW" -eq 0 ]; then
-  info "No missing Initium-owned files."
-fi
+[ ${#REMOVED_FILES[@]} -eq 0 ] && [ ${#KEPT_MODIFIED[@]} -eq 0 ] && info "No removed files to clean up."
 
 # ---------------------------------------------------------------------------
 # Identify merge_required files that changed
@@ -281,20 +412,10 @@ heading "Merge-Required Files (manual review needed)"
 for file in $CHANGED_FILES; do
   is_merge=false
   for merge in "${MERGE_REQUIRED[@]}"; do
-    if [[ "$file" == "$merge" ]] || [[ "$file" == "$merge"* && "${merge: -1}" == "/" ]]; then
-      is_merge=true
-      break
-    fi
+    if matches_entry "$file" "$merge"; then is_merge=true; break; fi
   done
-
-  if [ "$is_merge" = false ]; then
-    continue
-  fi
-
-  if ! git show "$SKELETON_REMOTE/main:$file" &>/dev/null; then
-    continue
-  fi
-
+  [ "$is_merge" = true ] || continue
+  git cat-file -e "$TARGET:$file" 2>/dev/null || continue
   NEEDS_MERGE+=("$file")
 done
 
@@ -310,53 +431,51 @@ else
   done
   echo ""
   echo "For each file above:"
-  echo "  1. View Initium version: git show $SKELETON_REMOTE/main:<file>"
+  echo "  1. View Initium version: git show refs/initium/$TARGET_REF:<file>"
   echo "  2. View your version: cat <file>"
   echo "  3. Apply only the relevant new sections from Initium"
   echo ""
 
   if [ "$DRY_RUN" = false ]; then
     for file in "${NEEDS_MERGE[@]}"; do
+      if ! is_interactive; then
+        warn "  Skipped (non-interactive): $file — merge manually"
+        SKIPPED=$((SKIPPED + 1))
+        continue
+      fi
       echo ""
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       echo " MERGE: $file"
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
       echo ""
       echo "Diff (Initium vs your version):"
-      git diff "$SKELETON_REMOTE/main:$file" "$file" 2>/dev/null || \
+      git diff "$TARGET:$file" "$file" 2>/dev/null || \
         echo "  [file is new in Initium — no local version to diff]"
       echo ""
-
-      if [ "$AUTO" = false ]; then
-        echo "Options:"
-        echo "  a) Overwrite with Initium version (discards your changes)"
-        echo "  s) Skip this file (merge manually later)"
-        echo "  o) Open both in diff tool ($VISUAL or vimdiff)"
-        read -r -p "Choice [a/S/o]: " choice
-        case "$choice" in
-          a|A)
-            mkdir -p "$(dirname "$file")"
-            git show "$SKELETON_REMOTE/main:$file" > "$file"
-            success "  Overwritten: $file"
-            APPLIED=$((APPLIED + 1))
-            ;;
-          o|O)
-            SKELETON_TMP=$(mktemp /tmp/skeleton-XXXXXX)
-            git show "$SKELETON_REMOTE/main:$file" > "$SKELETON_TMP"
-            ${VISUAL:-vimdiff} "$SKELETON_TMP" "$file" || true
-            rm -f "$SKELETON_TMP"
-            warn "  Review complete — your changes kept. Stage manually if you edited."
-            SKIPPED=$((SKIPPED + 1))
-            ;;
-          *)
-            warn "  Skipped: $file — merge manually"
-            SKIPPED=$((SKIPPED + 1))
-            ;;
-        esac
-      else
-        warn "  Skipped (--auto mode): $file — merge manually"
-        SKIPPED=$((SKIPPED + 1))
-      fi
+      echo "Options:"
+      echo "  a) Overwrite with Initium version (discards your changes)"
+      echo "  s) Skip this file (merge manually later)"
+      echo "  o) Open both in diff tool (${VISUAL:-vimdiff})"
+      read -r -p "Choice [a/S/o]: " choice
+      case "$choice" in
+        a|A)
+          write_from_target "$file"
+          success "  Overwritten: $file"
+          APPLIED=$((APPLIED + 1))
+          ;;
+        o|O)
+          SKELETON_TMP=$(mktemp /tmp/skeleton-XXXXXX)
+          git show "$TARGET:$file" > "$SKELETON_TMP"
+          ${VISUAL:-vimdiff} "$SKELETON_TMP" "$file" || true
+          rm -f "$SKELETON_TMP"
+          warn "  Review complete — your changes kept. Stage manually if you edited."
+          SKIPPED=$((SKIPPED + 1))
+          ;;
+        *)
+          warn "  Skipped: $file — merge manually"
+          SKIPPED=$((SKIPPED + 1))
+          ;;
+      esac
     done
   fi
 fi
@@ -367,10 +486,7 @@ fi
 PROJECT_TEMPLATE_CHANGES=()
 for file in $CHANGED_FILES; do
   for owned in "${PROJECT_OWNED[@]}"; do
-    if [[ "$file" == "$owned" ]] || [[ "$file" == "$owned"* && "${owned: -1}" == "/" ]]; then
-      PROJECT_TEMPLATE_CHANGES+=("$file")
-      break
-    fi
+    if matches_entry "$file" "$owned"; then PROJECT_TEMPLATE_CHANGES+=("$file"); break; fi
   done
 done
 
@@ -381,37 +497,96 @@ if [ ${#PROJECT_TEMPLATE_CHANGES[@]} -gt 0 ]; then
   echo ""
   for file in "${PROJECT_TEMPLATE_CHANGES[@]}"; do
     echo -e "  ${CYAN}ℹ  $file${NC}"
-    echo "     → Review: git show $SKELETON_REMOTE/main:$file | head -40"
+    echo "     → Review: git show refs/initium/$TARGET_REF:$file | head -40"
   done
 fi
 
 # ---------------------------------------------------------------------------
 # Update initium.json
 # ---------------------------------------------------------------------------
-if [ "$DRY_RUN" = false ] && [ "$APPLIED" -gt 0 ]; then
+if [ "$DRY_RUN" = false ]; then
   heading "Updating initium.json"
-  SKELETON_VERSION=$(git show "$SKELETON_REMOTE/main:.initium/docs/UPDATES.md" 2>/dev/null | \
-    grep -m1 "^## v" | sed 's/^## v//' | awk '{print $1}' || echo "unknown")
   TODAY=$(date +%Y-%m-%d)
 
-  # Update initium.json fields (pure sed, no jq required)
+  # Pure sed, no jq required
   TMP=$(mktemp)
-  sed "s|\"commit\": *\"[^\"]*\"|\"commit\": \"$LATEST_COMMIT\"|" "$SKELETON_JSON" \
+  sed "s|\"commit\": *\"[^\"]*\"|\"commit\": \"$TARGET\"|" "$SKELETON_JSON" \
     | sed "s|\"syncedAt\": *\"[^\"]*\"|\"syncedAt\": \"$TODAY\"|" \
-    | sed "s|\"version\": *\"[^\"]*\"|\"version\": \"$SKELETON_VERSION\"|" \
+    | sed "s|\"version\": *\"[^\"]*\"|\"version\": \"$TARGET_VERSION\"|" \
     > "$TMP"
   mv "$TMP" "$SKELETON_JSON"
-  success "initium.json updated (version=$SKELETON_VERSION, commit=$LATEST_SHORT)"
+  success "initium.json updated (version=$TARGET_VERSION, commit=$TARGET_SHORT)"
 fi
 
 # ---------------------------------------------------------------------------
 # Run validator
 # ---------------------------------------------------------------------------
-if [ "$DRY_RUN" = false ] && [ "$APPLIED" -gt 0 ]; then
+VALIDATION="skipped"
+if [ "$DRY_RUN" = false ] && [ "$APPLIED" -gt 0 ] && [ -f ".initium/scripts/validate.sh" ]; then
   heading "Validating Configuration"
-  if [ -f ".initium/scripts/validate.sh" ]; then
-    bash .initium/scripts/validate.sh || warn "Validator found issues — review above"
+  if bash .initium/scripts/validate.sh; then
+    VALIDATION="passed"
+  else
+    VALIDATION="failed"
+    warn "Validator found issues — review above"
   fi
+fi
+
+emit_output applied "$APPLIED"
+emit_output merge_required "${#NEEDS_MERGE[@]}"
+emit_output validation "$VALIDATION"
+
+# ---------------------------------------------------------------------------
+# Markdown summary (PR body for automated syncs)
+# ---------------------------------------------------------------------------
+list_md() {  # list_md <prefix> <items...>
+  local prefix="$1"; shift
+  if [ $# -eq 0 ]; then echo "_None_"; return; fi
+  for item in "$@"; do echo "$prefix\`$item\`"; done
+}
+
+# Release notes: every UPDATES.md section newer than the current version
+release_notes() {
+  git show "$TARGET:.initium/docs/UPDATES.md" 2>/dev/null | awk -v cur="## v$CURRENT_VERSION" '
+    /^## v/ { started=1; if (index($0, cur) == 1) exit }
+    started { print }
+  ' | head -n "$RELEASE_NOTES_MAX_LINES" || true
+}
+
+if [ -n "$SUMMARY_FILE" ]; then
+  {
+    echo "## Initium update: $CURRENT_VERSION → $TARGET_VERSION"
+    echo ""
+    echo "Automated sync to Initium \`$TARGET_REF\` (\`$TARGET_SHORT\`). Only Initium-owned files were"
+    echo "changed; project-owned files were not touched. Validator: **$VALIDATION**."
+    echo ""
+    echo "### Merge manually before approving"
+    echo "These files are customised per project, so the sync did not change them. Compare each with"
+    echo "\`git show refs/initium/$TARGET_REF:<file>\` (after running the sync locally) and port what applies:"
+    echo ""
+    list_md "- [ ] " ${NEEDS_MERGE[@]+"${NEEDS_MERGE[@]}"}
+    echo ""
+    echo "### Removed in Initium but modified locally (kept)"
+    list_md "- [ ] " ${KEPT_MODIFIED[@]+"${KEPT_MODIFIED[@]}"}
+    echo ""
+    echo "### Project-owned templates changed upstream (for reference)"
+    list_md "- " ${PROJECT_TEMPLATE_CHANGES[@]+"${PROJECT_TEMPLATE_CHANGES[@]}"}
+    echo ""
+    echo "<details><summary>Files updated (${#UPDATED_FILES[@]}), added (${#ADDED_FILES[@]}), removed (${#REMOVED_FILES[@]})</summary>"
+    echo ""
+    echo "**Updated**"; list_md "- " ${UPDATED_FILES[@]+"${UPDATED_FILES[@]}"}
+    echo ""
+    echo "**Added**"; list_md "- " ${ADDED_FILES[@]+"${ADDED_FILES[@]}"}
+    echo ""
+    echo "**Removed**"; list_md "- " ${REMOVED_FILES[@]+"${REMOVED_FILES[@]}"}
+    echo ""
+    echo "</details>"
+    echo ""
+    echo "### Release notes"
+    echo ""
+    release_notes
+  } > "$SUMMARY_FILE"
+  info "Summary written to $SUMMARY_FILE"
 fi
 
 # ---------------------------------------------------------------------------
@@ -419,18 +594,19 @@ fi
 # ---------------------------------------------------------------------------
 heading "Sync Complete"
 echo ""
-echo -e "  ${GREEN}Applied (auto)${NC}   : $APPLIED files"
+echo -e "  ${GREEN}Applied (auto)${NC}   : $APPLIED files (${#REMOVED_FILES[@]} removed)"
 echo -e "  ${YELLOW}Skipped (manual)${NC} : $SKIPPED files — merge these manually"
-if [ ${#PROJECT_TEMPLATE_CHANGES[@]} -gt 0 ]; then
+[ ${#KEPT_MODIFIED[@]} -gt 0 ] && \
+  echo -e "  ${YELLOW}Kept (modified)${NC}  : ${#KEPT_MODIFIED[@]} files removed in Initium but changed locally"
+[ ${#PROJECT_TEMPLATE_CHANGES[@]} -gt 0 ] && \
   echo -e "  ${CYAN}Template notices${NC} : ${#PROJECT_TEMPLATE_CHANGES[@]} project-owned files changed in Initium"
-fi
 echo ""
-if [ "$DRY_RUN" = false ] && [ "$APPLIED" -gt 0 ]; then
+if [ "$DRY_RUN" = false ]; then
   echo "Suggested next steps:"
   echo "  1. Review changes: git diff"
-  echo "  2. Stage and commit: git add -p && git commit -m 'chore: sync Initium to $LATEST_SHORT'"
+  echo "  2. Stage and commit: git add -A && git commit -m 'chore: sync Initium to $TARGET_VERSION'"
   [ "$SKIPPED" -gt 0 ] && echo "  3. Merge skipped files manually, then commit"
 else
-  [ "$DRY_RUN" = true ] && echo "  (Dry run — no files changed)"
+  echo "  (Dry run — no files changed)"
 fi
 echo ""
