@@ -27,6 +27,12 @@
 #   6. project_owned files   → never touched
 #   7. Updates initium.json with the new version and commit
 #
+# Files listed under fileOwnership.project_owned in your local initium.json are never
+# written, even when Initium owns them. On the first sync (commit is not yet recorded —
+# e.g. adopting Initium in an existing repository) existing files that do not match any
+# Initium version are kept, missing merge_required files are added, and missing
+# project-owned templates (AGENTS.md, docs/context/, ...) are created.
+#
 # Exit codes: 0 success / up to date, 1 error, 10 update available (--check only)
 # =============================================================================
 
@@ -106,7 +112,7 @@ while [ $# -gt 0 ]; do
     --channel)  CHANNEL="${2:?--channel needs a value}"; shift ;;
     --summary)  SUMMARY_FILE="${2:?--summary needs a file path}"; shift ;;
     --help|-h)
-      sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,37p' "$0" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     *) warn "Unknown argument: $1" ;;
   esac
@@ -290,10 +296,12 @@ while IFS= read -r line; do MERGE_REQUIRED+=("$line"); done < <(printf '%s\n' "$
 # ---------------------------------------------------------------------------
 # Get list of changed files in Initium since last sync
 # ---------------------------------------------------------------------------
+FIRST_SYNC=false
 if git cat-file -e "$CURRENT_COMMIT^{commit}" 2>/dev/null; then
   CHANGED_FILES=$(git diff --name-only "$CURRENT_COMMIT" "$TARGET")
 else
   # First sync — list every file tracked in the Initium tree
+  FIRST_SYNC=true
   CHANGED_FILES=$(git ls-tree -r --name-only "$TARGET")
 fi
 
@@ -304,9 +312,29 @@ ADDED_FILES=()
 REMOVED_FILES=()
 KEPT_MODIFIED=()
 NEEDS_MERGE=()
+PROTECTED=()
+EXISTING_KEPT=()
+
+LOCAL_PROJECT_OWNED=()
+while IFS= read -r line; do LOCAL_PROJECT_OWNED+=("$line"); done < <(_json_array "project_owned" < "$SKELETON_JSON")
 
 matches_entry() {  # matches_entry <file> <entry> — exact or directory-prefix match
   [[ "$1" == "$2" ]] || [[ "$1" == "$2"* && "${2: -1}" == "/" ]]
+}
+
+is_locally_owned() {
+  local entry
+  for entry in ${LOCAL_PROJECT_OWNED[@]+"${LOCAL_PROJECT_OWNED[@]}"}; do
+    matches_entry "$1" "$entry" && return 0
+  done
+  return 1
+}
+
+# True when the local file is byte-identical to some version Initium shipped at this path.
+is_initium_version() {
+  local blob
+  blob=$(git hash-object -- "$1")
+  git log --format= --raw --no-abbrev "$TARGET" -- "$1" | awk '{print $4}' | grep -qx "$blob"
 }
 
 write_from_target() {
@@ -326,6 +354,12 @@ for file in $CHANGED_FILES; do
   done
   [ "$is_skeleton_owned" = true ] || continue
   git cat-file -e "$TARGET:$file" 2>/dev/null || continue
+  if is_locally_owned "$file"; then PROTECTED+=("$file"); continue; fi
+  if [ "$FIRST_SYNC" = true ] && [ -f "$file" ] && ! is_initium_version "$file"; then
+    warn "  Existing project file kept: $file"
+    EXISTING_KEPT+=("$file")
+    continue
+  fi
 
   action="Updated"
   [ -f "$file" ] || action="Added"
@@ -350,6 +384,7 @@ for file in "${SKELETON_OWNED[@]}"; do
   [[ "${file: -1}" == "/" ]] && continue
   [ -f "$file" ] && continue
   git cat-file -e "$TARGET:$file" 2>/dev/null || continue
+  is_locally_owned "$file" && continue
 
   if [ "$DRY_RUN" = true ]; then
     echo -e "  ${GREEN}[DRY-RUN WOULD ADD]${NC} $file"
@@ -416,6 +451,18 @@ for file in $CHANGED_FILES; do
   done
   [ "$is_merge" = true ] || continue
   git cat-file -e "$TARGET:$file" 2>/dev/null || continue
+  if is_locally_owned "$file"; then PROTECTED+=("$file"); continue; fi
+  if [ "$FIRST_SYNC" = true ] && [ ! -f "$file" ]; then
+    if [ "$DRY_RUN" = true ]; then
+      echo -e "  ${GREEN}[DRY-RUN WOULD ADD]${NC} $file"
+    else
+      write_from_target "$file"
+      success "  Added (no local version): $file"
+    fi
+    ADDED_FILES+=("$file")
+    APPLIED=$((APPLIED + 1))
+    continue
+  fi
   NEEDS_MERGE+=("$file")
 done
 
@@ -481,14 +528,43 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# First sync: create project-owned templates the repository does not have yet.
+# Existing files are never touched; project identity files are never copied.
+# ---------------------------------------------------------------------------
+ADOPT_SKIP=" README.md README.tr.md LICENSE CODE_OF_CONDUCT.md CHANGELOG.md .env .initium/initium.json "
+if [ "$FIRST_SYNC" = true ]; then
+  heading "Adding Missing Project Templates (first sync)"
+  TEMPLATES_ADDED=0
+  for entry in "${PROJECT_OWNED[@]}"; do
+    while IFS= read -r file; do
+      [ -n "$file" ] || continue
+      [[ "$ADOPT_SKIP" == *" $file "* ]] && continue
+      [ -e "$file" ] && continue
+      if [ "$DRY_RUN" = true ]; then
+        echo -e "  ${GREEN}[DRY-RUN WOULD ADD]${NC} $file"
+      else
+        write_from_target "$file"
+        success "  Added template: $file"
+      fi
+      ADDED_FILES+=("$file")
+      APPLIED=$((APPLIED + 1))
+      TEMPLATES_ADDED=$((TEMPLATES_ADDED + 1))
+    done < <(git ls-tree -r --name-only "$TARGET" -- "$entry")
+  done
+  [ "$TEMPLATES_ADDED" -eq 0 ] && info "All project templates already exist."
+fi
+
+# ---------------------------------------------------------------------------
 # Report project_owned files that were changed in Initium (informational)
 # ---------------------------------------------------------------------------
 PROJECT_TEMPLATE_CHANGES=()
-for file in $CHANGED_FILES; do
-  for owned in "${PROJECT_OWNED[@]}"; do
-    if matches_entry "$file" "$owned"; then PROJECT_TEMPLATE_CHANGES+=("$file"); break; fi
+if [ "$FIRST_SYNC" = false ]; then
+  for file in $CHANGED_FILES; do
+    for owned in "${PROJECT_OWNED[@]}"; do
+      if matches_entry "$file" "$owned"; then PROJECT_TEMPLATE_CHANGES+=("$file"); break; fi
+    done
   done
-done
+fi
 
 if [ ${#PROJECT_TEMPLATE_CHANGES[@]} -gt 0 ]; then
   heading "Initium Template Files Changed (for your reference)"
@@ -569,6 +645,12 @@ if [ -n "$SUMMARY_FILE" ]; then
     echo "### Removed in Initium but modified locally (kept)"
     list_md "- [ ] " ${KEPT_MODIFIED[@]+"${KEPT_MODIFIED[@]}"}
     echo ""
+    echo "### Protected by local project_owned (not touched)"
+    list_md "- " ${PROTECTED[@]+"${PROTECTED[@]}"}
+    echo ""
+    echo "### Existing project files kept on first sync"
+    list_md "- [ ] " ${EXISTING_KEPT[@]+"${EXISTING_KEPT[@]}"}
+    echo ""
     echo "### Project-owned templates changed upstream (for reference)"
     list_md "- " ${PROJECT_TEMPLATE_CHANGES[@]+"${PROJECT_TEMPLATE_CHANGES[@]}"}
     echo ""
@@ -600,6 +682,15 @@ echo -e "  ${YELLOW}Skipped (manual)${NC} : $SKIPPED files — merge these manua
   echo -e "  ${YELLOW}Kept (modified)${NC}  : ${#KEPT_MODIFIED[@]} files removed in Initium but changed locally"
 [ ${#PROJECT_TEMPLATE_CHANGES[@]} -gt 0 ] && \
   echo -e "  ${CYAN}Template notices${NC} : ${#PROJECT_TEMPLATE_CHANGES[@]} project-owned files changed in Initium"
+[ ${#PROTECTED[@]} -gt 0 ] && \
+  echo -e "  ${CYAN}Protected${NC}        : ${#PROTECTED[@]} files listed in your local project_owned"
+if [ ${#EXISTING_KEPT[@]} -gt 0 ]; then
+  echo -e "  ${YELLOW}Existing kept${NC}    : ${#EXISTING_KEPT[@]} project files differ from Initium and were not overwritten:"
+  for file in "${EXISTING_KEPT[@]}"; do echo "      $file"; done
+  echo "    Compare: git diff refs/initium/$TARGET_REF:<file> <file>"
+  echo "    Keep yours permanently: add the path to fileOwnership.project_owned in .initium/initium.json"
+  echo "    Take Initium's: delete the file and run the sync again"
+fi
 echo ""
 if [ "$DRY_RUN" = false ]; then
   echo "Suggested next steps:"

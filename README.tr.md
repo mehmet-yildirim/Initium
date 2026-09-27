@@ -54,6 +54,22 @@ Kurulumun ardından AI döngüsüyle kodlamaya başla:
 
 > **Projeye yeni misiniz veya ne yapacağınızdan emin değil misiniz?** Claude Code'da veya Cursor'da `/help` yazın — AI sizi durumunuza uygun komuta yönlendirir.
 
+### Zaten bir reponuz mu var?
+
+Klonlamayın — Initium'u reponuza getirin. İlk senkronizasyon var olan her dosyayı korur ve
+yalnızca eksik olanları ekler; ardından `/init` kodunuzu okuyarak `AGENTS.md` ve `docs/context/`
+dosyalarını doldurur.
+
+```bash
+git checkout -b chore/adopt-initium
+git remote add skeleton https://github.com/mehmet-yildirim/Initium.git
+git fetch --no-tags skeleton "+refs/tags/v1.5.0:refs/initium/v1.5.0"
+git restore --source=refs/initium/v1.5.0 --worktree -- .initium/
+bash .initium/scripts/sync.sh --ref v1.5.0 --dry-run   # önizle, sonra --dry-run olmadan çalıştır
+```
+
+Adım adım anlatım — çakışmalar, `AGENTS.md`/`CLAUDE.md`, CI, monorepo'lar: [docs/guides/existing-project.tr.md](docs/guides/existing-project.tr.md).
+
 ---
 
 ## Özelleştirme Kontrol Listesi
@@ -151,6 +167,7 @@ Kurulumun ardından AI döngüsüyle kodlamaya başla:
 │   ├── guides/                        # Initium rehber belgeleri — serbestçe düzenleyin
 │   │   ├── ai-workflow.md / .tr.md    # AI iş akışı rehberi (İngilizce / Türkçe)
 │   │   ├── onboarding.md              # Yeni geliştirici kılavuzu
+│   │   ├── existing-project.tr.md     # Initium'u mevcut bir repoya eklemek
 │   │   ├── team.md                    # Ekip rolleri ve AI-native optimizasyon
 │   │   └── workflows/                 # 7 iş akışı kılavuzu (gereksinimler → dağıtım)
 │   ├── context/                       # ← TÜMÜNÜ DÜZENLE (AI bağlamı + ajan kapsamı)
@@ -459,6 +476,7 @@ Tam rehber ve her dosya türü için birleştirme stratejileri: [.initium/docs/s
 | [docs/guides/team.tr.md](docs/guides/team.tr.md) | AI-native geliştirme için ekip rolleri, yapısı ve optimizasyonu |
 | [docs/guides/onboarding.md](docs/guides/onboarding.md) | Yeni geliştirici kurulum kılavuzu (İngilizce) |
 | [docs/guides/onboarding.tr.md](docs/guides/onboarding.tr.md) | Yeni geliştirici kurulum kılavuzu (Türkçe) |
+| [docs/guides/existing-project.tr.md](docs/guides/existing-project.tr.md) | Initium'u mevcut bir repoya eklemek |
 | [.initium/docs/sync-guide.md](.initium/docs/sync-guide.md) | Initium güncellemelerini projeye aktarma |
 | [.initium/docs/agent/autonomous-workflow.md](.initium/docs/agent/autonomous-workflow.md) | Ajan durum makinesi, fazlar, kapılar |
 | [.initium/docs/agent/docker-agent.md](.initium/docs/agent/docker-agent.md) | Konteynerleştirilmiş ajan kurulumu, ortam değişkenleri, sorun giderme |

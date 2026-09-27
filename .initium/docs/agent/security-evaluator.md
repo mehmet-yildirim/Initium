@@ -4,6 +4,14 @@ The security evaluator is a cross-cutting concern that runs at multiple points i
 human-guided and autonomous development workflows. This document describes its architecture,
 integration points, severity handling, and remediation workflow.
 
+Secure-coding rules (OWASP Top 10:2025, ASVS 5.0) and scanner usage live in the
+[`security-sast` skill](../../../.claude/skills/security-sast/SKILL.md); dependency, SBOM and
+action/image pinning rules live in
+[`security-supply-chain`](../../../.claude/skills/security-supply-chain/SKILL.md). The command is
+`/security-audit [full | <path> | pr | deps | secrets]`; its JSON report follows
+[`schemas/security-report.json`](schemas/security-report.json) and is saved to
+`.agent/audit/<date>-security-report.json`.
+
 ---
 
 ## Why a Dedicated Security Evaluator?
@@ -41,35 +49,47 @@ When to run `/security-audit`:
 
 ### In the Autonomous Agent Loop
 
-Security evaluation is integrated as a mandatory gate in `/loop`:
+Security is a mandatory gate in `/loop` Phase 5: `/qa` runs its security review and dependency
+audit, and any security issue in the QA report escalates before a PR is created. For changes
+that touch the areas listed above, also run `/security-audit pr` on the branch before the PR:
 
 ```
 /loop execution:
-  ...implement... ──▶ /qa ──▶ /security-audit ──▶ create PR
+  ...implement... ──▶ /qa (security + deps gates) ──▶ [/security-audit pr] ──▶ create PR
                                      │
-                         CRITICAL/HIGH findings?
+                         Security issue / CRITICAL-HIGH finding?
                                      │
                    YES: /escalate critical security_vulnerability_detected
                    NO (MEDIUM/LOW only): include findings in PR description
                                          proceed with creating PR
 ```
 
-The agent **never creates a PR** with CRITICAL security findings unresolved.
+The agent **never creates a PR** with CRITICAL or HIGH security findings unresolved.
 
 ### In CI Pipeline
 
 Security evaluation also runs in CI as an independent quality gate, catching any findings
 that might have slipped through:
 
+Pin actions by full commit SHA and scanner images by digest (tags are mutable — see
+`devops-cicd` and `security-supply-chain`). Resolve digests for the releases you choose with
+`docker buildx imagetools inspect <image>:<tag>`.
+
 ```yaml
 # .github/workflows/ci.yml — add this job
   security:
     name: Security Scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      SEMGREP_IMAGE: semgrep/semgrep:<version>@sha256:<digest>
+      GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:<version>@sha256:<digest>
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0  # Full history for secret scanning
+          persist-credentials: false
 
       - name: Dependency CVE Audit
         run: |
@@ -77,30 +97,31 @@ that might have slipped through:
           npm audit --audit-level=high        # Node.js
           # pip-audit                         # Python
           # govulncheck ./...                 # Go
-          # dotnet list package --vulnerable  # .NET
+          # dotnet list package --vulnerable --include-transitive  # .NET
 
       - name: SAST — Semgrep
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: >-
-            p/owasp-top-ten
-            p/secrets
-            p/security-audit
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}  # Optional — for Semgrep Cloud
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src "$SEMGREP_IMAGE" \
+            semgrep scan --config p/owasp-top-ten --config p/secrets \
+            --error --sarif --output semgrep.sarif
 
       - name: Secret Scanning — Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run --rm -v "$PWD:/repo" "$GITLEAKS_IMAGE" \
+            git /repo --redact --exit-code 1
 
       - name: Upload Security Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: security-report-${{ github.sha }}
-          path: .agent/audit/*-security-report.json
+          path: semgrep.sarif
+          if-no-files-found: ignore
 ```
+
+To surface findings in the Security tab, upload the SARIF with
+`github/codeql-action/upload-sarif` (pinned SHA in `security-supply-chain` →
+`reference/ci-workflows.md`) and grant the job `security-events: write`.
 
 ---
 
@@ -111,7 +132,7 @@ that might have slipped through:
 | Severity | Definition | Agent Action | Human Action |
 |----------|-----------|-------------|-------------|
 | **CRITICAL** | Exploitable vulnerability with direct business impact (RCE, auth bypass, data breach) | Block PR creation. `/escalate critical`. Do not deploy. | Fix immediately. Security lead review required before merge. |
-| **HIGH** | Significant vulnerability, likely exploitable (SQL injection, insecure deserialization, hardcoded secret) | Block PR creation. Attempt auto-fix. If fix fails → `/escalate high`. | Fix before this sprint ends. |
+| **HIGH** | Significant vulnerability, likely exploitable (SQL injection, insecure deserialization, hardcoded secret) | Block PR creation. Attempt auto-fix. If fix fails → `/escalate critical security_vulnerability_detected` (the trigger is always CRITICAL). | Fix before this sprint ends. |
 | **MEDIUM** | Vulnerability requiring specific conditions to exploit (missing rate limit, weak cipher for non-sensitive data) | Create PR with findings documented. No block. | Fix within 2 sprints. Add to security backlog. |
 | **LOW** | Defense-in-depth improvement (missing security header, verbose error messages) | Include in PR description as notes. | Fix when convenient. |
 | **INFO** | Informational — no immediate risk | Log only. | Track for awareness. |
@@ -134,8 +155,8 @@ that might have slipped through:
 After /implement (all tasks committed to branch):
                 │
                 ▼
-    Run /security-audit diff
-    (scans only changed files + dependency manifests)
+    Run /security-audit pr
+    (scans the git diff main...HEAD + dependency manifests)
                 │
     ┌───────────────────────────────────────────────────┐
     │ Parse security-report.json                        │
@@ -147,7 +168,7 @@ After /implement (all tasks committed to branch):
     └──────────────────────────────────────────────┘
          │ YES                           │ NO
          ▼                               ▼
-  Attempt auto-remediation:        Proceed to /qa
+  Attempt auto-remediation:        Proceed to PR creation
   ─ CVE with upgrade available?
     → upgrade package + commit
     → re-run security-audit
@@ -157,14 +178,14 @@ After /implement (all tasks committed to branch):
     → re-run security-audit
     │
   ─ Still CRITICAL/HIGH after retry?
-    → /escalate critical|high
+    → /escalate critical
         security_vulnerability_detected
     → BLOCK — await AGENT_RESUME
          │
     Human reviews + fixes
     → AGENT_RESUME
     → re-run security-audit
-    → if clean → proceed to /qa
+    → if clean → proceed to PR creation
 ```
 
 ### Auto-Remediation Capabilities
@@ -174,7 +195,7 @@ The agent can automatically fix:
 | Finding | Auto-fix |
 |---------|---------|
 | CVE in `package.json` with non-breaking upgrade | `npm update <package>` + commit |
-| CVE in `pyproject.toml` with available patch | `pip install <package>==<fixed>` + commit |
+| CVE in `pyproject.toml` with available patch | Bump the constraint to the fixed version, re-lock (`uv lock` / `poetry lock`) + commit |
 | CVE in `go.mod` | `go get <module>@<fixed>` + `go mod tidy` + commit |
 | Hardcoded secret in new file (never committed) | Remove the secret, add to `.env.example`, load from env |
 | Missing `HttpOnly` / `Secure` cookie flag | Apply the flag in the response configuration |
@@ -195,8 +216,8 @@ Beyond per-PR scans, schedule these recurring security evaluations:
 |------|-----------|-------|---------|
 | Full SAST | Weekly | Entire codebase | Cron every Monday 02:00 |
 | Dependency CVE | Daily | All dependency manifests | Cron or Dependabot |
-| Secret scan | On every push | Full git history delta | CI hook |
-| IaC scan | On infra changes | Terraform / K8s / Dockerfiles | CI on path filter |
+| Secret scan | On every push | Full git history delta | CI hook + pre-commit |
+| IaC scan | On infra changes | Terraform / K8s / Dockerfiles / workflows | CI on path filter |
 | License audit | Monthly | All dependencies | Cron |
 
 ### Systemd Timer for Weekly Full Scan
@@ -211,7 +232,8 @@ Type=oneshot
 User=ai-agent
 WorkingDirectory=/opt/ai-agent/project
 EnvironmentFile=/opt/ai-agent/.env
-ExecStart=/usr/bin/claude --headless "/security-audit full"
+# Adjust the path to `command -v claude`; -p runs Claude Code headless (non-interactive)
+ExecStart=/usr/bin/claude -p "/security-audit full"
 StandardOutput=append:/var/log/ai-agent/security-scan.log
 
 [Install]
@@ -281,8 +303,10 @@ When a finding is confirmed as a false positive, suppress it to prevent noise:
 }
 ```
 
-The agent reads this file and excludes suppressed findings from reports.
-Suppressions expire — they must be renewed to prevent permanent blind spots.
+`/security-audit` does not load this file on its own — reference it in the audit request (or in
+`AGENTS.md`) so the agent excludes suppressed findings and marks them `falsePositive` in the
+report. Prefer the scanner's native suppression too (`# nosemgrep: <rule-id>`, `.gitleaksignore`)
+so CI honours it. Suppressions expire — they must be renewed to prevent permanent blind spots.
 
 ---
 
@@ -306,38 +330,49 @@ Track these metrics to assess security posture over time:
 
 Install these tools on the agent host for automated scanning:
 
+Prefer a package manager with pinned versions. Never pipe a downloaded script into a shell; for
+release binaries, download a specific version and verify its published checksum before
+installing.
+
 ```bash
 # Semgrep — SAST (universal)
-pip install semgrep
+pipx install semgrep
 # or: brew install semgrep
 
 # Gitleaks — secret scanning
-# macOS: brew install gitleaks
-# Linux: see https://github.com/gitleaks/gitleaks/releases
-wget https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz
-tar -xf gitleaks_linux_x64.tar.gz && sudo mv gitleaks /usr/local/bin/
+brew install gitleaks
+# Linux: download a versioned release from https://github.com/gitleaks/gitleaks/releases
+#        and verify it against the release checksums file
 
-# OSV Scanner — multi-ecosystem CVE scanning
-go install github.com/google/osv-scanner/cmd/osv-scanner@latest
-# or: brew install osv-scanner
+# TruffleHog — verified-secret scanning (used by /security-audit)
+brew install trufflehog
 
-# Hadolint — Dockerfile security
+# OSV-Scanner v2 — multi-ecosystem CVE scanning
+brew install osv-scanner
+# or: go install github.com/google/osv-scanner/v2/cmd/osv-scanner@<version>
+
+# Hadolint — Dockerfile linting
 brew install hadolint
-# Linux: wget https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64
+# Linux: download a versioned release from https://github.com/hadolint/hadolint/releases
 
-# Trivy — container + IaC security
-brew install aquasecurity/trivy/trivy
-# Linux: apt install trivy
+# Grype — container image CVE scanning
+brew install grype
+
+# Checkov — IaC security (Terraform, Kubernetes, Dockerfiles)
+pipx install checkov
+
+# actionlint — GitHub Actions workflow linting
+brew install actionlint
 
 # Language-specific (install based on project stack):
-npm install -g retire          # Node.js retired/vulnerable packages
-pip install pip-audit bandit   # Python
-go install golang.org/x/vuln/cmd/govulncheck@latest  # Go
+pipx install pip-audit && pipx install bandit            # Python
+go install golang.org/x/vuln/cmd/govulncheck@<version>   # Go
+go install github.com/securego/gosec/v2/cmd/gosec@<version>  # Go
 ```
 
 Verify all tools are available:
 ```bash
-for tool in semgrep gitleaks osv-scanner trivy hadolint; do
-  command -v $tool && echo "OK: $tool" || echo "MISSING: $tool"
+for tool in semgrep gitleaks trufflehog osv-scanner hadolint grype checkov actionlint; do
+  command -v "$tool" >/dev/null && echo "OK: $tool" || echo "MISSING: $tool"
 done
 ```

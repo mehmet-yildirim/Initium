@@ -13,11 +13,15 @@ Before you start:
 - [ ] TODO: List required tools (e.g., Node.js 22+, Docker, Git, etc.)
 - [ ] TODO: Access to required services (e.g., AWS account, database, secrets)
 - [ ] Git configured with your work email: `git config --global user.email "you@company.com"`
-- [ ] An AI coding tool: [Cursor](https://cursor.sh), [VS Code + Continue](https://continue.dev), [Claude Code](https://claude.ai/code), or [OpenCode](https://opencode.ai)
+- [ ] An AI coding tool: [Cursor](https://cursor.com), [VS Code + Continue](https://continue.dev), [Claude Code](https://claude.ai/code), or [OpenCode](https://opencode.ai)
 
 ---
 
 ## Initial Setup
+
+> **Adding Initium to a repository that already has code?** Don't clone Initium — follow
+> [existing-project.md](existing-project.md), then continue from
+> [Setting Up AI Tools](#setting-up-ai-tools).
 
 ### macOS / Linux
 
@@ -104,63 +108,78 @@ Read these documents in order before writing any code:
 ### Claude Code
 
 ```bash
-# Install (if not already installed)
-npm install -g @anthropic-ai/claude-code
+# Install (native installer — recommended; npm install is deprecated)
+curl -fsSL https://claude.ai/install.sh | bash      # Windows PowerShell: irm https://claude.ai/install.ps1 | iex
 
 # Launch — AGENTS.md is loaded automatically (CLAUDE.md imports it)
 claude
 ```
 
-All 27 custom commands (type `/` to see them):
+All 40 custom commands (type `/` to see them; the same names work in Cursor and OpenCode):
 
 ```
-# --- Help & navigation (start here if you're unsure) ---
-/help                — show all commands and the typical feature workflow
-/help <question>     — "how do I start a feature?" → directed to the right commands
-/help <topic>        — "how do I write tests?" → maps topic to the right command
+# --- Help & setup (start here if you're unsure) ---
+/help [question]  — show all commands, or map "how do I …?" to the right command sequence
+/init             — populate all TODO files from a free-form project description
+                    (scoped: /init domain: … | stack: … | ci: … | agent: …)
+/sync-initium     — pull improvements from upstream Initium
 
-# --- Project initialization ---
-/init          — populate all TODO files from a free-form project description
-/init domain:  — generate domain boundaries and agent scope keywords
-/init stack:   — generate tech stack doc and AGENTS.md commands
-/init ci:      — generate CI workflow for your language and deploy target
-/init agent:   — configure tracker keys, GitHub repo, escalation channels
+# --- Planning & design ---
+/requirements     — analyze requirements → user stories, tasks, DoD
+/architect        — design before writing a single line of code
+/task plan        — break design into tracked .agent/tasks/*.md files (one per PR)
+/task next|list|status|done <id> — pick, track, and complete tasks
+/sprint           — sprint planning: capacity, backlog, tasks, risk register
 
-# --- Human-guided development ---
-/requirements  — analyze requirements → user stories, tasks, DoD
-/architect     — design before writing a single line of code
-/task plan     — break design into tracked .agent/tasks/*.md files (one per PR)
-/task next     — get the next actionable task (respects dependencies)
-/task done <id> — mark a task complete and unblock dependents
-/task list     — show all tasks and current status
-/implement     — structured bottom-up implementation with tests
-/security-audit — OWASP + CVE + secret scan (run before every PR)
-/qa            — full quality gates: lint, types, tests, coverage
-/review        — code review against project standards and OWASP
-/test          — generate comprehensive tests
-/debug         — systematic bug diagnosis: hypotheses → fix → prevention
-/deploy        — pre-deploy checklist + execution steps + monitoring plan
-/infra         — scaffold Terraform / K8s for AWS, GCP, or on-prem
-/migrate       — safe DB migration: Expand-Contract + rollback plan
-/db            — database lifecycle: init, create, dml, seed, status, diff
-/sprint        — sprint planning: capacity, backlog, tasks, risk register
-/standup       — daily summary from git history
+# --- Development ---
+/implement        — structured bottom-up implementation with tests
+/goal             — pursue one objective until its Definition of Done, no stopping mid-way
+/refactor         — behavior-preserving refactor with a test safety net
+/upgrade          — audit or upgrade dependencies, frameworks, runtimes
+/debug            — systematic bug diagnosis: hypotheses → fix → prevention
 
-# --- Documentation generation ---
-/docs          — generate code-level docs (JSDoc, docstrings, GoDoc…)
-/doc-api       — generate/update OpenAPI spec + ReDoc output
-/doc-changelog — generate CHANGELOG.md from git history (git-cliff)
-/doc-schema    — generate database ERD and table reference
+# --- Quality & review ---
+/test             — generate comprehensive tests
+/qa               — full quality gates: lint, types, tests, coverage
+/review           — code review against project standards and OWASP
+/security-audit   — OWASP + CVE + secret scan (run before every PR)
+/perf             — measure, find, and fix a performance bottleneck
+/a11y             — accessibility audit and fixes (WCAG 2.2 AA)
+/eval             — evaluation suites for LLM-powered features
 
-# --- Autonomous agent ---
-/triage        — domain relevance check for a JIRA/Linear/GitHub issue
-/groom         — batch-process backlog through triage + requirements
-/loop          — full autonomous loop: design → code → docs → QA → PR → deploy
-/escalate      — structured human notification when agent is blocked
+# --- UI & visual design ---
+/design           — design and build UI that looks deliberate, not templated
+/design-review    — read-only UI review (template tells, craft, Apple HIG / Material 3)
+/polish           — final visual quality pass before shipping
+/design-system    — create or refresh DESIGN.md / PRODUCT.md and design tokens
 
-# --- Initium maintenance ---
-/sync-initium — pull improvements from upstream Initium
+# --- Context & knowledge ---
+/codegraph        — code graph for symbol, caller, and impact lookups (saves tokens)
+/skill            — create, update, or list Agent Skills in .claude/skills/
+
+# --- Documentation ---
+/docs             — code-level docs, architecture docs, user guides
+/doc-api          — generate/update the OpenAPI spec
+/doc-schema       — database ERD and table reference
+/doc-diagrams     — Mermaid sequence diagrams for API and business flows
+/doc-site         — scaffold or regenerate the documentation website
+/doc-changelog    — generate CHANGELOG.md from git history
+
+# --- Database, infrastructure, deployment ---
+/migrate          — safe DB migration: Expand-Contract + rollback plan
+/db               — database lifecycle: init, create, dml, seed, status, diff, audit
+/infra            — scaffold Terraform / K8s / CI-CD for AWS, GCP, Azure, or on-prem
+/deploy           — pre-deploy checklist + execution steps + monitoring plan
+
+# --- Operations & autonomous agent ---
+/standup          — daily summary from git history
+/triage           — domain relevance check for a Jira/Linear/GitHub issue
+/groom            — batch-process backlog through triage + requirements
+/loop             — full autonomous loop: design → code → QA → PR → deploy
+/escalate         — structured human notification when the agent is blocked
 ```
+
+Full reference with arguments and modes: [`docs/guides/ai-workflow.md`](ai-workflow.md#all-commands--quick-reference).
 
 ### Cursor
 
@@ -169,7 +188,7 @@ All 27 custom commands (type `/` to see them):
 3. Skills in `.claude/skills/` load on demand when a task or open file matches their description or `paths`
 4. Slash commands from `.claude/commands/` work directly in Cursor — type `/` to see the full list
 5. Enable MCP servers: edit `.cursor/mcp.json`, remove `"disabled": true`, set env vars in `.env`
-6. Add your `ANTHROPIC_API_KEY` to Cursor settings
+6. Sign in to Cursor — a provider API key is only needed if you bring your own (Settings → Models)
 
 ### Continue (VS Code / JetBrains)
 
@@ -207,10 +226,10 @@ git checkout -b feat/PROJ-42-feature-name
 /task next                                # 4. Get the first task
 /implement TASK-001: ...                  # 5. Implement one task at a time
 /task done TASK-001                       # 6. Mark done, get next
-/docs src/payments/retry.service.ts       # 4. Document new code
-/security-audit diff                      # 5. Security check (ALWAYS before PR)
-/qa                                       # 6. Quality gates
-/review                                   # 7. Final code review
+/docs src/payments/retry.service.ts       # 7. Document new code
+/security-audit diff                      # 8. Security check (ALWAYS before PR)
+/qa                                       # 9. Quality gates
+/review                                   # 10. Final code review
 
 # Commit and open PR
 git commit -m "feat(payments): add retry logic"
@@ -238,7 +257,7 @@ issue_tracker:
     project_key: "YOUR_KEY"
 ```
 
-For on-premise Jira Server: see `docs/guides/agent/jira-server-setup.md`.
+For self-hosted Jira (Data Center): see [`.initium/docs/agent/jira-server-setup.md`](../../.initium/docs/agent/jira-server-setup.md).
 
 ### 2. Define the project domain
 
@@ -271,7 +290,7 @@ curl -H "Authorization: Bearer $JIRA_API_TOKEN" \
 /loop YOUR-PROJECT-1
 ```
 
-Full documentation: `docs/guides/agent/autonomous-workflow.md`
+Full documentation: [`.initium/docs/agent/autonomous-workflow.md`](../../.initium/docs/agent/autonomous-workflow.md)
 
 ---
 
@@ -305,7 +324,7 @@ bash .initium/scripts/sync.sh            # apply updates interactively
 .\.initium\scripts\sync.ps1
 ```
 
-The sync script never touches your project-specific files (`AGENTS.md`, `docs/context/`, `agent.config.yaml`). See [`.initium/docs/sync-guide.md`](initium-sync.md) for details.
+The sync script never touches your project-specific files (`AGENTS.md`, `docs/context/`, `agent.config.yaml`). Inside an AI tool, `/sync-initium` does the same with a guided merge. See [`.initium/docs/sync-guide.md`](../../.initium/docs/sync-guide.md) for details.
 
 ---
 
@@ -359,7 +378,7 @@ The `/help` command will identify where you are in the workflow, map your questi
 | Don't know what to do | `/help` in Claude Code or Cursor |
 | Project questions | `#<channel>` on Slack / Teams |
 | AI workflow guidance | [`docs/guides/ai-workflow.md`](ai-workflow.md) |
-| Autonomous agent issues | [`docs/guides/agent/escalation-protocol.md`](agent/escalation-protocol.md) |
+| Autonomous agent issues | [`.initium/docs/agent/escalation-protocol.md`](../../.initium/docs/agent/escalation-protocol.md) |
 | Initium bug or improvement | Open an issue in the Initium repository |
 
 ---
@@ -373,9 +392,9 @@ Once setup is complete:
 3. `/architect <issue description>` — design the implementation
 4. `/task plan` — create task files from the design output
 5. Implement task by task: `/task next` → `/implement TASK-XXX` → `/task done TASK-XXX`
-5. `/security-audit diff` — fix any CRITICAL/HIGH findings
-6. `/qa` — fix any blocking quality issues
-7. `/review` — address any feedback
-8. Open a PR using the template
+6. `/security-audit diff` — fix any CRITICAL/HIGH findings
+7. `/qa` — fix any blocking quality issues
+8. `/review` — address any feedback
+9. Open a PR using the template
 
 Good luck, and don't hesitate to ask for help!

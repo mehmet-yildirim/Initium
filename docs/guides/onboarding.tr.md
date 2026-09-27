@@ -13,11 +13,15 @@ Başlamadan önce:
 - [ ] TODO: Gerekli araçları listele (ör. Node.js 22+, Docker, Git, vb.)
 - [ ] TODO: Gerekli servislere erişim (ör. AWS hesabı, veritabanı, gizli anahtarlar)
 - [ ] Git'i iş e-postanla yapılandır: `git config --global user.email "sen@sirket.com"`
-- [ ] Bir AI kodlama aracı: [Cursor](https://cursor.sh), [VS Code + Continue](https://continue.dev), [Claude Code](https://claude.ai/code) veya [OpenCode](https://opencode.ai)
+- [ ] Bir AI kodlama aracı: [Cursor](https://cursor.com), [VS Code + Continue](https://continue.dev), [Claude Code](https://claude.ai/code) veya [OpenCode](https://opencode.ai)
 
 ---
 
 ## İlk Kurulum
+
+> **Initium'u zaten kodu olan bir repoya mı ekliyorsunuz?** Initium'u klonlamayın —
+> [existing-project.tr.md](existing-project.tr.md) kılavuzunu izleyin, ardından
+> [AI Araçlarını Kurma](#ai-araçlarını-kurma) bölümünden devam edin.
 
 ### macOS / Linux
 
@@ -103,63 +107,78 @@ Herhangi bir kod yazmadan önce bu belgeleri sırayla oku:
 ### Claude Code
 
 ```bash
-# Yükle (henüz yüklü değilse)
-npm install -g @anthropic-ai/claude-code
+# Yükle (native installer — önerilen; npm ile kurulum kullanımdan kaldırıldı)
+curl -fsSL https://claude.ai/install.sh | bash      # Windows PowerShell: irm https://claude.ai/install.ps1 | iex
 
 # Başlat — AGENTS.md otomatik olarak yüklenir (CLAUDE.md onu içe aktarır)
 claude
 ```
 
-27 özel komutun tamamı (`/` yazarak görebilirsin):
+40 özel komutun tamamı (`/` yazarak görebilirsin; aynı adlar Cursor ve OpenCode'da da çalışır):
 
 ```
-# --- Yardım ve navigasyon (emin değilsen buradan başla) ---
-/help                — tüm komutları ve tipik özellik iş akışını göster
-/help <soru>         — "Bir özelliğe nasıl başlarım?" → doğru komuta yönlendir
-/help <konu>         — "Testleri nasıl yazarım?" → konuyu komuta eşler
+# --- Yardım ve kurulum (emin değilsen buradan başla) ---
+/help [soru]      — tüm komutları göster veya "… nasıl yaparım?" sorusunu doğru komut sırasına eşle
+/init             — serbest biçimli proje açıklamasından tüm TODO dosyalarını doldur
+                    (kapsamlı: /init domain: … | stack: … | ci: … | agent: …)
+/sync-initium     — üst Initium'daki yeni geliştirmeleri çek
 
-# --- Proje başlatma ---
-/init          — serbest biçimli proje açıklamasından tüm TODO dosyalarını doldur
-/init domain:  — domain sınırları ve ajan kapsam anahtar kelimeleri üret
-/init stack:   — teknoloji yığını belgesi ve AGENTS.md komutları üret
-/init ci:      — dil ve deployment hedefin için CI iş akışı üret
-/init agent:   — tracker anahtarları, GitHub deposu, eskalasyon kanallarını yapılandır
+# --- Planlama ve tasarım ---
+/requirements     — gereksinimleri analiz et → kullanıcı hikayeleri, görevler, Tamamlanma Tanımı
+/architect        — tek satır kod yazmadan önce tasarım yap
+/task plan        — tasarımı takip edilen .agent/tasks/*.md dosyalarına böl (PR başına bir tane)
+/task next|list|status|done <id> — görevleri seç, takip et ve tamamla
+/sprint           — sprint planlaması: kapasite, backlog, görevler, risk kaydı
 
-# --- İnsan destekli geliştirme ---
-/requirements  — gereksinimleri analiz et → kullanıcı hikayeleri, görevler, Tamamlanma Tanımı
-/architect     — tek satır kod yazmadan önce tasarım yap
-/task plan     — tasarımı takip edilen .agent/tasks/*.md dosyalarına böl (PR başına bir tane)
-/task next     — sonraki işlem yapılabilir görevi getir (bağımlılıklara saygı duyar)
-/task done <id> — bir görevi tamamlandı olarak işaretle ve bağımlıları aç
-/task list     — tüm görevleri ve mevcut durumlarını göster
-/implement     — testlerle birlikte yapılandırılmış alt-üst uygulama
-/security-audit — OWASP + CVE + gizli bilgi taraması (her PR'dan önce çalıştır)
-/qa            — tam kalite kapıları: lint, tipler, testler, kapsam
-/review        — proje standartları ve OWASP'a göre kod incelemesi
-/test          — kapsamlı testler üret
-/debug         — sistematik hata teşhisi: hipotez → düzeltme → önleme
-/deploy        — deployment öncesi kontrol listesi + yürütme adımları + izleme planı
-/infra         — AWS, GCP veya şirket içi için Terraform / K8s iskeleti kur
-/migrate       — güvenli DB migrasyonu: Expand-Contract + geri alma planı
-/db            — veritabanı yaşam döngüsü: init, create, dml, seed, status, diff
-/sprint        — sprint planlaması: kapasite, backlog, görevler, risk kaydı
-/standup       — git geçmişinden günlük özet
+# --- Geliştirme ---
+/implement        — testlerle birlikte yapılandırılmış alt-üst uygulama
+/goal             — tek bir hedefi yarıda durmadan Tamamlanma Tanımına kadar sürdür
+/refactor         — test güvenlik ağıyla davranışı koruyan refactor
+/upgrade          — bağımlılıkları, framework'leri ve runtime'ları denetle veya yükselt
+/debug            — sistematik hata teşhisi: hipotez → düzeltme → önleme
 
-# --- Belgelendirme üretimi ---
-/docs          — kod düzeyinde belgelendirme üret (JSDoc, docstring, GoDoc…)
-/doc-api       — OpenAPI spec oluştur/güncelle + ReDoc çıktısı
-/doc-changelog — git geçmişinden CHANGELOG.md üret (git-cliff)
-/doc-schema    — veritabanı ERD ve tablo referansı üret
+# --- Kalite ve inceleme ---
+/test             — kapsamlı testler üret
+/qa               — tam kalite kapıları: lint, tipler, testler, kapsam
+/review           — proje standartları ve OWASP'a göre kod incelemesi
+/security-audit   — OWASP + CVE + gizli bilgi taraması (her PR'dan önce çalıştır)
+/perf             — performans darboğazını ölç, bul ve düzelt
+/a11y             — erişilebilirlik denetimi ve düzeltmeleri (WCAG 2.2 AA)
+/eval             — LLM destekli özellikler için değerlendirme setleri
 
-# --- Otonom ajan ---
-/triage        — JIRA/Linear/GitHub issue'su için domain uygunluk kontrolü
-/groom         — backlog'u triage + gereksinimler aracılığıyla toplu işle
-/loop          — tam otonom döngü: tasarım → kod → belgelendirme → QA → PR → deployment
-/escalate      — ajan bloke olduğunda yapılandırılmış insan bildirimi
+# --- UI ve görsel tasarım ---
+/design           — şablon gibi değil, bilinçli görünen UI tasarla ve oluştur
+/design-review    — salt okunur UI incelemesi (şablon izleri, işçilik, Apple HIG / Material 3)
+/polish           — yayından önce son görsel kalite geçişi
+/design-system    — DESIGN.md / PRODUCT.md ve tasarım token'larını oluştur veya yenile
 
-# --- Initium bakımı ---
-/sync-initium — üst Initium yeni geliştirmelerini çek
+# --- Bağlam ve bilgi ---
+/codegraph        — sembol, çağıran ve etki sorguları için kod grafiği (token tasarrufu)
+/skill            — .claude/skills/ altında Agent Skills oluştur, güncelle veya listele
+
+# --- Belgelendirme ---
+/docs             — kod düzeyinde belgeler, mimari belgeler, kullanıcı kılavuzları
+/doc-api          — OpenAPI spec oluştur/güncelle
+/doc-schema       — veritabanı ERD ve tablo referansı
+/doc-diagrams     — API ve iş akışları için Mermaid sequence diyagramları
+/doc-site         — belgelendirme sitesini iskelet olarak kur veya yeniden üret
+/doc-changelog    — git geçmişinden CHANGELOG.md üret
+
+# --- Veritabanı, altyapı, deployment ---
+/migrate          — güvenli DB migrasyonu: Expand-Contract + geri alma planı
+/db               — veritabanı yaşam döngüsü: init, create, dml, seed, status, diff, audit
+/infra            — AWS, GCP, Azure veya şirket içi için Terraform / K8s / CI-CD iskeleti kur
+/deploy           — deployment öncesi kontrol listesi + yürütme adımları + izleme planı
+
+# --- Operasyon ve otonom ajan ---
+/standup          — git geçmişinden günlük özet
+/triage           — Jira/Linear/GitHub issue'su için domain uygunluk kontrolü
+/groom            — backlog'u triage + gereksinimler aracılığıyla toplu işle
+/loop             — tam otonom döngü: tasarım → kod → QA → PR → deployment
+/escalate         — ajan bloke olduğunda yapılandırılmış insan bildirimi
 ```
+
+Argümanlar ve modlarla tam referans: [`docs/guides/ai-workflow.tr.md`](ai-workflow.tr.md#tüm-komutlar--hızlı-referans).
 
 ### Cursor
 
@@ -168,7 +187,7 @@ claude
 3. `.claude/skills/` içindeki beceriler, görev veya açık dosya açıklamalarıyla ya da `paths` desenleriyle eşleştiğinde isteğe bağlı yüklenir
 4. `.claude/commands/` içindeki slash komutları Cursor'da doğrudan çalışır — tam listeyi görmek için `/` yaz
 5. MCP sunucularını etkinleştir: `.cursor/mcp.json` dosyasını düzenle, `"disabled": true` satırını kaldır, env değişkenlerini `.env` dosyasına ekle
-6. Cursor ayarlarına `ANTHROPIC_API_KEY` ekle
+6. Cursor'a giriş yap — sağlayıcı API anahtarı yalnızca kendi anahtarını kullanacaksan gerekir (Settings → Models)
 
 ### Continue (VS Code / JetBrains)
 
@@ -237,7 +256,7 @@ issue_tracker:
     project_key: "PROJE_ANAHTARIN"
 ```
 
-Şirket içi Jira Server için: `.initium/docs/agent/jira-server-setup.md` dosyasına bak.
+Şirket içinde barındırılan Jira (Data Center) için: [`.initium/docs/agent/jira-server-setup.md`](../../.initium/docs/agent/jira-server-setup.md) dosyasına bak.
 
 ### 2. Proje domain'ini tanımla
 
@@ -270,7 +289,7 @@ curl -H "Authorization: Bearer $JIRA_API_TOKEN" \
 /loop PROJE-1
 ```
 
-Tam belgeler: `.initium/docs/agent/autonomous-workflow.md`
+Tam belgeler: [`.initium/docs/agent/autonomous-workflow.md`](../../.initium/docs/agent/autonomous-workflow.md)
 
 ---
 
@@ -304,7 +323,7 @@ bash .initium/scripts/sync.sh            # güncellemeleri etkileşimli olarak u
 .\.initium\scripts\sync.ps1
 ```
 
-Senkronizasyon betiği proje özgü dosyalarına (`AGENTS.md`, `docs/context/`, `agent.config.yaml`) asla dokunmaz. Ayrıntılar için: [`.initium/docs/sync-guide.md`](initium-sync.md)
+Senkronizasyon betiği proje özgü dosyalarına (`AGENTS.md`, `docs/context/`, `agent.config.yaml`) asla dokunmaz. AI aracı içinde `/sync-initium` aynı işi rehberli birleştirmeyle yapar. Ayrıntılar için: [`.initium/docs/sync-guide.md`](../../.initium/docs/sync-guide.md)
 
 ---
 
@@ -358,7 +377,7 @@ Cursor'da sohbette `/help` yazıp ardından sorunuzu ekleyin — `.claude/comman
 | Ne yapacağını bilmiyorum | Claude Code veya Cursor'da `/help` |
 | Proje soruları | Slack / Teams'de `#<kanal>` |
 | AI iş akışı rehberliği | [`docs/guides/ai-workflow.tr.md`](ai-workflow.tr.md) |
-| Otonom ajan sorunları | [`.initium/docs/agent/escalation-protocol.md`](agent/escalation-protocol.md) |
+| Otonom ajan sorunları | [`.initium/docs/agent/escalation-protocol.md`](../../.initium/docs/agent/escalation-protocol.md) |
 | Initium hatası veya iyileştirme | Initium deposunda issue aç |
 
 ---

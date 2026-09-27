@@ -11,18 +11,36 @@ into a structured, implementation-ready specification using AI assistance.
 - Technical spike / proof of concept
 
 Skip for: trivial bug fixes, config changes, documentation-only updates.
+For a small, well-defined change you want finished end-to-end in one session, `/goal <objective>`
+picks the lightest planning path itself (it skips `/requirements` for single-module fixes).
 
 ## The Workflow
 
 ```
 Input: Raw requirement (ticket, Slack message, doc, verbal description)
   │
+  ├─ Step 0: Triage (backlog issues only — /triage or /groom)
   ├─ Step 1: Clarify & Gather Context
   ├─ Step 2: AI-Assisted Analysis (/requirements)
   ├─ Step 3: Human Review & Refinement
   ├─ Step 4: Technical Spike (if unknown territory)
-  └─ Output: Approved spec → ready for /sprint or /architect
+  └─ Output: Approved spec → /architect → /task plan (or /sprint for sprint planning)
 ```
+
+## Step 0: Triage (backlog issues)
+
+When the input is an issue from the tracker rather than a direct request, first check that it
+belongs to this project:
+
+```
+/triage <issue key or pasted issue>   # single issue: accept / reject / escalate with a confidence score
+/groom                                 # batch: fetch backlog → /triage each → /requirements for accepted ones
+```
+
+`/triage` scores the issue against `docs/context/domain-boundaries.md` and
+`docs/context/project-brief.md`. `/groom` saves each accepted issue's analysis to
+`.agent/outputs/<task-id>-requirements.json`, which `/loop <task-id>` picks up in autonomous mode
+(see [Autonomous Workflow](../../../.initium/docs/agent/autonomous-workflow.md)).
 
 ## Step 1: Clarify & Gather Context
 
@@ -40,20 +58,23 @@ Before running AI analysis, collect:
 - Are there similar features already implemented?
 - Are there known constraints (performance, security, backward compat)?
 
+If `codegraph.enabled` is `true` in `agent.config.yaml`, use `/codegraph` (symbol search, callers,
+impact) to answer these questions without reading whole files.
+
 ## Step 2: AI-Assisted Requirements Analysis
 
 ```bash
-# In Claude Code, Cursor, or Continue:
+# In Claude Code, Cursor, OpenCode, or Continue:
 /requirements <paste the raw requirement here>
 ```
 
 The `/requirements` command produces:
-- Clarifying questions (answer these before proceeding)
-- User stories with acceptance criteria
-- Technical requirements (functional + non-functional)
-- Architecture impact assessment
-- Implementation backlog (prioritized tasks)
-- Testing strategy
+- Clarifying questions and assumptions (answer these before proceeding)
+- User stories (`US-001`) with Given/When/Then acceptance criteria
+- Functional (`FR-001`) and non-functional requirements, plus an explicit "Out of scope" list
+- Architecture impact assessment (components, data model, API, dependencies, breaking changes)
+- Implementation backlog (`TASK-001`, sized XS–L, XL flagged for splitting, ordered by dependency)
+- Testing strategy (unit, integration, E2E, manual)
 - Definition of Done
 
 ## Step 3: Human Review
@@ -89,7 +110,9 @@ If the implementation approach is uncertain, run a time-boxed spike (max 2 days)
 
 Goal of spike: answer a specific technical question (e.g., "Can we integrate with X API?",
 "What's the performance characteristic of approach Y?").
-Spike output: a documented decision, NOT production code.
+Spike output: a documented decision, NOT production code. `/architect` saves it as
+`docs/architecture/decisions/NNNN-<feature>.md` (next free number; see `0001-template.md`).
+For performance questions, measure with `/perf` instead of guessing.
 
 ## Output: Approved Specification
 
@@ -118,14 +141,22 @@ The approved specification should contain:
 [Checklist]
 ```
 
-Store approved specs in: `docs/features/<feature-name>.md`
+Store approved specs in: `docs/features/<feature-name>.md` (create the folder on first use).
+
+## Next Steps
+
+- Design the implementation: `/architect <task or spec>` — see [Feature Development](02-feature-development.md)
+- Turn the design into tracked task files: `/task plan`
+- New UI surface: add `/design` (after `/design-system` once per project) before implementation
+- LLM-powered feature: plan an evaluation suite with `/eval create <feature>` alongside the tests
+- Planning a whole sprint instead: `/sprint <backlog or theme>`
 
 ## Common Pitfalls
 
 - **"I'll figure it out as I code"** — skipping requirements analysis leads to rework. The `/requirements` command takes 5 minutes; rework takes days.
 - **AI takes the requirement too literally** — always review the user story section for missing implied behavior.
 - **Scope creep in specs** — the AI may include nice-to-haves. Keep the "Out of scope" section rigorous.
-- **Missing non-functional requirements** — performance, security, and accessibility are easy to overlook. Explicitly prompt for them.
+- **Missing non-functional requirements** — performance, security, and accessibility (WCAG 2.2 AA; see the [`accessibility` skill](../../../.claude/skills/accessibility/SKILL.md)) are easy to overlook. Explicitly prompt for them with measurable targets (e.g. p95 latency).
 
 ## Time Estimates
 

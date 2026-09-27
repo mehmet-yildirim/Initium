@@ -1,7 +1,9 @@
 # Autonomous Agent Workflow
 
 This document defines the complete state machine, phase gates, and decision logic
-for the autonomous AI development agent.
+for the autonomous AI development agent. The executable definitions are the slash commands
+`/groom` (poll → triage → requirements), `/triage`, `/loop` (architect → deploy for one task),
+and `/escalate`; thresholds and limits come from `agent.config.yaml`.
 
 ## Architecture Overview
 
@@ -20,14 +22,15 @@ for the autonomous AI development agent.
 │        ▼               ▼              ▼                  ▼          │
 │  ┌─────────────────────────────────────────────────────────────────┐│
 │  │                    ESCALATION MANAGER                           ││
-│  │   Confidence < threshold │ Risk = HIGH │ Retry limit exceeded   ││
-│  │   → Slack / GitHub / Email / PagerDuty                         ││
+│  │   Confidence < threshold │ Risk ≥ MEDIUM │ Retry limit exceeded ││
+│  │   /escalate → Slack / GitHub issue / Email / PagerDuty          ││
 │  └─────────────────────────────────────────────────────────────────┘│
 │        │               │              │                  │          │
 │        ▼               ▼              ▼                  ▼          │
 │  ┌─────────────────────────────────────────────────────────────────┐│
 │  │                    STATE STORE & AUDIT LOG                      ││
-│  │   .agent/state/<task-id>.json   |   .agent/audit/<date>.jsonl  ││
+│  │   .agent/state/<task-id>.json                                   ││
+│  │   .agent/audit/<date>-decisions.jsonl                           ││
 │  └─────────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -39,8 +42,8 @@ for the autonomous AI development agent.
                             │
                             ▼
                     ┌───────────────┐
-                    │    TRIAGE     │ ◀── Read domain-boundaries.md
-                    │ Domain check  │     Confidence scoring
+                    │    TRIAGE     │ ◀── /triage (called by /groom per issue)
+                    │ Domain check  │     Reads domain-boundaries.md, scores confidence
                     └───────────────┘
                      │           │
               conf≥0.80       conf<0.30
@@ -51,20 +54,20 @@ for the autonomous AI development agent.
           0.30≤conf<0.80
                  │
                  ▼
-          [ESCALATE_TRIAGE] ──▶ Human decides → ACCEPT or REJECT
+          [ESCALATE_TRIAGE] ──▶ Human comments AGENT_RESUME (accept) or AGENT_REJECT
                  │
            (if ACCEPT)
                  │
                  ▼
          ┌───────────────┐
-         │  REQUIREMENTS │ ◀── /requirements command
+         │  REQUIREMENTS │ ◀── /requirements (called by /groom)
          │  Analysis     │     Produces: user stories, tasks, DoD (JSON+MD)
          └───────────────┘
-                 │
-          conf≥threshold?
+                 │                 ── /loop <task-id> starts here ──
+          conf≥threshold, all tasks ≤ L?
            Yes │    No │
                │       ▼
-               │  [ESCALATE_REQUIREMENTS] ──▶ Human clarifies → retry or skip
+               │  [ESCALATE_REQUIREMENTS] ──▶ Human clarifies (AGENT_CLARIFY) → retry or skip
                │
                ▼
          ┌───────────────┐
@@ -73,18 +76,19 @@ for the autonomous AI development agent.
          └───────────────┘
                  │
           risk level check
-       LOW/MED─────────HIGH
+         LOW─────────MEDIUM/HIGH
            │                │
            ▼                ▼
-    [GATE: auto]    [ESCALATE_DESIGN] ──▶ Human approves or modifies
-           │                │
+    [GATE: auto]    [ESCALATE_DESIGN] ──▶ Human comments AGENT_APPROVE_DESIGN
+           │                │               (MEDIUM: review; HIGH: blocks until approved)
            │         (if approved)
            └────────────────┘
                     │
                     ▼
          ┌───────────────────┐
-         │    IMPLEMENT      │ ◀── /implement command (per task, bottom-up)
-         │    (per task)     │     With retry loop (max N attempts)
+         │    IMPLEMENT      │ ◀── /implement command (per task, dependency order)
+         │    (per task)     │     Task source: .agent/tasks/*.md (/task next) or
+         │                   │     the requirements JSON; retry loop (max_retries)
          │                   │     + /docs per new/modified file
          └───────────────────┘
                  │
@@ -95,28 +99,30 @@ for the autonomous AI development agent.
               │       │
               │  No (retry>N)
               │       │
-              │  [ESCALATE_IMPL] ──▶ Human assists → agent resumes
+              │  [ESCALATE_IMPL] ──▶ Human fixes → AGENT_RESUME, or AGENT_SKIP_TASK
               │
               ▼
          ┌───────────────────┐
-         │   DOCS SYNC       │ ◀── Conditional on requirements flags
+         │   DOCS SYNC       │ ◀── Conditional on requirements architectureImpact flags
          │   (conditional)   │     apiChanges → /doc-api diff
          │                   │     schemaChanges → /doc-schema migrations
          └───────────────────┘
                  │
           API breaking change?
               │       │
-              │  YES → [ESCALATE_API_BREAKING] ──▶ version bump reminder
+              │  YES → [ESCALATE_API_BREAKING] ──▶ version bump + migration guide reminder
               │
               ▼
          ┌───────────────┐
-         │      QA       │ ◀── /qa command
-         │  Full gates   │     lint + types + coverage + security
+         │      QA       │ ◀── /qa command → .agent/outputs/<task-id>-qa-report.json
+         │  Full gates   │     lint + types + tests + coverage + security + deps
          └───────────────┘
                  │
              All PASS?
           Yes │    No │
               │       ▼
+              │  [AUTO_FIX] ──▶ max 2 attempts (security issues escalate CRITICAL at once)
+              │       │
               │  [ESCALATE_QA] ──▶ Human reviews QA failures
               │
               ▼
@@ -127,8 +133,8 @@ for the autonomous AI development agent.
                  │
                  ▼
          ┌───────────────┐
-         │  MONITOR CI   │ ◀── Poll GitHub Actions status
-         │               │     Wait for all checks to pass
+         │  MONITOR CI   │ ◀── gh pr checks <pr> --watch
+         │               │     Auto-fix lint/format failures, re-watch
          └───────────────┘
                  │
              CI PASS?
@@ -138,32 +144,32 @@ for the autonomous AI development agent.
               │
               ▼
          ┌───────────────┐
-         │  AWAIT MERGE  │ ◀── Wait for PR approval & merge
-         │               │     (auto-merge if configured)
+         │  MERGE GATE   │ ◀── git.auto_merge.enabled: false → wait for human merge
+         │               │     true → squash-merge once approvals are met
          └───────────────┘
                  │
                  ▼
          ┌───────────────┐
-         │    DEPLOY     │ ◀── /deploy command
-         │  Staging auto │     Production requires human gate
-         │  Prod → gate  │
-         └───────────────┘
+         │    DEPLOY     │ ◀── Staging via CI when staging_auto_deploy: true
+         │  Staging auto │     Smoke tests → tracker status "In Review"
+         │  Prod → gate  │     Production waits for AGENT_APPROVE_DEPLOY
+         └───────────────┘     (/deploy has the full checklist and rollback steps)
                  │
            Deploy OK?
           Yes │    No │
               │       ▼
-              │  [ROLLBACK + ESCALATE_DEPLOY]
+              │  [ROLLBACK + ESCALATE]
               │
               ▼
          ┌───────────────┐
-         │    MONITOR    │ ◀── Watch error rate + latency for 30 min
+         │    MONITOR    │ ◀── Watch error rate, p99 latency, new alerts for 30 min
          │  Post-deploy  │
          └───────────────┘
                  │
           Metrics stable?
           Yes │    No │
               │       ▼
-              │  [AUTO_ROLLBACK + ESCALATE_PRODUCTION]
+              │  [AUTO_ROLLBACK + ESCALATE CRITICAL post_deploy_error_spike]
               │
               ▼
          ┌───────────────┐
@@ -174,7 +180,9 @@ for the autonomous AI development agent.
 
 ## Task State Schema
 
-Every task in flight has a state file at `.agent/state/<task-id>.json`:
+Every task in flight has a state file at `.agent/state/<task-id>.json`
+(`observability.state_store.path`). The full JSON Schema is
+[`schemas/task-state.json`](schemas/task-state.json):
 
 ```json
 {
@@ -188,6 +196,7 @@ Every task in flight has a state file at `.agent/state/<task-id>.json`:
   "timeoutAt": "2024-03-10T10:00:00Z",
   "branchName": "feat/PROJ-42-discount-codes",
   "prUrl": null,
+  "prNumber": null,
   "retries": { "implement": 1 },
   "escalations": [],
   "phaseOutputs": {
@@ -209,19 +218,22 @@ Every task in flight has a state file at `.agent/state/<task-id>.json`:
 
 ## Phase Gate Contracts
 
-Each phase gate checks these conditions before proceeding automatically:
+Each phase gate checks these conditions before proceeding automatically. Defaults shown come
+from `agent.config.yaml`; the escalation severity and trigger names match `/loop` and the
+[escalation protocol](escalation-protocol.md).
 
-| Phase Gate | Auto-proceed if... | Escalate if... |
-|-----------|-------------------|----------------|
-| After TRIAGE | confidence ≥ 0.80 | 0.30 ≤ conf < 0.80 |
-| After REQUIREMENTS | confidence ≥ 0.75 AND all tasks sized ≤ L | ambiguities > 2 |
-| After ARCHITECT | risk = low | risk = medium or high |
-| After each IMPLEMENT task | all tests pass + /docs run on new files | tests fail after N retries |
-| After DOCS SYNC | /doc-api no errors (if apiChanges); /doc-schema updated (if schemaChanges) | API breaking change detected → escalate reminder |
-| After QA | all gates PASS | any gate FAIL |
-| After CI | all checks green | any check red |
-| Before PROD DEPLOY | always escalate for human approval | — |
-| After POST-DEPLOY MONITOR | metrics stable for 30 min | error rate spike |
+| Phase Gate | Auto-proceed if... | Escalate if... | Config key |
+|-----------|-------------------|----------------|------------|
+| After TRIAGE | confidence ≥ 0.80 | 0.30 ≤ conf < 0.80 (MEDIUM); < 0.30 auto-rejects | `domain.acceptance_threshold`, `domain.rejection_threshold` |
+| After REQUIREMENTS | confidence ≥ 0.75 AND all tasks sized ≤ L AND no blocking ambiguity | confidence below threshold → MEDIUM `requirements_confidence_low`; XL tasks must be split | `autonomy.gates.requirements.confidence_threshold` |
+| After ARCHITECT | risk = low | risk = medium (MEDIUM `design_risk_medium`) or high (HIGH `design_risk_high`, blocks) | `autonomy.gates.architect.risk_threshold`, `autonomy.require_approval_for_risk` |
+| After each IMPLEMENT task | all tests pass + /docs run on new files | tests fail after 3 retries (HIGH `implement_max_retries_exceeded`) or task exceeds 8 h | `autonomy.gates.implement.max_retries`, `max_hours` |
+| After DOCS SYNC | /doc-api no errors (if apiChanges); /doc-schema updated (if schemaChanges) | API breaking change (MEDIUM `api_breaking_change_detected`) | — |
+| After QA | all gates PASS, coverage ≥ 80% | security issue (CRITICAL `security_vulnerability_detected`); other gates still failing after 2 auto-fix attempts (HIGH `qa_gate_failure`) | `autonomy.gates.qa.coverage_threshold` |
+| After CI | all checks green | unfixable check failure (HIGH `ci_pipeline_failure`) | — |
+| Before PROD DEPLOY | never — always waits for `AGENT_APPROVE_DEPLOY` | LOW notice: "PR merged, staging healthy" | `autonomy.gates.deploy.require_human_approval` |
+| After POST-DEPLOY MONITOR | metrics stable for 30 min | error rate / latency degradation (CRITICAL `post_deploy_error_spike`) | — |
+| Whole task | finished within 24 h | timeout (HIGH `task_timeout`) | `autonomy.task_timeout_hours` |
 
 ## Resume After Interruption
 
@@ -233,23 +245,25 @@ ls .agent/state/
 
 # Resume a specific task
 /loop resume PROJ-42
-
-# Resume all in-flight tasks
-/loop resume-all
 ```
 
+`/loop` accepts a task ID or `resume <task-id>`; there is no resume-all mode — resume each
+in-flight task from `.agent/state/` individually (within `autonomy.max_concurrent_tasks`).
+
 The agent reads the state file, determines the last completed phase, and continues from there.
-It never re-runs completed phases unless explicitly requested.
+It never re-runs completed phases unless explicitly requested (for example with an
+`AGENT_RESUME phase=<phase>` comment on the escalation).
 
 ## Concurrency Model
 
-By default (`max_concurrent_tasks: 1`), the agent works on one task at a time.
+By default (`autonomy.max_concurrent_tasks: 1`), the agent works on one task at a time.
+When the limit is reached, `/groom` queues accepted issues instead of starting them.
 To enable parallel development:
 
-1. Set `max_concurrent_tasks: N` in `agent.config.yaml`
-2. Each task gets its own git branch and state file
+1. Set `autonomy.max_concurrent_tasks: N` in `agent.config.yaml`
+2. Each task gets its own git branch (`git.branch_pattern` / `git.branch_patterns_by_type`) and state file
 3. Tasks with dependencies wait for their dependencies' PRs to merge first
-4. Dependency is inferred from the `depends_on` field in the requirements output
+4. Dependency is inferred from the `dependsOn` field of each task in the requirements output
 
 ## Kill Switch
 
@@ -257,8 +271,8 @@ To stop the agent immediately (emergency):
 ```bash
 touch .agent/STOP
 ```
-The agent checks for this file before each phase transition and exits cleanly if found.
-Remove the file to re-enable the agent.
+The agent checks for this file (`safety.kill_switch_file`) before each phase transition and
+exits cleanly if found. Remove the file to re-enable the agent.
 
 ---
 
@@ -267,31 +281,32 @@ Remove the file to re-enable the agent.
 The agent can run as a long-lived Docker container with a built-in cron scheduler, requiring no developer machine or manual invocation.
 
 ```
-┌─────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────┐
 │              initium-agent container                 │
 │                                                      │
-│  /initium/          ← Initium runtime (baked in)    │
+│  /initium/          ← Initium runtime (baked in)     │
 │    .claude/         ← slash commands, hooks          │
 │    .cursor/         ← rules, MCP config              │
 │    .continue/       ← multi-model config             │
-│    .opencode/       ← OpenCode slash commands      │
+│    .opencode/       ← OpenCode slash commands        │
 │    opencode.json    ← OpenCode instructions          │
 │    agent.config.yaml                                 │
 │                                                      │
 │  /workspace/        ← your project (cloned at start) │
-│    .claude/  ─────────────── overlay if absent ──▶  │
-│    .cursor/  ─────────────── overlay if absent ──▶  │
-│    .continue/ ─────────────── overlay if absent ──▶ │
+│    .claude/  ─────────────── overlay if absent ──▶   │
+│    .cursor/  ─────────────── overlay if absent ──▶   │
+│    .continue/ ────────────── overlay if absent ──▶   │
+│    .opencode/ ────────────── overlay if absent ──▶   │
 │    src/ ...                                          │
 │                                                      │
 │  cron: GROOM_CRON → /groom-runner.sh                 │
-│    git pull → claude -p "/groom" → git push          │
-└─────────────────────────────────────────────────────┘
+│    git fetch + rebase → $AGENT_CLI "/groom" → push   │
+└──────────────────────────────────────────────────────┘
 ```
 
-**Tooling overlay rule:** If a directory (`.claude/`, `.cursor/`, `.continue/`) or `agent.config.yaml` is already present in the cloned repo, it is used as-is. The image copy is only applied when absent. This means projects initialized with `/init` use their own customized copies automatically.
+**Tooling overlay rule:** If a directory (`.claude/`, `.cursor/`, `.continue/`, `.opencode/`) or `opencode.json` / `agent.config.yaml` is already present in the cloned repo, it is used as-is. The image copy is only applied when absent. This means projects initialized with `/init` use their own customized copies automatically.
 
-**Scheduling:** The `GROOM_CRON` environment variable controls the schedule (standard cron syntax). It defaults to `*/15 * * * *`, matching `agent.config.yaml → poll_interval_minutes: 15`.
+**Scheduling:** The `GROOM_CRON` environment variable controls the schedule (standard cron syntax). It defaults to `*/15 * * * *`, matching `agent.config.yaml → issue_tracker.<provider>.poll_interval_minutes: 15`.
 
 **Kill switch in container:** Create `.agent/STOP` in the workspace — the runner script checks for it before each `/groom` invocation without requiring a container restart.
 

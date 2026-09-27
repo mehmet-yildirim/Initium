@@ -2,18 +2,22 @@
  * webhook-receiver.mjs — Jira Server Webhook Receiver
  *
  * Listens for Jira Server webhook events and triggers the autonomous agent loop.
- * See docs/agent/jira-server-setup.md § 9 for full setup instructions.
+ * See .initium/docs/agent/jira-server-setup.md § 9 for full setup instructions.
  *
  * Usage:
  *   JIRA_WEBHOOK_SECRET=<secret> WEBHOOK_PORT=3001 node .agent-templates/webhook-receiver.mjs
  *
  * Copy this file to .agent/webhook-receiver.mjs for production use.
  * The .agent/ directory is in .gitignore — copy and customize per deployment.
+ *
+ * Issue summaries and comment bodies are attacker-controlled. They are never passed to a
+ * shell or into the agent prompt: the agent is started with execFile (no shell), receives
+ * only a validated issue key and an allow-listed command, and reads the issue itself.
  */
 
 import { createServer } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -33,6 +37,12 @@ const ALLOWED_IPS = process.env.JIRA_SERVER_IP
 
 // Max body size: 1 MB
 const MAX_BODY_BYTES = 1_000_000;
+
+const ISSUE_KEY_PATTERN = /^[A-Z][A-Z0-9_]{0,9}-\d{1,9}$/;
+const PHASE_PATTERN = /^[a-z_]{1,32}$/;
+const CLAUDE_BIN = process.env.CLAUDE_BIN ?? 'claude';
+const LOOP_TIMEOUT_MS = 600_000;
+const TRIAGE_TIMEOUT_MS = 300_000;
 
 // Jira event types that trigger agent triage
 const TRIGGER_EVENTS = new Set([
@@ -94,36 +104,25 @@ function validateSecret(headerValue) {
 }
 
 // ---------------------------------------------------------------------------
-// Agent command dispatcher
+// Agent invocation — argv only, never a shell string
 // ---------------------------------------------------------------------------
-function dispatchCommand(command, context) {
-  const { issueKey, summary = '' } = context;
-  log({ event: 'dispatching_command', command, issueKey });
+function runAgent(prompt, timeout) {
+  execFileSync(CLAUDE_BIN, ['-p', prompt], {
+    cwd: process.cwd(),
+    env: process.env,
+    stdio: 'inherit',
+    timeout,
+  });
+}
 
+// ---------------------------------------------------------------------------
+// Agent command dispatcher — /loop resume reads the human response from the ticket
+// ---------------------------------------------------------------------------
+function dispatchCommand(command, issueKey, phase) {
+  log({ event: 'dispatching_command', command, issueKey, phase });
+  const context = phase ? `${command} phase=${phase}` : command;
   try {
-    // Map comment commands to agent slash commands
-    let claudeCommand;
-    if (command.startsWith('AGENT_RESUME')) {
-      const phaseMatch = command.match(/phase=(\w+)/);
-      claudeCommand = phaseMatch
-        ? `/loop resume-phase ${issueKey} ${phaseMatch[1]}`
-        : `/loop resume ${issueKey}`;
-    } else if (command === 'AGENT_APPROVE_DESIGN') {
-      claudeCommand = `/loop resume-design-approved ${issueKey}`;
-    } else if (command === 'AGENT_APPROVE_DEPLOY') {
-      claudeCommand = `/loop resume-deploy-approved ${issueKey}`;
-    } else {
-      // AGENT_ABANDON, AGENT_REASSIGN, AGENT_SKIP_TASK, AGENT_REJECT
-      claudeCommand = `/escalate resolve ${issueKey} ${command}`;
-    }
-
-    execSync(`claude --headless "${claudeCommand}"`, {
-      cwd: process.cwd(),
-      env: process.env,
-      stdio: 'inherit',
-      timeout: 600_000, // 10 min max
-    });
-
+    runAgent(`/loop resume ${issueKey} ${context}`, LOOP_TIMEOUT_MS);
     log({ event: 'command_dispatched', command, issueKey, status: 'success' });
   } catch (err) {
     log({ event: 'command_dispatch_error', command, issueKey, error: err.message });
@@ -133,19 +132,25 @@ function dispatchCommand(command, context) {
 // ---------------------------------------------------------------------------
 // Triage dispatcher — called when a new issue is created/updated
 // ---------------------------------------------------------------------------
-function dispatchTriage(issueKey, summary) {
-  log({ event: 'dispatching_triage', issueKey, summary });
+function dispatchTriage(issueKey) {
+  log({ event: 'dispatching_triage', issueKey });
   try {
-    execSync(`claude --headless "/triage ${issueKey}: ${summary}"`, {
-      cwd: process.cwd(),
-      env: process.env,
-      stdio: 'inherit',
-      timeout: 300_000, // 5 min max for triage
-    });
+    runAgent(`/triage ${issueKey}`, TRIAGE_TIMEOUT_MS);
     log({ event: 'triage_dispatched', issueKey, status: 'success' });
   } catch (err) {
     log({ event: 'triage_dispatch_error', issueKey, error: err.message });
   }
+}
+
+// Returns { command, phase } for an allow-listed AGENT_* comment, otherwise null.
+function parseAgentCommand(commentBody) {
+  const firstLine = commentBody.trim().split('\n', 1)[0];
+  const [token, ...rest] = firstLine.split(/\s+/);
+  if (!AGENT_COMMANDS.includes(token)) return null;
+  const phaseArg = rest.find((part) => part.startsWith('phase='));
+  const phase = phaseArg?.slice('phase='.length);
+  if (phase !== undefined && !PHASE_PATTERN.test(phase)) return null;
+  return { command: token, phase };
 }
 
 // ---------------------------------------------------------------------------
@@ -206,11 +211,14 @@ const server = createServer((req, res) => {
     }
 
     const { webhookEvent, issue, comment } = payload;
-    const issueKey  = issue?.key;
-    const summary   = issue?.fields?.summary ?? '';
+    const rawKey = typeof issue?.key === 'string' ? issue.key : '';
+    const issueKey = ISSUE_KEY_PATTERN.test(rawKey) ? rawKey : null;
     const issueStatus = issue?.fields?.status?.name ?? '';
 
     log({ event: 'webhook_received', webhookEvent, issueKey, issueStatus, clientIp });
+    if (rawKey && !issueKey) {
+      log({ event: 'webhook_rejected', reason: 'invalid_issue_key', clientIp });
+    }
 
     // ── Respond immediately (Jira expects fast ack) ───────────────────────
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -227,15 +235,14 @@ const server = createServer((req, res) => {
           log({ event: 'webhook_skipped', reason: 'already_processed', issueKey, labels });
           return;
         }
-        dispatchTriage(issueKey, summary);
+        dispatchTriage(issueKey);
       }
 
       // Comment added → check for AGENT_* commands
-      if (webhookEvent === 'comment_created' && issueKey && comment?.body) {
-        const commentBody = comment.body.trim();
-        const matchedCommand = AGENT_COMMANDS.find(cmd => commentBody.startsWith(cmd));
-        if (matchedCommand) {
-          dispatchCommand(commentBody, { issueKey, summary });
+      if (webhookEvent === 'comment_created' && issueKey && typeof comment?.body === 'string') {
+        const parsed = parseAgentCommand(comment.body);
+        if (parsed) {
+          dispatchCommand(parsed.command, issueKey, parsed.phase);
         }
       }
     });
