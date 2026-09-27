@@ -2,7 +2,7 @@
   "_comment": "This file tracks which version of Initium this project is based on. Update it after running .initium/scripts/sync.sh.",
   "skeleton": {
     "repository": "https://github.com/mehmet-yildirim/Initium",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "commit": "TODO: set by .initium/scripts/sync.sh",
     "syncedAt": "TODO: set by .initium/scripts/sync.sh",
     "releaseNotesUrl": "https://github.com/mehmet-yildirim/Initium/blob/main/.initium/docs/UPDATES.md"
@@ -261,7 +261,13 @@
       "docs/guides/team.md",
       "docs/guides/team.tr.md",
       "docs/guides/existing-project.md",
-      "docs/guides/existing-project.tr.md"
+      "docs/guides/existing-project.tr.md",
+      ".initium/guardrails/",
+      ".initium/docs/guardrails.md",
+      ".githooks/",
+      ".claude/hooks/guardrails.mjs",
+      ".cursor/hooks/",
+      ".opencode/plugins/initium-guardrails.js"
     ],
     "project_owned": [
       "AGENTS.md",
@@ -289,6 +295,7 @@
     "merge_required": [
       ".continue/config.yaml",
       ".cursor/mcp.json",
+      ".cursor/hooks.json",
       ".claude/settings.json",
       ".github/PULL_REQUEST_TEMPLATE.md",
       ".github/ISSUE_TEMPLATE/",

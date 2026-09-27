@@ -318,7 +318,7 @@ JIRA / Linear / GitHub İssue'ları
     ▼ Issue tracker: Tamamlandı ✓ · Audit kaydı yazıldı
 ```
 
-**Güvenlik:** kalıcı durum (kesintide kaldığı yerden devam) · kill switch (`touch .agent/STOP`) · korunan yollar · JSONL audit izi
+**Güvenlik:** kalıcı durum (kesintide kaldığı yerden devam) · kill switch (`touch .agent/STOP`) · korunan yollar · JSONL audit izi · Claude Code, Cursor, OpenCode ve git'te her komut, dosya okuma ve commit öncesinde uygulanan [global guardrail'ler](.initium/docs/guardrails.md)
 
 **İnsan yanıt komutları** (GitHub issue veya JIRA ticket'ına yorum ekle):
 `AGENT_RESUME` · `AGENT_APPROVE_DESIGN` · `AGENT_APPROVE_DEPLOY` · `AGENT_CLARIFY: <metin>` · `AGENT_SKIP_TASK` · `AGENT_REASSIGN` · `AGENT_ABANDON`

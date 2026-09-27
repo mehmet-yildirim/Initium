@@ -35,6 +35,9 @@ services:
       # cursor             — Cursor CLI, reads command file as a raw prompt
       AGENT_CLI: ${AGENT_CLI:-claude}
 
+      # ── Guardrails — unattended: every "ask" becomes "deny" (.initium/docs/guardrails.md)
+      INITIUM_AGENT_MODE: autonomous
+
       # ── Target repository ──────────────────────────────────────────────────
       GIT_REPO_URL:    ${GIT_REPO_URL}
       GIT_BRANCH:      ${GIT_BRANCH:-main}
@@ -141,6 +144,9 @@ services:
 
       # ── AI CLI (same as agent service) ────────────────────────────────────
       AGENT_CLI: ${AGENT_CLI:-claude}
+
+      # ── Guardrails — unattended: every "ask" becomes "deny" ───────────────
+      INITIUM_AGENT_MODE: autonomous
 
       # ── AI provider (same as agent service) ───────────────────────────────
       ANTHROPIC_API_KEY:       ${ANTHROPIC_API_KEY:-}

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "sh .initium/guardrails/node.sh --cursor .cursor/hooks/guardrails.mjs beforeShellExecution",
+        "timeout": 10
+      }
+    ],
+    "beforeReadFile": [
+      {
+        "command": "sh .initium/guardrails/node.sh --cursor .cursor/hooks/guardrails.mjs beforeReadFile",
+        "timeout": 10
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "sh .initium/guardrails/node.sh --cursor .cursor/hooks/guardrails.mjs preToolUse",
+        "matcher": "Write|Delete",
+        "timeout": 10
+      }
+    ]
+  }
+}

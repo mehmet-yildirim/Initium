@@ -48,6 +48,19 @@ if git remote get-url origin &>/dev/null 2>&1; then
 fi
 
 # ---------------------------------------------------------------------------
+# 2a. Enable the guardrail pre-commit hook (.githooks/pre-commit)
+# ---------------------------------------------------------------------------
+HOOKS_PATH=$(git config --get core.hooksPath || true)
+if [ -z "$HOOKS_PATH" ]; then
+  git config core.hooksPath .githooks
+  success "Guardrail pre-commit hook enabled (core.hooksPath=.githooks)."
+elif [ "$HOOKS_PATH" = ".githooks" ]; then
+  info "Guardrail pre-commit hook already enabled."
+else
+  warn "core.hooksPath is '$HOOKS_PATH' (e.g. husky). Call 'sh .githooks/pre-commit' from your pre-commit hook to keep guardrails."
+fi
+
+# ---------------------------------------------------------------------------
 # 3. Create .env from .env.example if it doesn't exist
 # ---------------------------------------------------------------------------
 if [ -f ".env.example" ] && [ ! -f ".env" ]; then

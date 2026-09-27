@@ -20,6 +20,53 @@ See [sync-guide.md](sync-guide.md) for the full guide, and
 
 ---
 
+## v1.5.1 — Global guardrails for every agent tool and git
+
+**Date:** 2026-09-27
+**Commit:** (set by release)
+**Severity:** PATCH (security hardening; three merges; one git setting)
+
+### Why
+- `agent.config.yaml → safety` (`protected_paths`, `forbidden_file_patterns`,
+  `forbidden_commands`, PR size limits) was documentation only — nothing enforced it. The only
+  check, `.claude/hooks/audit-log.mjs`, ran *after* a Bash command and matched three regexes.
+- Nothing stopped an agent from reading `.env` or key files into its context, and unattended runs
+  use `--dangerously-skip-permissions`, which disables Claude Code's permission prompts.
+
+### New Files (skeleton-owned — auto-applied)
+- `.initium/guardrails/` — one policy engine (baseline rules + `safety:`), shell analysis,
+  audit log, `node.sh` launcher, pre-commit check, and `node:test` tests
+- `.claude/hooks/guardrails.mjs` — Claude Code `PreToolUse` adapter
+- `.cursor/hooks/guardrails.mjs` — Cursor adapter (shell, file read, Write/Delete)
+- `.opencode/plugins/initium-guardrails.js` — OpenCode plugin (auto-loaded)
+- `.githooks/pre-commit` — secret files and tokens, protected paths, PR size limits
+- `.initium/docs/guardrails.md` — rules, modes, configuration, troubleshooting
+
+### Updated Files (skeleton-owned — auto-applied)
+- `.claude/hooks/audit-log.mjs` — tags each command with the guardrail verdict
+- `.initium/docker/*` — image includes the guardrails; entrypoints overlay them and set
+  `core.hooksPath`; both services and `groom-runner.sh` run with `INITIUM_AGENT_MODE=autonomous`
+- `.agent-templates/webhook-receiver.mjs` — starts the agent in autonomous mode
+- `.initium/scripts/setup.sh`, `setup.ps1` — enable `core.hooksPath=.githooks` if unset
+- `.initium/scripts/validate.sh`, `validate.ps1` — check guardrail files, hook path, and tests
+- `.initium/docs/agent/*`, `docs/guides/existing-project*.md`, `docs/guides/onboarding.tr.md`
+
+### Merge Required
+- `.claude/settings.json` — new `PreToolUse` entry running `.claude/hooks/guardrails.mjs`
+- `.cursor/hooks.json` — new file with three guardrail hooks; merge if you already have hooks
+- `docs/guides/onboarding.md` — guardrails paragraph in the security checklist
+
+### Migration Steps
+1. Sync, then merge `.claude/settings.json` and `.cursor/hooks.json`.
+2. Enable the pre-commit hook: `git config core.hooksPath .githooks` — or, with husky / lefthook
+   / pre-commit, call `sh .githooks/pre-commit` from your pre-commit hook.
+3. Set `INITIUM_AGENT_MODE=autonomous` for any unattended runner you manage yourself (systemd,
+   CI jobs). The Docker setup and webhook receiver already do.
+4. Run `node --test ".initium/guardrails/test/*.test.mjs"`, then review `safety.forbidden_commands`:
+   entries match as substrings, so `rm -rf` also asks before `rm -rf node_modules`.
+
+---
+
 ## v1.5.0 — Adopt Initium in existing projects; refreshed guides
 
 **Date:** 2026-09-27

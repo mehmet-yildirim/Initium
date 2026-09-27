@@ -232,6 +232,7 @@ Type=oneshot
 User=ai-agent
 WorkingDirectory=/opt/ai-agent/project
 EnvironmentFile=/opt/ai-agent/.env
+Environment=INITIUM_AGENT_MODE=autonomous
 # Adjust the path to `command -v claude`; -p runs Claude Code headless (non-interactive)
 ExecStart=/usr/bin/claude -p "/security-audit full"
 StandardOutput=append:/var/log/ai-agent/security-scan.log

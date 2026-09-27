@@ -122,6 +122,33 @@ Check-Exists ".claude/hooks/post-write.mjs"
 Check-Exists ".claude/hooks/audit-log.mjs"
 Check-Exists ".claude/hooks/on-stop.mjs"
 
+# Guardrails (.initium/docs/guardrails.md)
+Check-Exists ".initium/guardrails/policy.mjs"
+Check-Exists ".initium/guardrails/node.sh"
+Check-Exists ".initium/guardrails/pre-commit.mjs"
+Check-Exists ".githooks/pre-commit"
+Check-Exists ".claude/hooks/guardrails.mjs"
+Check-Exists ".cursor/hooks.json"
+Check-Exists ".cursor/hooks/guardrails.mjs"
+Check-Exists ".opencode/plugins/initium-guardrails.js"
+Check-Exists ".initium/docs/guardrails.md"
+$hooksPath = git config --get core.hooksPath 2>$null
+if ($hooksPath -eq ".githooks") {
+    Write-Pass "Guardrail pre-commit hook enabled (core.hooksPath=.githooks)"
+} elseif ($hooksPath) {
+    Write-Warn "core.hooksPath is '$hooksPath' — make sure it calls .githooks/pre-commit"
+} else {
+    Write-Warn "Guardrail pre-commit hook not enabled — run: git config core.hooksPath .githooks"
+}
+if (Get-Command node -ErrorAction SilentlyContinue) {
+    $null = node --test ".initium/guardrails/test/*.test.mjs" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Pass "Guardrail tests pass"
+    } else {
+        Write-Fail "Guardrail tests fail — run: node --test "".initium/guardrails/test/*.test.mjs"""
+    }
+}
+
 # Agent Skills (.claude/skills/<name>/SKILL.md — single source)
 $skillFiles = @(Get-ChildItem -Path ".claude/skills" -Filter "SKILL.md" -Recurse -Depth 1 -ErrorAction SilentlyContinue)
 if ($skillFiles.Count -gt 0) {

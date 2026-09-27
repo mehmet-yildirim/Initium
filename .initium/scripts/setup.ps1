@@ -46,6 +46,19 @@ if ($LASTEXITCODE -eq 0 -and $remoteOutput -match "Initium") {
 }
 
 # ---------------------------------------------------------------------------
+# 2a. Enable the guardrail pre-commit hook (.githooks/pre-commit)
+# ---------------------------------------------------------------------------
+$hooksPath = git config --get core.hooksPath 2>$null
+if (-not $hooksPath) {
+    git config core.hooksPath .githooks
+    Write-Ok "Guardrail pre-commit hook enabled (core.hooksPath=.githooks)."
+} elseif ($hooksPath -eq ".githooks") {
+    Write-Info "Guardrail pre-commit hook already enabled."
+} else {
+    Write-Warn "core.hooksPath is '$hooksPath' (e.g. husky). Call 'sh .githooks/pre-commit' from your pre-commit hook to keep guardrails."
+}
+
+# ---------------------------------------------------------------------------
 # 3. Create .env from .env.example if it doesn't exist
 # ---------------------------------------------------------------------------
 if ((Test-Path ".env.example") -and (-not (Test-Path ".env"))) {

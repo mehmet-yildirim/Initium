@@ -272,7 +272,12 @@ To stop the agent immediately (emergency):
 touch .agent/STOP
 ```
 The agent checks for this file (`safety.kill_switch_file`) before each phase transition and
-exits cleanly if found. Remove the file to re-enable the agent.
+exits cleanly if found. In autonomous mode (`INITIUM_AGENT_MODE=autonomous`) the guardrail hooks
+also deny every command and file write while it exists. Remove the file to re-enable the agent.
+
+The other `safety:` settings — `protected_paths`, `forbidden_file_patterns`,
+`forbidden_commands`, and the PR size limits — are enforced by the guardrail hooks and the
+pre-commit hook; see [guardrails.md](../guardrails.md).
 
 ---
 
