@@ -19,6 +19,71 @@ See [.initium/docs/sync-guide.md](.initium/docs/sync-guide.md) for the full guid
 
 ---
 
+## v1.2.0 — Automatic update checks and weekly sync PRs
+
+**Date:** 2026-09-27
+**Commit:** (set by release)
+**Severity:** MINOR (with manual merge steps)
+
+### Why
+- Derived projects only learned about new Initium releases when someone remembered to run
+  `sync.sh`. The sync script also needed a human at the keyboard, so it could not run in CI.
+- Syncing followed upstream `main`, so half-finished work could reach derived projects.
+  Syncs now target release tags by default.
+
+### New Files (skeleton-owned — auto-applied)
+- `.github/workflows/initium-sync.yml` — weekly (Monday 06:00 UTC) and manual check; opens a
+  `chore/initium-sync-v<version>` PR with Initium-owned updates, a `merge_required` checklist,
+  and release notes. Opens a draft PR if validation fails. Never merges anything.
+- `.initium/scripts/check-update.mjs` — cached, dependency-free update check (Node 22).
+  `--hook` prints a one-line notice for Claude Code sessions and never fails, even offline.
+
+### Updated Files (skeleton-owned — auto-applied)
+- `.initium/scripts/sync.{sh,ps1,cmd}`:
+  - targets the latest `vX.Y.Z` tag (`channel: tags`), falling back to `main` when no tags exist
+  - `--ref <tag|branch>` pins a version; `--channel tags|main` overrides the config
+  - `--auto` is fully non-interactive (also when no TTY); refuses to run on a dirty working tree
+  - `--check` exits `10` when an update is available; `--json` prints machine-readable status
+  - `--summary <file>` (bash) writes a PR body; `$GITHUB_OUTPUT` is set when running in Actions
+  - adds new skeleton-owned files and removes files Initium deleted — only if unmodified locally
+  - ownership lists are read from the target version, not the local copy
+  - PowerShell: files are written byte-exact and `initium.json` formatting is preserved
+- `.initium/scripts/validate.sh` — a missing file no longer aborts all remaining checks
+- `.initium/scripts/validate.{sh,ps1,cmd}` — check the two new files
+- `.claude/commands/sync-initium.md` (+ OpenCode mirror) — reuses an open sync PR branch,
+  `--check` → `--dry-run` → apply → semantic merge → migration steps → verify
+- `.initium/initium.json` — new `fileOwnership.removed` list
+- `.initium/docs/sync-guide.md`, `README.md`, `README.tr.md`
+
+### Merge Required
+- `agent.config.yaml` — add the `initium_sync:` section:
+  ```yaml
+  initium_sync:
+    channel: tags            # tags | main
+    auto_pr: true            # weekly workflow opens a PR
+    notify_local: true       # Claude Code session notice
+    check_interval_hours: 24
+  ```
+- `.claude/settings.json` — add the `SessionStart` hook:
+  ```json
+  "SessionStart": [
+    { "matcher": "startup",
+      "hooks": [{ "type": "command", "command": "node .initium/scripts/check-update.mjs --hook", "timeout": 10 }] }
+  ]
+  ```
+
+### Migration Steps
+1. Merge the two files above.
+2. GitHub: enable *Settings → Actions → General → Workflow permissions → Allow GitHub Actions
+   to create and approve pull requests*.
+3. Optional: add an `INITIUM_SYNC_TOKEN` secret (fine-grained PAT with contents + pull requests
+   write). PRs opened with the default `GITHUB_TOKEN` do not trigger your CI workflows.
+4. Not on GitHub? Schedule `bash .initium/scripts/sync.sh --auto --summary sync.md` in your CI
+   and open a merge request from the result.
+5. Run `bash .initium/scripts/sync.sh --check` once to confirm the remote is reachable.
+
+---
+
 ## v1.1.0 — Agent Skills standard, AGENTS.md, 9 new stacks, 7 new commands
 
 **Date:** 2026-09-27

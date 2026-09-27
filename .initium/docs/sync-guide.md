@@ -76,14 +76,52 @@ if Initium was updated (so you can read the new guidance):
 
 ## How to Sync
 
-### Option 1: Automated script (recommended)
+### Option 0: Automatic weekly pull request (recommended)
+
+`.github/workflows/initium-sync.yml` runs every Monday (and on demand from the Actions tab):
+
+1. Resolves the target from `agent.config.yaml → initium_sync.channel` — `tags` follows released
+   versions only (default), `main` follows every commit.
+2. Runs `sync.sh --auto`: applies Initium-owned files, removes files Initium deleted (only when
+   unmodified locally), updates `initium.json`, and runs the validator.
+3. Opens a pull request on `chore/initium-sync-v<version>` whose description contains the
+   manual-merge checklist, locally modified files that were kept, and the release notes.
+   The PR is a **draft** when validation fails (usually a migration step is needed).
+
+Nothing is merged automatically. Review the PR, merge the listed `merge_required` files
+(`/sync-initium` on the PR branch does this for you), follow the release notes, then merge.
+
+One-time setup in each derived repository:
+- **Settings → Actions → General → Workflow permissions**: enable
+  "Allow GitHub Actions to create and approve pull requests".
+- Optional: PRs opened with the default `GITHUB_TOKEN` do not trigger other workflows, so CI
+  will not run on them. Add a fine-grained token or GitHub App token with contents and
+  pull-requests read/write as the `INITIUM_SYNC_TOKEN` secret if CI must run on sync PRs.
+- To pause the PRs, set `initium_sync.auto_pr: false` (the weekly check still reports in the run summary).
+
+Other CI systems (GitLab, Azure DevOps, Jenkins): schedule the same command and open a merge
+request with its summary file —
+`bash .initium/scripts/sync.sh --auto --summary initium-sync.md` (exit 0; outputs are written to
+`$GITHUB_OUTPUT` only on GitHub).
+
+**Local notice:** the Claude Code `SessionStart` hook runs
+`node .initium/scripts/check-update.mjs --hook`. When a newer release exists, the agent mentions it
+once and suggests `/sync-initium`. The result is cached in `.agent/state/` for
+`initium_sync.check_interval_hours` (default 24); disable with `initium_sync.notify_local: false`.
+Run it by hand any time: `node .initium/scripts/check-update.mjs` (exit 10 = update available).
+
+### Option 1: Sync script
 
 **macOS / Linux / Git Bash (WSL):**
 ```bash
-bash .initium/scripts/sync.sh           # Interactive
-bash .initium/scripts/sync.sh --auto    # Auto-apply skeleton-owned files
-bash .initium/scripts/sync.sh --dry-run # Preview only
-bash .initium/scripts/sync.sh --check   # Check for updates
+bash .initium/scripts/sync.sh                 # Interactive
+bash .initium/scripts/sync.sh --auto          # Non-interactive: apply Initium-owned files, skip merges
+bash .initium/scripts/sync.sh --dry-run       # Preview only
+bash .initium/scripts/sync.sh --check         # Exit 10 when an update is available
+bash .initium/scripts/sync.sh --check --json  # Same, machine-readable
+bash .initium/scripts/sync.sh --ref v1.2.0    # Pin a specific release (or branch)
+bash .initium/scripts/sync.sh --channel main  # Follow main instead of release tags
+bash .initium/scripts/sync.sh --auto --summary sync.md   # Markdown summary (PR body)
 ```
 
 **Windows — PowerShell (recommended on Windows):**
@@ -91,27 +129,31 @@ bash .initium/scripts/sync.sh --check   # Check for updates
 # One-time: allow script execution if not already set
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
-.\.initium\scripts\sync.ps1            # Interactive
-.\.initium\scripts\sync.ps1 -Auto     # Auto-apply
-.\.initium\scripts\sync.ps1 -DryRun   # Preview only
-.\.initium\scripts\sync.ps1 -Check    # Check for updates
+.\.initium\scripts\sync.ps1                # Interactive
+.\.initium\scripts\sync.ps1 -Auto          # Non-interactive
+.\.initium\scripts\sync.ps1 -DryRun        # Preview only
+.\.initium\scripts\sync.ps1 -Check -Json   # Exit 10 when an update is available
+.\.initium\scripts\sync.ps1 -Ref v1.2.0    # Pin a specific release
 ```
 
-> **PowerShell advantage on Windows:** No `jq` required — uses built-in
-> `ConvertFrom-Json`. For merge-required files, opens VS Code diff (if
-> available) instead of vimdiff. Fully equivalent to the bash version.
+> No `jq` required — uses built-in `ConvertFrom-Json`. For merge-required files, opens VS Code
+> diff (if available). The `--summary` option and GitHub outputs are bash-only (used by CI).
 
 **Windows — CMD (no bash or WSL required):**
 ```bat
 .initium\scripts\sync.cmd
 .initium\scripts\sync.cmd --auto
-.initium\scripts\sync.cmd --dry-run
-.initium\scripts\sync.cmd --check
+.initium\scripts\sync.cmd --check --json
+.initium\scripts\sync.cmd --ref v1.2.0
 ```
 
-> `sync-initium.cmd` delegates to `sync-initium.ps1` via `pwsh` or
-> `powershell.exe`, both of which are built into Windows. No bash, WSL,
-> or `jq` required.
+> `sync.cmd` delegates to `sync.ps1` via `pwsh` or `powershell.exe`, both of which are built
+> into Windows. No bash, WSL, or `jq` required.
+
+**Removed files.** When Initium deletes a file it owned, the sync deletes your copy only if it is
+byte-identical to Initium's last version. If you changed it, the file is kept and reported so you
+can move your additions elsewhere. Candidates come from `fileOwnership.removed` in the target
+version plus the `skeleton_owned` list in your local `initium.json`.
 
 ### Option 2: Claude Code command
 
@@ -127,20 +169,17 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 # 1. Add Initium as a remote (first time only)
 git remote add skeleton https://github.com/mehmet-yildirim/Initium.git
 
-# 2. Fetch latest
-git fetch skeleton
+# 2. Fetch a release tag into a private ref namespace (keeps your own tags clean)
+git fetch --no-tags skeleton "+refs/tags/v1.2.0:refs/initium/v1.2.0"
 
 # 3. Apply a specific file from Initium
-git show skeleton/main:.claude/commands/loop.md > .claude/commands/loop.md
+git restore --source=refs/initium/v1.2.0 --worktree -- .claude/commands/loop.md
 
 # 4. Apply an entire directory of skeleton-owned files
-for file in $(git show skeleton/main --name-only --format="" | grep "^\.claude/skills/"); do
-  mkdir -p "$(dirname "$file")"
-  git show "skeleton/main:$file" > "$file"
-done
+git restore --source=refs/initium/v1.2.0 --worktree -- .claude/skills/
 
 # 5. Review a merge-required file
-git diff skeleton/main:.continue/config.yaml .continue/config.yaml
+git diff refs/initium/v1.2.0:.continue/config.yaml .continue/config.yaml
 
 # 6. Update .initium/initium.json manually
 # Edit skeleton.commit and skeleton.syncedAt fields
@@ -152,11 +191,11 @@ git diff skeleton/main:.continue/config.yaml .continue/config.yaml
 
 | Trigger | Frequency | Priority |
 |---------|-----------|----------|
-| Initium releases a new version | Within one sprint of release | High |
+| Initium releases a new version (weekly PR opens automatically) | Within one sprint of release | High |
 | New skill added (language/framework your team uses) | When you start using that tech | Medium |
 | Security patch in skill rules | Within a week | High |
 | New slash command added | As convenient | Low |
-| Check for updates | Every sprint | — |
+| Check for updates | Automatic (weekly workflow + session notice) | — |
 
 Subscribe to the Initium repository to get notified of new releases:
 `GitHub → Watch → Custom → Releases`
@@ -187,7 +226,7 @@ Initium adds new skill sections. Your version has API keys and activated skills.
 **Merge command:**
 ```bash
 # Open side-by-side
-vimdiff .continue/config.yaml <(git show skeleton/main:.continue/config.yaml)  # 'skeleton' is the git remote name
+vimdiff .continue/config.yaml <(git show refs/initium/v1.2.0:.continue/config.yaml)  # ref fetched by sync.sh
 ```
 
 ### `.cursor/mcp.json`
@@ -293,7 +332,7 @@ Your modification will be overwritten. Either move your additions to a separate 
 or reclassify the file as `merge_required` in `.initium/initium.json`.
 
 **Q: Can I sync a specific file only?**
-Yes: `git show skeleton/main:.claude/commands/loop.md > .claude/commands/loop.md`
+Yes: `git restore --source=refs/initium/<tag> --worktree -- .claude/commands/loop.md`
 
 **Q: How do I roll back a bad sync?**
 `git diff HEAD` shows what changed. `git checkout HEAD -- <files>` restores any file.

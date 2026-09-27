@@ -133,6 +133,8 @@ if (Test-Path ".cursor/rules/skills/*.mdc") {
     Write-Warn "Legacy .cursor/rules/skills/ still present — skills now live in .claude/skills/ (see UPDATES.md v1.1.0)"
 }
 Check-Exists ".initium/scripts/sync-skills.mjs"
+Check-Exists ".initium/scripts/check-update.mjs"
+Check-Exists ".github/workflows/initium-sync.yml"
 if (Get-Command node -ErrorAction SilentlyContinue) {
     $null = node .initium/scripts/sync-skills.mjs --check 2>&1
     if ($LASTEXITCODE -eq 0) {

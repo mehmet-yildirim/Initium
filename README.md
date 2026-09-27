@@ -168,7 +168,9 @@ After setup, code with the AI loop:
 ├── .github/
 │   ├── PULL_REQUEST_TEMPLATE.md
 │   ├── ISSUE_TEMPLATE/
-│   └── workflows/ci.yml               # CI template — adapt for your stack
+│   └── workflows/
+│       ├── ci.yml                     # CI template — adapt for your stack
+│       └── initium-sync.yml           # Weekly Initium update check → PR
 │
 ├── docs/
 │   ├── guides/                        # Initium-provided guidance — customize freely
@@ -326,6 +328,7 @@ After setup, code with the AI loop:
 | `/sync-initium` | Pull improvements from upstream Initium into this project |
 | `/sync-initium --dry-run` | Preview what would change without applying anything |
 | `/sync-initium --check` | Check if an Initium update is available |
+| `/sync-initium --ref <tag>` | Sync to a specific Initium release |
 
 ---
 
@@ -448,13 +451,26 @@ Configured in `.cursor/mcp.json`. Enable a server: remove `"disabled": true` and
 
 ## Keeping Your Project Up to Date
 
-When Initium receives improvements (new commands, updated skill rules, security fixes):
+Updates arrive automatically:
+
+- **Weekly pull request.** `.github/workflows/initium-sync.yml` checks every Monday for a new Initium
+  release and opens a `chore/initium-sync-v<version>` PR containing the Initium-owned file updates,
+  a checklist of `merge_required` files to merge by hand, and the release notes. Nothing is merged
+  automatically. One-time setup: enable *Settings → Actions → General → Allow GitHub Actions to
+  create and approve pull requests*.
+- **Session notice.** A Claude Code `SessionStart` hook (`check-update.mjs`, cached daily) tells the
+  agent when a newer release exists, so it can suggest `/sync-initium`.
+- **Settings.** `agent.config.yaml → initium_sync`: `channel` (`tags` = releases only, or `main`),
+  `auto_pr`, `notify_local`, `check_interval_hours`.
+
+To sync by hand:
 
 ```bash
 # macOS / Linux / Git Bash
-bash .initium/scripts/sync.sh          # interactive: shows diff, auto-applies safe files
-bash .initium/scripts/sync.sh --auto   # non-interactive: apply all skeleton-owned files
-bash .initium/scripts/sync.sh --check  # just check if an update is available
+bash .initium/scripts/sync.sh              # interactive: shows diff, auto-applies safe files
+bash .initium/scripts/sync.sh --auto       # non-interactive: apply Initium-owned files, skip merges
+bash .initium/scripts/sync.sh --check      # exit 10 if an update is available (--json for scripts)
+bash .initium/scripts/sync.sh --ref v1.2.0 # pin a specific release
 ```
 
 ```powershell
@@ -472,7 +488,7 @@ bash .initium/scripts/sync.sh --check  # just check if an update is available
 ```
 
 The sync script uses `.initium/initium.json` to classify every file:
-- **Initium-owned** (commands, skill rules, agent docs) → auto-applied safely
+- **Initium-owned** (commands, skill rules, agent docs) → auto-applied safely; files Initium deleted are removed if you never changed them
 - **merge-required** (`.continue/config.yaml`, `mcp.json`, `ci.yml`) → shown as diff, you decide
 - **project-owned** (`AGENTS.md`, `CLAUDE.md`, `docs/context/`, `agent.config.yaml`) → never touched
 

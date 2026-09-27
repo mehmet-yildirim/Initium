@@ -73,6 +73,8 @@ call :chk ".claude\commands\skill.md"
 
 :: Agent Skills (.claude\skills\<name>\SKILL.md -- single source)
 call :chk ".initium\scripts\sync-skills.mjs"
+call :chk ".initium\scripts\check-update.mjs"
+call :chk ".github\workflows\initium-sync.yml"
 where node >nul 2>&1
 if errorlevel 1 (
   echo   WARN node not found -- cannot validate skills ^(requires Node.js 22+^)

@@ -244,6 +244,23 @@ codegraph:
   max_trace_depth: 3
 
 # =============================================================================
+# INITIUM SYNC — Keep this project current with upstream Initium releases
+# =============================================================================
+initium_sync:
+  # What to follow: "tags" (released versions only — recommended) or "main" (every commit)
+  channel: tags
+
+  # .github/workflows/initium-sync.yml checks weekly and opens a PR with the update.
+  # The PR is never merged automatically; merge_required files are listed for manual review.
+  auto_pr: true
+
+  # Session-start notice in the agent when a newer Initium release exists
+  notify_local: true
+
+  # Minimum hours between local update checks (the result is cached in .agent/state/)
+  check_interval_hours: 24
+
+# =============================================================================
 # SAFETY — Hard limits and kill switches
 # =============================================================================
 safety:

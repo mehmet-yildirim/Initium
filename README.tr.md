@@ -386,13 +386,26 @@ Tam indeks, aktivasyon kılavuzu ve yeni beceri ekleme için: [skills/README.md]
 
 ## Projeyi Güncel Tutma
 
-Initium yeni komutlar, güncellenmiş beceri kuralları veya güvenlik düzeltmeleri aldığında:
+Güncellemeler otomatik gelir:
+
+- **Haftalık pull request.** `.github/workflows/initium-sync.yml` her pazartesi yeni bir Initium
+  sürümü olup olmadığını kontrol eder. Varsa `chore/initium-sync-v<sürüm>` dalında bir PR açar:
+  Initium'a ait dosyaların güncellemeleri, elle birleştirilecek `merge_required` dosyaların kontrol
+  listesi ve sürüm notları bu PR'da yer alır. Hiçbir şey otomatik birleştirilmez. Tek seferlik kurulum:
+  *Settings → Actions → General → Allow GitHub Actions to create and approve pull requests*.
+- **Oturum bildirimi.** Claude Code `SessionStart` hook'u (`check-update.mjs`, günlük önbellekli)
+  yeni sürüm çıktığında ajana haber verir, ajan da `/sync-initium` önerir.
+- **Ayarlar.** `agent.config.yaml → initium_sync`: `channel` (`tags` = yalnızca sürümler ya da `main`),
+  `auto_pr`, `notify_local`, `check_interval_hours`.
+
+Elle senkronize etmek için:
 
 ```bash
 # macOS / Linux / Git Bash
-bash .initium/scripts/sync.sh          # etkileşimli: diff gösterir, güvenli dosyaları otomatik uygular
-bash .initium/scripts/sync.sh --auto   # etkileşimsiz: tüm Initium-owned dosyaları uygula
-bash .initium/scripts/sync.sh --check  # sadece güncelleme mevcut mu kontrol et
+bash .initium/scripts/sync.sh              # etkileşimli: diff gösterir, güvenli dosyaları otomatik uygular
+bash .initium/scripts/sync.sh --auto       # etkileşimsiz: Initium-owned dosyaları uygula, birleştirmeleri atla
+bash .initium/scripts/sync.sh --check      # güncelleme varsa 10 koduyla çıkar (betikler için --json)
+bash .initium/scripts/sync.sh --ref v1.2.0 # belirli bir sürüme sabitle
 ```
 
 ```powershell
@@ -410,7 +423,7 @@ bash .initium/scripts/sync.sh --check  # sadece güncelleme mevcut mu kontrol et
 ```
 
 Senkronizasyon betiği `.initium/initium.json` kullanarak her dosyayı sınıflandırır:
-- **Initium-owned** (komutlar, beceri kuralları, ajan belgeleri) → güvenle otomatik uygulanır
+- **Initium-owned** (komutlar, beceri kuralları, ajan belgeleri) → güvenle otomatik uygulanır; Initium'un sildiği dosyalar, sen değiştirmediysen silinir
 - **birleştirme gerekli** (`.continue/config.yaml`, `mcp.json`, `ci.yml`) → diff olarak gösterilir, sen karar verirsin
 - **proje-owned** (`AGENTS.md`, `CLAUDE.md`, `docs/context/`, `agent.config.yaml`) → asla dokunulmaz
 
