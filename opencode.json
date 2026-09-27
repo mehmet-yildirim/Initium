@@ -1,13 +1,18 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "instructions": [
-    "CLAUDE.md",
     ".cursor/rules/00-project-overview.mdc",
     ".cursor/rules/01-coding-standards.mdc",
     ".cursor/rules/02-architecture.mdc",
     ".cursor/rules/03-testing.mdc",
     ".cursor/rules/04-git-workflow.mdc",
-    ".cursor/rules/05-security.mdc",
-    ".cursor/rules/skills/*.mdc"
-  ]
+    ".cursor/rules/05-security.mdc"
+  ],
+  "mcp": {
+    "codegraph": {
+      "type": "local",
+      "command": ["npx", "-y", "codebase-memory-mcp"],
+      "enabled": false
+    }
+  }
 }

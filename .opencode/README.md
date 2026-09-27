@@ -11,8 +11,9 @@ In the OpenCode TUI, run any Initium command by name, for example:
 - `/goal <primary objective>` — pursue one goal until Definition of Done is met
 - `/requirements`, `/architect`, `/implement`, `/qa`, … — full agentic workflow
 
-Project instructions are loaded from [`opencode.json`](../opencode.json) (`CLAUDE.md` and
-`.cursor/rules/`).
+OpenCode reads `AGENTS.md` and the skills in `.claude/skills/` natively;
+[`opencode.json`](../opencode.json) adds the `.cursor/rules/` base rules as instructions and
+declares the optional code graph MCP server (disabled until `/codegraph setup`).
 
 ## Keeping commands in sync
 

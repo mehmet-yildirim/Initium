@@ -35,7 +35,7 @@ JIRA backlog ──▶ /triage ──▶ /groom ──▶ /loop ──▶ PR ─
 
 | Araç | En İyi Kullanım Alanı | Ana Yapılandırma |
 |------|----------------------|-----------------|
-| **Claude Code** | Karmaşık ajansal görevler, çok dosya düzenleme, CLI | `CLAUDE.md`, `.claude/commands/` |
+| **Claude Code** | Karmaşık ajansal görevler, çok dosya düzenleme, CLI | `AGENTS.md`, `.claude/commands/` |
 | **Cursor** | Editörde kod üretimi, sohbet, otomatik tamamlama | `.cursor/rules/`, `.cursor/mcp.json` |
 | **Continue** | Satır içi düzenleme, sohbet, herhangi bir IDE'de otomatik tamamlama | `.continue/config.yaml` |
 
@@ -47,7 +47,7 @@ JIRA backlog ──▶ /triage ──▶ /groom ──▶ /loop ──▶ PR ─
 
 AI araçları projenizi anladığında en iyi sonucu üretir. Bağlam şu yollarla sağlanır:
 
-- **`CLAUDE.md`** — Proje genel bakışı, komutlar, kurallar (Claude Code tarafından otomatik yüklenir)
+- **`AGENTS.md`** — Proje genel bakışı, komutlar, kurallar (Cursor, OpenCode, Codex, Copilot tarafından yerel olarak okunur; Claude Code bunu `CLAUDE.md` içindeki `@AGENTS.md` içe aktarmasıyla yükler)
 - **`.cursor/rules/`** — Her Cursor etkileşiminde yüklenen kalıcı kurallar (dosya türüne göre otomatik)
 - **`.continue/rules/`** — Her Continue isteğine dahil edilen kurallar
 - **`docs/context/`** — `@docs` ile referans verebileceğiniz daha derin proje bağlamı
@@ -179,7 +179,7 @@ Bir özelliği tamamladıktan sonra:
 ```
 
 Ayrıca güncelleyin:
-- `CLAUDE.md` — yeni kurallar veya desenler tanıtıldıysa
+- `AGENTS.md` — yeni kurallar veya desenler tanıtıldıysa
 - `docs/architecture/decisions/` — önemli bir mimari karar alındıysa
 - `docs/context/domain-glossary.md` — yeni domain terimleri eklendiyse
 
@@ -336,7 +336,7 @@ Uzun oturumlarda AI araçları bağlamı kaybedebilir. Belirtiler:
 
 **Sıfırlama stratejisi:**
 1. Yeni bir oturum başlatın
-2. Temel dosyalara referans verin: `@CLAUDE.md`, `@docs/architecture/overview.md`
+2. Temel dosyalara referans verin: `@AGENTS.md`, `@docs/architecture/overview.md`
 3. Mevcut görevi kısaca özetleyin
 4. Kaldığınız yerden devam edin
 
@@ -353,4 +353,4 @@ Uzun oturumlarda AI araçları bağlamı kaybedebilir. Belirtiler:
 - Etkili bir prompt kalıbı keşfettiğinizde bu belgeye ekleyin
 - AI sistematik bir hata yaparsa ilgili `.cursor/rules/` veya `.continue/rules/` dosyasına kural ekleyin
 - Yeni bir domain kavramı tanıtıldığında `docs/context/domain-glossary.md` dosyasını güncelleyin
-- Tekrar eden bir güvenlik kalıbı bulduğunuzda `.cursor/rules/skills/security-sast.mdc` dosyasına ekleyin
+- Tekrar eden bir güvenlik kalıbı bulduğunuzda `.claude/skills/security-sast/SKILL.md` dosyasına ekleyin

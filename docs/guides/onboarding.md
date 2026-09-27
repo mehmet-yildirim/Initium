@@ -89,7 +89,7 @@ Read these documents in order before writing any code:
 | `docs/context/project-brief.md` | What this project does and for whom |
 | `docs/context/tech-stack.md` | Technology choices and rationale |
 | `docs/architecture/overview.md` | How the system is structured |
-| `CLAUDE.md` | Coding conventions, key commands, architecture summary |
+| `AGENTS.md` | Coding conventions, key commands, architecture summary |
 | `docs/context/domain-glossary.md` | Business terminology — read before naming anything |
 | `docs/context/domain-boundaries.md` | Scope definition (critical for autonomous agent) |
 | `docs/guides/team.md` | Who owns what, escalation chain, decision authority |
@@ -107,7 +107,7 @@ Read these documents in order before writing any code:
 # Install (if not already installed)
 npm install -g @anthropic-ai/claude-code
 
-# Launch — CLAUDE.md is loaded automatically
+# Launch — AGENTS.md is loaded automatically (CLAUDE.md imports it)
 claude
 ```
 
@@ -122,7 +122,7 @@ All 27 custom commands (type `/` to see them):
 # --- Project initialization ---
 /init          — populate all TODO files from a free-form project description
 /init domain:  — generate domain boundaries and agent scope keywords
-/init stack:   — generate tech stack doc and CLAUDE.md commands
+/init stack:   — generate tech stack doc and AGENTS.md commands
 /init ci:      — generate CI workflow for your language and deploy target
 /init agent:   — configure tracker keys, GitHub repo, escalation channels
 
@@ -166,7 +166,7 @@ All 27 custom commands (type `/` to see them):
 
 1. Open the project folder in Cursor
 2. Rules in `.cursor/rules/` load automatically by file type (no action needed)
-3. Skill rules in `.cursor/rules/skills/` activate when you open matching files
+3. Skills in `.claude/skills/` load on demand when a task or open file matches their description or `paths`
 4. Slash commands from `.claude/commands/` work directly in Cursor — type `/` to see the full list
 5. Enable MCP servers: edit `.cursor/mcp.json`, remove `"disabled": true`, set env vars in `.env`
 6. Add your `ANTHROPIC_API_KEY` to Cursor settings
@@ -182,7 +182,7 @@ All 27 custom commands (type `/` to see them):
 ### OpenCode
 
 1. Install [OpenCode](https://opencode.ai/docs/) and open this repo as the project directory
-2. `opencode.json` at the repo root loads `CLAUDE.md` and `.cursor/rules/` as instructions
+2. OpenCode reads `AGENTS.md` and `.claude/skills/` natively; `opencode.json` adds `.cursor/rules/` as instructions
 3. All Initium slash commands live in `.opencode/commands/` (mirrors `.claude/commands/`)
 4. In the TUI, run `/help`, `/goal`, `/implement`, etc. — same names as Claude Code and Cursor
 5. After editing commands in `.claude/commands/`, refresh mirrors:
@@ -305,7 +305,7 @@ bash .initium/scripts/sync.sh            # apply updates interactively
 .\.initium\scripts\sync.ps1
 ```
 
-The sync script never touches your project-specific files (`CLAUDE.md`, `docs/context/`, `agent.config.yaml`). See [`.initium/docs/sync-guide.md`](initium-sync.md) for details.
+The sync script never touches your project-specific files (`AGENTS.md`, `docs/context/`, `agent.config.yaml`). See [`.initium/docs/sync-guide.md`](initium-sync.md) for details.
 
 ---
 

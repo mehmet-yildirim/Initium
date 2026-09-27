@@ -67,7 +67,8 @@ echo [INFO] Checking AI tool configuration files...
 
 set MISSING_CONFIG=0
 
-call :check_file "CLAUDE.md" "Claude Code config"
+call :check_file "AGENTS.md" "Agent instructions (all tools)"
+call :check_file "CLAUDE.md" "Claude Code import of AGENTS.md"
 call :check_file ".cursor\rules\00-project-overview.mdc" "Cursor project overview"
 call :check_file ".continue\config.yaml" "Continue config"
 
@@ -92,14 +93,14 @@ echo   Open Claude Code and run:  /init ^<describe your project^>
 echo   Or in Cursor:              @.cursor/prompts/init.md
 echo.
 echo   This populates:
-echo     * CLAUDE.md, docs\context\, docs\architecture\overview.md
+echo     * AGENTS.md, docs\context\, docs\architecture\overview.md
 echo     * agent.config.yaml domain keywords
 echo     * .github\workflows\ci.yml  (use: /init ci: ^<your stack^>)
 echo.
 echo   STEP 3 - Finish setup:
 echo     * Edit .continue\config.yaml (add API keys)
 echo     * Add git remote:  git remote add origin ^<url^>
-echo     * Install dependencies: [from CLAUDE.md after /init]
+echo     * Install dependencies: [from AGENTS.md after /init]
 echo     * Validate: .initium\scripts\validate.cmd
 echo     * Read the AI workflow: docs\ai-workflow.md
 echo.

@@ -35,7 +35,7 @@ JIRA backlog ──▶ /triage ──▶ /groom ──▶ /loop ──▶ PR ─
 
 | Tool | Best for | Key config |
 |------|----------|-----------|
-| **Claude Code** | Complex agentic tasks, multi-file edits, CLI | `CLAUDE.md`, `.claude/commands/` |
+| **Claude Code** | Complex agentic tasks, multi-file edits, CLI | `AGENTS.md`, `.claude/commands/` |
 | **Cursor** | In-editor generation, chat, autocomplete | `.cursor/rules/`, `.cursor/mcp.json` |
 | **Continue** | Inline edits, chat, autocomplete in any IDE | `.continue/config.yaml` |
 
@@ -47,7 +47,7 @@ JIRA backlog ──▶ /triage ──▶ /groom ──▶ /loop ──▶ PR ─
 
 AI tools work best when they understand your project. Context is provided via:
 
-- **`CLAUDE.md`** — Project overview, commands, conventions (loaded automatically by Claude Code)
+- **`AGENTS.md`** — Project overview, commands, conventions (read natively by Cursor, OpenCode, Codex, Copilot; Claude Code loads it through the `@AGENTS.md` import in `CLAUDE.md`)
 - **`.cursor/rules/`** — Persistent rules loaded for every Cursor interaction (auto by file type)
 - **`.continue/rules/`** — Rules included in every Continue request
 - **`docs/context/`** — Deeper project context you can reference with `@docs`
@@ -169,7 +169,7 @@ After completing a feature:
 ```
 
 Also update:
-- `CLAUDE.md` if new conventions or patterns were introduced
+- `AGENTS.md` if new conventions or patterns were introduced
 - `docs/architecture/decisions/` if a significant design decision was made
 - `docs/context/domain-glossary.md` if new domain terms were introduced
 
@@ -315,7 +315,7 @@ For long sessions, AI tools may lose context. Signs:
 
 **Reset strategy:**
 1. Start a new session
-2. Reference key files: `@CLAUDE.md`, `@docs/architecture/overview.md`
+2. Reference key files: `@AGENTS.md`, `@docs/architecture/overview.md`
 3. Briefly summarize the current task
 4. Continue from where you left off
 
@@ -332,4 +332,4 @@ For long sessions, AI tools may lose context. Signs:
 - When you find an effective prompt pattern, document it in this file
 - When AI makes a systematic mistake, add a rule to `.cursor/rules/` or `.continue/rules/`
 - When a new domain concept is introduced, update `docs/context/domain-glossary.md`
-- When a security pattern recurs, add it to `.cursor/rules/skills/security-sast.mdc`
+- When a security pattern recurs, add it to `.claude/skills/security-sast/SKILL.md`

@@ -6,7 +6,7 @@ SQLite, MongoDB, and any database accessible via the project's connection string
 
 ## Step 1: Detect Database Type and Access
 
-Read `CLAUDE.md` and `docs/context/tech-stack.md` to identify:
+Read `AGENTS.md` and `docs/context/tech-stack.md` to identify:
 - Database type (PostgreSQL, MySQL, SQLite, MongoDB, etc.)
 - ORM / migration tool (Drizzle, Prisma, SQLAlchemy, Hibernate, EF Core, Room, etc.)
 - Connection details (from `.env` or `DATABASE_URL`)

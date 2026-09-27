@@ -22,7 +22,7 @@ Use `/db` for lifecycle management: setting up tooling, scaffolding files, check
 ## Step 1: Detect Context
 
 Read the following before taking any action:
-- `CLAUDE.md` — primary language, framework, database
+- `AGENTS.md` — primary language, framework, database
 - `agent.config.yaml` or `.project-config.yaml` — project type
 - Directory structure — detect which migration tool is already in use:
   - `flyway.conf` or `db/migration/V*.sql` → Flyway

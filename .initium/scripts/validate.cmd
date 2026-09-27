@@ -26,6 +26,7 @@ echo.
 echo --- File Presence ---
 
 :: Core AI tool configs
+call :chk "AGENTS.md"
 call :chk "CLAUDE.md"
 call :chk ".cursor\rules\00-project-overview.mdc"
 call :chk ".cursor\rules\01-coding-standards.mdc"
@@ -61,6 +62,31 @@ call :chk ".claude\commands\groom.md"
 call :chk ".claude\commands\loop.md"
 call :chk ".claude\commands\escalate.md"
 call :chk ".claude\commands\goal.md"
+call :chk ".claude\commands\help.md"
+call :chk ".claude\commands\codegraph.md"
+call :chk ".claude\commands\refactor.md"
+call :chk ".claude\commands\upgrade.md"
+call :chk ".claude\commands\perf.md"
+call :chk ".claude\commands\a11y.md"
+call :chk ".claude\commands\eval.md"
+call :chk ".claude\commands\skill.md"
+
+:: Agent Skills (.claude\skills\<name>\SKILL.md -- single source)
+call :chk ".initium\scripts\sync-skills.mjs"
+where node >nul 2>&1
+if errorlevel 1 (
+  echo   WARN node not found -- cannot validate skills ^(requires Node.js 22+^)
+  set /a WARN+=1
+) else (
+  node .initium/scripts/sync-skills.mjs --check >nul 2>&1
+  if errorlevel 1 (
+    echo   FAIL Skill frontmatter invalid or Continue rules stale -- run: node .initium/scripts/sync-skills.mjs
+    set /a FAIL+=1
+  ) else (
+    echo   PASS Skills valid; Continue rules in sync
+    set /a PASS+=1
+  )
+)
 call :chk "opencode.json"
 call :chk ".opencode\README.md"
 bash .initium/scripts/sync-opencode-commands.sh --check >nul 2>&1
@@ -162,7 +188,7 @@ call :chk ".initium\scripts\init.cmd"
 echo.
 echo --- Customization (TODO placeholders remaining) ---
 
-call :chk_todo "CLAUDE.md"
+call :chk_todo "AGENTS.md"
 call :chk_todo ".cursor\rules\00-project-overview.mdc"
 call :chk_todo "docs\context\project-brief.md"
 call :chk_todo "docs\context\tech-stack.md"

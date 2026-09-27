@@ -21,7 +21,7 @@ This command generates the infrastructure-as-code and pipeline files an agent or
 ## Step 1: Detect Context
 
 Before generating anything, read:
-- `CLAUDE.md` or `.project-config.yaml` — app name, language/framework, database choice
+- `AGENTS.md` or `.project-config.yaml` — app name, language/framework, database choice
 - `Dockerfile` (if present) — container port, build stage names
 - `agent.config.yaml` — GitHub org/repo, environment names
 

@@ -13,7 +13,7 @@ When you clone Initium and start a project, you immediately diverge:
 Initium repo ──────────────────── v1.0 ──── v1.1 ──── v1.2 ──── v2.0
                     │
                     └──── Your Project (from v1.0)
-                              (customised CLAUDE.md, docs/context, etc.)
+                              (customised AGENTS.md, docs/context, etc.)
 ```
 
 Over time Initium gains new slash commands, improved skill rules, security patches,
@@ -33,8 +33,9 @@ Updates are applied automatically by `sync-initium.sh`.
 
 Examples:
 - All `.claude/commands/*.md` — slash command definitions
-- All `.cursor/rules/skills/*.mdc` — language/framework skill rules
-- All `.continue/rules/skills/*.md` — Continue skill rules
+- All `.claude/skills/*/SKILL.md` — language/framework skills (Agent Skills format)
+- All `.continue/rules/skills/*.md` — Continue skill rules (generated from the skills)
+- All `.opencode/commands/*.md` — OpenCode command mirrors
 - `.initium/docs/agent/` — autonomous agent documentation and schemas
 - `.initium/scripts/validate.sh` — configuration validator
 - `.agent-templates/` — runtime templates
@@ -62,7 +63,8 @@ The sync script shows you a diff and lets you decide what to adopt.
 These files are **entirely yours**. The sync script skips them and only reports
 if Initium was updated (so you can read the new guidance):
 
-- `CLAUDE.md` — your project's coding conventions and architecture
+- `AGENTS.md` — your project's coding conventions and architecture (all agents)
+- `CLAUDE.md` — imports `AGENTS.md` for Claude Code; add only Claude-specific notes
 - `agent.config.yaml` — your JIRA connection, team settings
 - `.cursor/rules/00-project-overview.mdc` — your project context for Cursor
 - `docs/context/` — your project brief, tech stack, domain glossary
@@ -132,7 +134,7 @@ git fetch skeleton
 git show skeleton/main:.claude/commands/loop.md > .claude/commands/loop.md
 
 # 4. Apply an entire directory of skeleton-owned files
-for file in $(git show skeleton/main --name-only --format="" | grep "^\.cursor/rules/skills/"); do
+for file in $(git show skeleton/main --name-only --format="" | grep "^\.claude/skills/"); do
   mkdir -p "$(dirname "$file")"
   git show "skeleton/main:$file" > "$file"
 done
@@ -251,8 +253,8 @@ to a skill rule), the sync will overwrite it. Solutions:
 
 **Option A — Create a separate override file**
 ```
-.cursor/rules/skills/lang-java.mdc        ← skeleton-owned (will be synced)
-.cursor/rules/skills/lang-java-extra.mdc  ← project-owned (your additions)
+.claude/skills/lang-java/SKILL.md          ← skeleton-owned (will be synced)
+.claude/skills/project-java/SKILL.md       ← project-owned (your additions)
 ```
 
 **Option B — Move to merge_required**

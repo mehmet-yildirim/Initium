@@ -6,15 +6,17 @@ Follow this workflow strictly. Do not skip phases.
 
 ## Step 0: Branch Check
 
-Verify you are on a feature branch (`feat/`, `fix/`, or `chore/` prefix). If on `main` or `develop`, stop and create one first (see CLAUDE.md → Git Workflow).
+Verify you are on a feature branch (`feat/`, `fix/`, or `chore/` prefix). If on `main` or `develop`, stop and create one first (see AGENTS.md → Git Workflow).
 
 ---
 
 ## Step 1: Orient
 
 Before writing any code:
-1. Read `CLAUDE.md` for project conventions
-2. Read the relevant existing code files (the feature area being changed)
+1. Read `AGENTS.md` for project conventions
+2. If `codegraph.enabled` is `true` in `agent.config.yaml`, locate the affected symbols with the
+   code graph first (`search_graph`, `trace_path`, `get_file_outline`) and read only the files
+   you will change. Otherwise read the relevant existing code files (the feature area being changed)
 3. Read related tests to understand expected behavior patterns
 4. Identify all files that will need to change
 

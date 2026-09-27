@@ -1,3 +1,16 @@
+---
+name: devops-cicd
+description: CI/CD pipeline standards — GitHub Actions, quality gates, deployment strategies, release process. Use when writing or changing CI/CD pipelines, quality gates, or release automation.
+globs:
+  - "**/.github/workflows/**"
+  - "**/Jenkinsfile"
+  - "**/.gitlab-ci.yml"
+  - "**/azure-pipelines.yml"
+  - "**/Makefile"
+alwaysApply: false
+---
+<!-- Generated from .claude/skills by .initium/scripts/sync-skills.mjs — edit the skill, not this file. -->
+
 # CI/CD Pipeline Standards
 
 ## Pipeline Principles
@@ -132,7 +145,7 @@ concurrency:
 - Automated rollback trigger: error rate > threshold for N minutes
 - Database migrations must be backward compatible (deployed before code change)
 - Keep previous image tag available for at least 48 hours
-- Runbook in `docs/guides/workflows/deployment.md`
+- Runbook in `docs/workflows/deployment.md`
 
 ## Environment Promotion
 ```

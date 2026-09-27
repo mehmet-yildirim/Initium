@@ -1,7 +1,7 @@
 Scaffold, configure, or regenerate the project's documentation website. Produces a complete,
 deployable documentation site targeting developers, API consumers, and (optionally) stakeholders.
 
-Read `CLAUDE.md`, `docs/context/tech-stack.md`, existing `docs/` content, and any existing
+Read `AGENTS.md`, `docs/context/tech-stack.md`, existing `docs/` content, and any existing
 documentation site config before generating.
 
 ---
@@ -182,7 +182,7 @@ docs-site/docs/          (Docusaurus)  or  docs/  (MkDocs)
 
 For each guide file, generate content covering:
 1. Setup and prerequisites for the language/framework
-2. Key project conventions (from CLAUDE.md and skill rules)
+2. Key project conventions (from AGENTS.md and skill rules)
 3. Common patterns used in this project
 4. Testing approach
 5. Deployment notes

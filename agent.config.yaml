@@ -222,6 +222,28 @@ observability:
   log_level: info
 
 # =============================================================================
+# CODE GRAPH — Structural code index to cut context tokens (see /codegraph)
+# =============================================================================
+codegraph:
+  # When true, agents query the graph (symbols, callers, impact) before grepping
+  # or reading whole files. Run `/codegraph setup` before enabling.
+  enabled: false
+
+  # MCP server that provides the graph. Enable the matching "codegraph" entry in
+  # .cursor/mcp.json / opencode.json if the provider installer did not configure your client.
+  provider: codebase-memory-mcp
+
+  # Re-index changed files automatically (provider watcher, git-based change detection)
+  auto_index: true
+
+  # Commit the graph snapshot (.codebase-memory/) so teammates skip the first index.
+  # Commit it on a cadence (release/nightly), not on every change — each refresh is a new blob.
+  share_artifact: false
+
+  # Default depth for caller/callee traces; deeper traces cost more tokens
+  max_trace_depth: 3
+
+# =============================================================================
 # SAFETY — Hard limits and kill switches
 # =============================================================================
 safety:
@@ -231,6 +253,7 @@ safety:
     - "**/.env"
     - "**/secrets/**"
     - "agent.config.yaml"
+    - "AGENTS.md"
     - "CLAUDE.md"
 
   # The agent must NEVER commit these file types

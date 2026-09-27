@@ -29,7 +29,7 @@ If the user invoked this from OpenCode, treat `/command` references as the corre
 Before any work:
 
 1. If `.agent/STOP` exists → halt immediately and report (kill switch).
-2. Read `CLAUDE.md`, `agent.config.yaml` (if present), and `.cursor/rules/04-git-workflow.mdc`.
+2. Read `AGENTS.md`, `agent.config.yaml` (if present), and `.cursor/rules/04-git-workflow.mdc`.
 3. Create a feature branch before writing code (never commit directly to `main` / `develop`).
 4. Respect `safety.protected_paths` and `safety.forbidden_file_patterns` from `agent.config.yaml`.
 
@@ -96,7 +96,7 @@ For each milestone until all are `done`:
 
 1. Set milestone `in_progress` in goal state.
 2. Run the appropriate workflow (`/implement`, `/migrate`, `/infra`, etc.).
-3. Run project tests (`CLAUDE.md` Essential Commands).
+3. Run project tests (`AGENTS.md` Essential Commands).
 4. If tests fail → `/debug` → fix → re-test (up to 3 attempts per milestone).
 5. Mark milestone `done`; advance `currentMilestone`; append audit entry.
 6. **Immediately** begin the next milestone in the same session.

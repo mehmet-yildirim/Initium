@@ -569,6 +569,9 @@ reports/
 .cursor/.cache/
 .claude/settings.local.json
 
+# Code graph index (see agent.config.yaml → codegraph.share_artifact)
+.codebase-memory/
+
 # Autonomous agent runtime (generated at runtime — commit initium.json only)
 .agent/state/
 .agent/audit/

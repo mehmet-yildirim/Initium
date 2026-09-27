@@ -2,7 +2,7 @@ Generate Mermaid sequence diagrams for API call flows and business process flows
 reading the source code and tracing execution paths end-to-end. Produces embeddable
 Mermaid diagrams saved to `docs/diagrams/`.
 
-Read `CLAUDE.md` and `docs/context/tech-stack.md` to understand the stack and conventions
+Read `AGENTS.md` and `docs/context/tech-stack.md` to understand the stack and conventions
 before generating anything.
 
 ---

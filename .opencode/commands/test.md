@@ -37,7 +37,7 @@ Format: `'<does what> when <condition>'`
 - Do NOT mock the module under test
 
 ### Framework
-Use the project's configured test framework (from CLAUDE.md). If not configured, use the most appropriate for the language.
+Use the project's configured test framework (from AGENTS.md). If not configured, use the most appropriate for the language.
 
 ### What to Generate
 1. Import statements and test setup

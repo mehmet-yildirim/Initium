@@ -1,6 +1,6 @@
 Plan a development sprint from the provided backlog or theme. Produce a complete sprint plan ready for team execution.
 
-Read any referenced backlog files, project docs, or CLAUDE.md context before planning.
+Read any referenced backlog files, project docs, or AGENTS.md context before planning.
 
 ---
 

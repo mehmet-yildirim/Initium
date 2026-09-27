@@ -42,7 +42,11 @@ check_exists() {
   fi
 }
 
+check_exists "AGENTS.md"
 check_exists "CLAUDE.md"
+if [ -f "CLAUDE.md" ] && ! grep -q "^@AGENTS.md" "CLAUDE.md"; then
+  warn "CLAUDE.md does not import @AGENTS.md — Claude Code may follow different instructions"
+fi
 check_exists "SECURITY.md"
 check_exists ".cursor/rules/00-project-overview.mdc"
 check_exists ".cursor/rules/01-coding-standards.mdc"
@@ -78,6 +82,13 @@ check_exists ".claude/commands/loop.md"
 check_exists ".claude/commands/escalate.md"
 check_exists ".claude/commands/goal.md"
 check_exists ".claude/commands/help.md"
+check_exists ".claude/commands/codegraph.md"
+check_exists ".claude/commands/refactor.md"
+check_exists ".claude/commands/upgrade.md"
+check_exists ".claude/commands/perf.md"
+check_exists ".claude/commands/a11y.md"
+check_exists ".claude/commands/eval.md"
+check_exists ".claude/commands/skill.md"
 
 # --- OpenCode (mirrored slash commands) ---
 check_exists "opencode.json"
@@ -113,55 +124,26 @@ check_exists ".claude/hooks/post-write.mjs"
 check_exists ".claude/hooks/audit-log.mjs"
 check_exists ".claude/hooks/on-stop.mjs"
 
-# --- Skill rules ---
-check_exists ".cursor/rules/skills/lang-java.mdc"
-check_exists ".cursor/rules/skills/lang-dotnet.mdc"
-check_exists ".cursor/rules/skills/lang-python.mdc"
-check_exists ".cursor/rules/skills/lang-typescript.mdc"
-check_exists ".cursor/rules/skills/lang-go.mdc"
-check_exists ".cursor/rules/skills/fe-react.mdc"
-check_exists ".cursor/rules/skills/fe-nextjs.mdc"
-check_exists ".cursor/rules/skills/fe-vue.mdc"
-check_exists ".cursor/rules/skills/fe-angular.mdc"
-check_exists ".cursor/rules/skills/be-microservices.mdc"
-check_exists ".cursor/rules/skills/devops-docker.mdc"
-check_exists ".cursor/rules/skills/devops-cicd.mdc"
-check_exists ".cursor/rules/skills/security-sast.mdc"
-check_exists ".cursor/rules/skills/docs-generation.mdc"
-check_exists ".cursor/rules/skills/db-migrations.mdc"
-check_exists ".cursor/rules/skills/devops-aws.mdc"
-check_exists ".cursor/rules/skills/devops-gcp.mdc"
-check_exists ".cursor/rules/skills/devops-onprem.mdc"
-check_exists ".cursor/rules/skills/mobile-ios.mdc"
-check_exists ".cursor/rules/skills/mobile-android.mdc"
-check_exists ".cursor/rules/skills/mobile-kmp.mdc"
-check_exists ".cursor/rules/skills/mobile-flutter.mdc"
-check_exists ".cursor/rules/skills/mobile-reactnative.mdc"
-
-# --- Continue skill rules ---
-check_exists ".continue/rules/skills/lang-java.md"
-check_exists ".continue/rules/skills/lang-dotnet.md"
-check_exists ".continue/rules/skills/lang-python.md"
-check_exists ".continue/rules/skills/fe-react.md"
-check_exists ".continue/rules/skills/fe-nextjs.md"
-check_exists ".continue/rules/skills/fe-vue.md"
-check_exists ".continue/rules/skills/fe-angular.md"
-check_exists ".continue/rules/skills/mobile-ios.md"
-check_exists ".continue/rules/skills/mobile-android.md"
-check_exists ".continue/rules/skills/mobile-kmp.md"
-check_exists ".continue/rules/skills/mobile-flutter.md"
-check_exists ".continue/rules/skills/mobile-reactnative.md"
-check_exists ".continue/rules/skills/lang-typescript.md"
-check_exists ".continue/rules/skills/lang-go.md"
-check_exists ".continue/rules/skills/be-microservices.md"
-check_exists ".continue/rules/skills/devops-docker.md"
-check_exists ".continue/rules/skills/devops-cicd.md"
-check_exists ".continue/rules/skills/security-sast.md"
-check_exists ".continue/rules/skills/docs-generation.md"
-check_exists ".continue/rules/skills/db-migrations.md"
-check_exists ".continue/rules/skills/devops-aws.md"
-check_exists ".continue/rules/skills/devops-gcp.md"
-check_exists ".continue/rules/skills/devops-onprem.md"
+# --- Agent Skills (.claude/skills/<name>/SKILL.md — single source) ---
+skill_count=$(find .claude/skills -mindepth 2 -maxdepth 2 -name SKILL.md 2>/dev/null | wc -l | tr -d ' ')
+if [ "$skill_count" -gt 0 ]; then
+  pass "Found $skill_count skill(s) in .claude/skills/"
+else
+  fail "No skills found in .claude/skills/"
+fi
+if compgen -G ".cursor/rules/skills/*.mdc" >/dev/null; then
+  warn "Legacy .cursor/rules/skills/ still present — skills now live in .claude/skills/ (see UPDATES.md v1.1.0)"
+fi
+check_exists ".initium/scripts/sync-skills.mjs"
+if command -v node >/dev/null 2>&1; then
+  if node .initium/scripts/sync-skills.mjs --check >/dev/null 2>&1; then
+    pass "Skills valid; Continue rules in sync"
+  else
+    fail "Skill frontmatter invalid or Continue rules stale — run: node .initium/scripts/sync-skills.mjs"
+  fi
+else
+  warn "node not found — cannot validate skills (requires Node.js 22+)"
+fi
 
 # --- Workflow docs ---
 check_exists "docs/guides/workflows/01-requirements-analysis.md"
@@ -218,7 +200,7 @@ check_customized() {
   fi
 }
 
-check_customized "CLAUDE.md"
+check_customized "AGENTS.md"
 check_customized "SECURITY.md"
 check_customized ".initium/initium.json"
 check_customized ".cursor/rules/00-project-overview.mdc"

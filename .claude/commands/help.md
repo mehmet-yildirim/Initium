@@ -6,7 +6,7 @@ Guide the developer to the right commands and workflows for their question or si
 
 ## Step 1: Read context
 
-Read `CLAUDE.md` to understand the project's name, stack, and conventions so your guidance is specific to this project.
+Read `AGENTS.md` to understand the project's name, stack, and conventions so your guidance is specific to this project.
 
 ---
 
@@ -35,7 +35,7 @@ Determine intent:
 
 ## Step 3: Full command reference (show when input is empty or generic)
 
-Print this reference, replacing the header with the actual project name from `CLAUDE.md`:
+Print this reference, replacing the header with the actual project name from `AGENTS.md`:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -60,12 +60,21 @@ DEVELOPMENT
   /task status      Dashboard view of feature progress.
   /loop             Autonomous dev loop — implement the full task list hands-free.
   /goal             Pursue one primary objective until Definition of Done — no stopping mid-way.
+  /refactor         Behavior-preserving refactor with a test safety net.
+  /upgrade          Audit or upgrade dependencies, frameworks, and runtimes safely.
 
 QUALITY & REVIEW
   /test             Generate comprehensive tests for a module or function.
   /qa               Full quality cycle: tests, lint, type-check, self-review.
   /review           Code review against project standards and OWASP top 10.
   /security-audit   Deep security scan: OWASP, CVE, secret detection.
+  /perf             Measure, find, and fix a performance bottleneck.
+  /a11y             Accessibility audit and fixes against WCAG 2.2 AA.
+  /eval             Build or run evaluation suites for LLM-powered features.
+
+CONTEXT & KNOWLEDGE
+  /codegraph        Set up and query the code graph (symbols, callers, impact) to save tokens.
+  /skill            Create, update, or list Agent Skills in .claude/skills/.
 
 DOCUMENTATION
   /docs             Generate API docs, architecture docs, or user guides.
@@ -105,13 +114,16 @@ Map their situation to the correct workflow stage and print a short, numbered se
 
 | Situation | Recommended sequence |
 |-----------|---------------------|
-| Starting a brand-new project with Initium | `/init` → fill in `CLAUDE.md` → `/requirements` |
+| Starting a brand-new project with Initium | `/init` → fill in `AGENTS.md` → `/requirements` |
 | Starting a new feature | `/requirements` → `/architect` → `/task plan` → `/implement` → `/qa` → `/review` |
 | Picking up an in-progress feature | `/task list` → `/task next` → `/implement <TASK-ID>` |
 | Fixing a bug | `/debug` → `/implement <fix>` → `/test` → `/qa` |
 | Preparing for a sprint | `/groom` → `/sprint` |
 | Opening a PR | `/qa` → `/review` → create PR |
 | Deploying | `/deploy <env>` |
+| Onboarding an agent to a large codebase | `/codegraph setup` → `/codegraph status` |
+| Upgrading a framework or runtime | `/upgrade audit` → `/upgrade <package>` → `/qa` |
+| Shipping an LLM feature | `/architect` → `/implement` → `/eval create` → `/qa` |
 
 State which stage you believe they are in, then print the sequence with a one-line description of each step.
 
@@ -147,6 +159,13 @@ Topic → command mapping:
 | stuck, blocked, escalate | `/escalate` |
 | sprint, planning, backlog | `/sprint` or `/groom` |
 | finish everything, don't stop, end-to-end goal | `/goal` |
+| refactor, clean up, restructure, tech debt | `/refactor` |
+| upgrade, outdated, dependency, CVE, bump version | `/upgrade` |
+| slow, latency, performance, memory, bundle size | `/perf` |
+| accessibility, a11y, WCAG, screen reader, contrast | `/a11y` |
+| LLM, prompt, RAG, evals, hallucination | `/eval` |
+| tokens, context, code graph, callers, impact | `/codegraph` |
+| skill, agent knowledge, conventions for a stack | `/skill` |
 
 ---
 

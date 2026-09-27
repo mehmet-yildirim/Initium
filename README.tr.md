@@ -12,10 +12,13 @@
 
 | Katman | Yapılandırma | Amaç |
 |--------|-------------|------|
-| **Claude Code** | `CLAUDE.md`, `.claude/` | Proje talimatları, 29 slash komutu, olay hook'ları |
-| **Cursor** | `.cursor/rules/`, `.claude/commands/` | 6 temel kural + 22 beceri kuralı (dosya türüne göre otomatik) + paylaşılan slash komutları |
-| **OpenCode** | `opencode.json`, `.opencode/commands/` | Claude/Cursor ile aynı slash komutları; `.claude/commands/` ile senkron |
-| **Continue** | `.continue/` | Çok-model yapılandırması, 22 beceri kuralı, kalıcı yönergeler |
+| **Tüm ajanlar** | `AGENTS.md` | Proje talimatlarının tek kaynağı (Claude Code bunu `CLAUDE.md` içindeki `@AGENTS.md` ile yükler) |
+| **Agent Skills** | `.claude/skills/<ad>/SKILL.md` | Açık Agent Skills formatında 32 beceri — Claude Code, Cursor ve OpenCode ihtiyaç anında yükler |
+| **Claude Code** | `CLAUDE.md`, `.claude/` | 36 slash komutu, olay hook'ları |
+| **Cursor** | `.cursor/rules/`, `.claude/skills/`, `.claude/commands/` | 6 temel kural + paylaşılan beceriler ve slash komutları |
+| **OpenCode** | `opencode.json`, `.opencode/commands/` | `AGENTS.md` ve becerileri yerel okur; slash komutları `.claude/commands/` ile senkron |
+| **Continue** | `.continue/` | Çok-model yapılandırması, `.claude/skills/`'ten üretilen 32 beceri kuralı, kalıcı yönergeler |
+| **Kod grafı** | `agent.config.yaml → codegraph`, `/codegraph` | İsteğe bağlı yapısal kod indeksi (MCP) — ajan tüm dosyaları okumak yerine sembol ve çağıranları sorgular |
 | **Otonom Ajan** | `agent.config.yaml`, `.initium/docs/agent/` | JIRA taraması, domain doğrulama, tam geliştirme döngüsü, eskalasyon |
 | **GitHub** | `.github/` | PR şablonu, issue şablonları, CI iş akışı |
 | **Initium senkronizasyonu** | `.initium/initium.json`, `.initium/scripts/sync.{sh,ps1,cmd}` | Özelleştirmelerin üzerine yazmadan Initium güncellemelerini projelerinize aktarma |
@@ -59,8 +62,8 @@ Kurulumun ardından AI döngüsüyle kodlamaya başla:
 
 | Dosya | Nasıl dolduruluyor |
 |-------|--------------------|
-| `CLAUDE.md` | Sihirbaz mekanik alanları doldurur; AI kuralları üretir |
-| `.cursor/rules/00-project-overview.mdc` | CLAUDE.md ile aynı |
+| `AGENTS.md` | Sihirbaz mekanik alanları doldurur; AI kuralları üretir |
+| `.cursor/rules/00-project-overview.mdc` | AGENTS.md ile aynı |
 | `docs/context/project-brief.md` | Açıklamandan AI tarafından üretilir |
 | `docs/context/tech-stack.md` | Onaylanan yığından AI tarafından üretilir |
 | `docs/context/domain-boundaries.md` | AI tarafından üretilir — **otonom ajan için kritik** |
@@ -81,7 +84,8 @@ Kurulumun ardından AI döngüsüyle kodlamaya başla:
 
 ```
 .
-├── CLAUDE.md                           # ← DÜZENLE — Claude Code proje talimatları
+├── AGENTS.md                           # ← DÜZENLE — tüm AI ajanları için proje talimatları
+├── CLAUDE.md                           # Claude Code için AGENTS.md'yi içe aktarır — içerik ekleme
 ├── agent.config.yaml                   # ← DÜZENLE — otonom ajan yapılandırması
 ├── .initium/
 │   ├── initium.json                   # Bu projenin hangi Initium sürümünü baz aldığını takip eder
@@ -105,7 +109,8 @@ Kurulumun ardından AI döngüsüyle kodlamaya başla:
 │
 ├── .claude/
 │   ├── settings.json                   # Araç izinleri + olay hook'ları
-│   ├── commands/                       # 29 slash komutu (Claude Code'da / yazarak erişilir)
+│   ├── skills/                         # 32 Agent Skill — <ad>/SKILL.md (tek kaynak)
+│   ├── commands/                       # 36 slash komutu (Claude Code'da / yazarak erişilir)
 │   │   ├── help.md                     # /help — komutlara ve iş akışlarına rehberlik
 │   │   ├── goal.md                     # /goal — ana hedef tamamlanana kadar durmadan çalış
 │   │   ├── init.md                     # /init — proje kurulum sihirbazı
@@ -116,6 +121,10 @@ Kurulumun ardından AI döngüsüyle kodlamaya başla:
 │   │   ├── doc-changelog.md            # /doc-changelog — CHANGELOG üretimi
 │   │   ├── doc-schema.md               # /doc-schema — veritabanı ERD + tablo referansı
 │   │   ├── sync-initium.md             # /sync-initium — Initium güncellemelerini uygula
+│   │   ├── codegraph.md                # /codegraph — kod grafı kurulumu, sorgu, etki analizi
+│   │   ├── refactor.md upgrade.md      # /refactor, /upgrade
+│   │   ├── perf.md a11y.md eval.md     # /perf, /a11y, /eval
+│   │   ├── skill.md                    # /skill — Agent Skill oluştur / güncelle
 │   │   ├── triage.md                   # /triage  ← otonom ajan
 │   │   ├── groom.md                    # /groom   ← otonom ajan
 │   │   ├── loop.md                     # /loop    ← otonom ajan
@@ -126,16 +135,15 @@ Kurulumun ardından AI döngüsüyle kodlamaya başla:
 │   ├── prompts/                        # Cursor prompt dosyaları — Claude komutlarının aynısı
 │   ├── rules/
 │   │   ├── 00-project-overview.mdc    # ← DÜZENLE — her zaman yüklenir
-│   │   ├── 01 … 05-security.mdc       # Temel kurallar (OWASP her zaman yüklü)
-│   │   └── skills/ (22 dosya)         # Dosya uzantısına göre otomatik etkinleşir
+│   │   └── 01 … 05-security.mdc       # Temel kurallar (OWASP her zaman yüklü)
 │   └── mcp.json                       # MCP: GitHub, Jira, Linear, Slack, Sentry…
 │
 ├── .continue/
 │   ├── config.yaml                    # ← API ANAHTARLARI EKLE + becerileri etkinleştir
-│   └── rules/                         # Temel kurallar + 22 beceri dosyası
+│   └── rules/                         # Temel kurallar + 32 beceri dosyası (.claude/skills/'ten üretilir)
 │
-├── .opencode/commands/                # 29 slash komutu (.claude/commands/ ile aynı)
-├── opencode.json                      # OpenCode yönergeleri
+├── .opencode/commands/                # 36 slash komutu (.claude/commands/ ile aynı)
+├── opencode.json                      # OpenCode yönergeleri + kod grafı MCP
 │
 ├── docs/
 │   ├── guides/                        # Initium rehber belgeleri — serbestçe düzenleyin
@@ -191,7 +199,7 @@ Kurulumun ardından AI döngüsüyle kodlamaya başla:
 |-------|------|
 | `/init <açıklama>` | Serbest biçimli proje açıklamasından tüm TODO dosyalarını doldur |
 | `/init domain: <açıklama>` | Domain sınırları, sözlük ve ajan anahtar kelimeleri üret |
-| `/init stack: <yığın>` | Teknoloji yığını belgesi ve CLAUDE.md komut bölümünü üret |
+| `/init stack: <yığın>` | Teknoloji yığını belgesi ve AGENTS.md komut bölümünü üret |
 | `/init ci: <yığın>` | Yığına özgü CI iş akışı adımları üret |
 | `/init agent: <anahtarlar>` | Tracker anahtarları, GitHub sahibi/deposu, eskalasyon kanallarını yapılandır |
 
@@ -219,6 +227,13 @@ Kurulumun ardından AI döngüsüyle kodlamaya başla:
 | `/sprint` | Sprint planlaması: kapasite + backlog + görevler + risk kaydı | Sprint başlangıcı |
 | `/standup` | Git geçmişinden günlük özet | Günün başında |
 | `/docs <dosya>` | Kod düzeyinde belgelendirme üret (JSDoc, docstring, GoDoc…) | Uygulamadan sonra |
+| `/refactor` | Davranışı koruyan refactor, karakterizasyon testleriyle | Teknik borç |
+| `/upgrade [audit\|<paket>\|security\|runtime]` | Bağımlılık, framework ve runtime yükseltmelerini migrasyon rehberleriyle yap | Eski bağımlılıklar, CVE'ler |
+| `/perf` | Ölç → profille → düzelt → yeniden ölç, regresyon koruması ekle | Gecikme, bellek, bundle boyutu |
+| `/a11y [kapsam]` | Web ve mobil için WCAG 2.2 AA denetimi ve düzeltmeleri | UI değişiklikleri |
+| `/eval [create\|run\|compare]` | LLM özellikleri için değerlendirme setleri: veri seti, puanlayıcı, eşik, CI | Prompt / model / RAG değişiklikleri |
+| `/codegraph [setup\|status\|query\|impact\|refresh]` | MCP üzerinden yapısal kod grafı: sembol arama, çağrı izleme, diff etki analizi — daha az token | Büyük kod tabanları |
+| `/skill [new\|update\|list]` | Kod tabanının gerçek kurallarından `.claude/skills/` içinde Agent Skill oluştur | Yeni yığın / kural |
 
 ### Belgelendirme Üretimi
 
@@ -337,15 +352,17 @@ Tam kurulum kılavuzu: [.initium/docs/agent/docker-agent.md](.initium/docs/agent
 
 ## Dil ve Framework Becerileri
 
-Cursor, beceri kurallarını dosya uzantısına göre otomatik etkinleştirir. Continue için `.continue/config.yaml` dosyasında yorumdan çıkarman gerekir.
+Beceriler açık [Agent Skills](https://agentskills.io) formatındadır. Claude Code, Cursor ve OpenCode bunları `.claude/skills/` dizininden ihtiyaç anında yükler (kullanılana kadar yalnızca açıklama bağlamda yer tutar). Continue için üretilen kuralı `.continue/config.yaml` dosyasında yorumdan çıkarman gerekir.
 
 | Kategori | Beceriler |
 |----------|-----------|
-| **Backend** | Java/Spring Boot · .NET/ASP.NET Core · Python/FastAPI · TypeScript/Node.js · Go |
+| **Backend** | Java/Spring Boot · .NET/ASP.NET Core · Python/FastAPI · TypeScript · Node.js (NestJS/Fastify/Hono) · Go · Rust (Axum/Tokio) · Kotlin (Ktor/Spring) · PHP (Laravel) |
+| **API ve Entegrasyon** | Microservices · Mesajlaşma (Kafka/RabbitMQ/SQS, outbox) · GraphQL ve gRPC |
+| **AI / LLM** | LLM uygulamaları: yapılandırılmış çıktı, RAG, OWASP LLM Top 10, eval, MCP sunucuları |
 | **Frontend** | React · Next.js App Router · Vue 3 · Angular 17+ |
 | **Mobil** | iOS/Swift · Android/Kotlin · Kotlin Multiplatform · Flutter/Dart · React Native/Expo |
-| **Altyapı** | Docker · GitHub Actions CI/CD · AWS · GCP · Şirket İçi (k3s/Vault/Ansible) |
-| **Çapraz kesen** | Veritabanı Migrasyonları · Microservices · Güvenlik SAST · Belgelendirme Üretimi |
+| **Altyapı** | Docker · GitHub Actions CI/CD · Terraform/OpenTofu · OpenTelemetry ve SLO · AWS · GCP · Şirket İçi (k3s/Vault/Ansible) |
+| **Çapraz kesen** | Veritabanı Migrasyonları · Güvenlik SAST · Belgelendirme Üretimi |
 
 Tam indeks, aktivasyon kılavuzu ve yeni beceri ekleme için: [skills/README.md](skills/README.md)
 
@@ -395,7 +412,7 @@ bash .initium/scripts/sync.sh --check  # sadece güncelleme mevcut mu kontrol et
 Senkronizasyon betiği `.initium/initium.json` kullanarak her dosyayı sınıflandırır:
 - **Initium-owned** (komutlar, beceri kuralları, ajan belgeleri) → güvenle otomatik uygulanır
 - **birleştirme gerekli** (`.continue/config.yaml`, `mcp.json`, `ci.yml`) → diff olarak gösterilir, sen karar verirsin
-- **proje-owned** (`CLAUDE.md`, `docs/context/`, `agent.config.yaml`) → asla dokunulmaz
+- **proje-owned** (`AGENTS.md`, `CLAUDE.md`, `docs/context/`, `agent.config.yaml`) → asla dokunulmaz
 
 Tam rehber ve her dosya türü için birleştirme stratejileri: [.initium/docs/sync-guide.md](.initium/docs/sync-guide.md)
 

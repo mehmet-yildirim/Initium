@@ -1,3 +1,17 @@
+---
+name: lang-typescript
+description: TypeScript/JavaScript advanced standards — strict mode, patterns, runtime tooling. Use when writing or reviewing TypeScript or JavaScript code.
+globs:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.mjs"
+  - "**/tsconfig*.json"
+  - "**/package.json"
+alwaysApply: false
+---
+<!-- Generated from .claude/skills by .initium/scripts/sync-skills.mjs — edit the skill, not this file. -->
+
 # TypeScript / JavaScript Standards
 
 ## TypeScript Configuration
