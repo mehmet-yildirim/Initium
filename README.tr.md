@@ -466,3 +466,16 @@ Tam rehber ve her dosya türü için birleştirme stratejileri: [.initium/docs/s
 | [.initium/docs/agent/documentation-agent.md](.initium/docs/agent/documentation-agent.md) | Belgelendirme üretim araçları ve pipeline |
 | [skills/README.md](skills/README.md) | Tam beceri indeksi ve aktivasyon kılavuzu |
 | [.initium/docs/UPDATES.md](.initium/docs/UPDATES.md) | Initium sürümleri için değişiklik kaydı |
+
+---
+
+## Lisans
+
+Initium [MIT Lisansı](LICENSE) ile yayınlanır. Projeye dahil edilen üçüncü taraf skill'ler kendi
+lisanslarını korur, bkz. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Initium'dan türetilen projeler kendi kodları için istedikleri lisansı seçebilir. `LICENSE`
+dosyasını değiştirirsen, projende yer alan Initium dosyaları için Initium'un telif ve izin
+bildirimini koru; örneğin bildirimi `THIRD_PARTY_NOTICES.md` dosyasına ekleyebilirsin.
+
+Katkıda bulunanlar [Davranış Kuralları](CODE_OF_CONDUCT.md)'na (Contributor Covenant 3.0) uyar.

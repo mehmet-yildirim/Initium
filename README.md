@@ -544,3 +544,16 @@ See [.initium/docs/sync-guide.md](.initium/docs/sync-guide.md) for the full guid
 | [.initium/docs/agent/documentation-agent.md](.initium/docs/agent/documentation-agent.md) | Documentation generation tools and pipeline |
 | [skills/README.md](skills/README.md) | Complete skills index and activation guide |
 | [.initium/docs/UPDATES.md](.initium/docs/UPDATES.md) | Changelog for Initium versions |
+
+---
+
+## License
+
+Initium is released under the [MIT License](LICENSE). Vendored third-party skills keep their own
+licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Projects created from Initium can use any license for their own code. If you replace `LICENSE`,
+keep Initium's copyright and permission notice for the Initium files you ship, for example by
+adding it to `THIRD_PARTY_NOTICES.md`.
+
+Contributors follow the [Code of Conduct](CODE_OF_CONDUCT.md) (Contributor Covenant 3.0).

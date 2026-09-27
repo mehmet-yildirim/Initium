@@ -255,6 +255,8 @@
       ".env",
       ".env.example",
       "CHANGELOG.md",
+      "LICENSE",
+      "CODE_OF_CONDUCT.md",
       "README.md",
       "README.tr.md",
       "docs/guides/ai-workflow.tr.md",
