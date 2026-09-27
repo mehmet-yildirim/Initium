@@ -10,6 +10,8 @@ paths:
 
 # Vue 3 Development Standards
 
+Visual design quality (typography, color, layout, avoiding templated UI): `frontend-design` and `impeccable`; tokens: `design-tokens`.
+
 ## Composition API (Required)
 - Always use Composition API with `<script setup>` — never Options API in new code
 - `<script setup lang="ts">` for TypeScript support

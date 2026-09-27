@@ -135,6 +135,9 @@ if (Test-Path ".cursor/rules/skills/*.mdc") {
 Check-Exists ".initium/scripts/sync-skills.mjs"
 Check-Exists ".initium/scripts/check-update.mjs"
 Check-Exists ".github/workflows/initium-sync.yml"
+Check-Exists "THIRD_PARTY_NOTICES.md"
+Check-Exists ".claude/skills/frontend-design/LICENSE.txt"
+Check-Exists ".claude/skills/impeccable/LICENSE"
 if (Get-Command node -ErrorAction SilentlyContinue) {
     $null = node .initium/scripts/sync-skills.mjs --check 2>&1
     if ($LASTEXITCODE -eq 0) {

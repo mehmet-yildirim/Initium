@@ -72,6 +72,12 @@ QUALITY & REVIEW
   /a11y             Accessibility audit and fixes against WCAG 2.2 AA.
   /eval             Build or run evaluation suites for LLM-powered features.
 
+UI & VISUAL DESIGN
+  /design           Design and build a UI that looks deliberate and native, not templated.
+  /design-review    Review a UI for template tells, craft, and Apple HIG / Material 3 fit.
+  /polish           Final visual quality pass before shipping (states, spacing, consistency).
+  /design-system    Create or refresh DESIGN.md / PRODUCT.md and design tokens.
+
 CONTEXT & KNOWLEDGE
   /codegraph        Set up and query the code graph (symbols, callers, impact) to save tokens.
   /skill            Create, update, or list Agent Skills in .claude/skills/.
@@ -124,6 +130,7 @@ Map their situation to the correct workflow stage and print a short, numbered se
 | Onboarding an agent to a large codebase | `/codegraph setup` → `/codegraph status` |
 | Upgrading a framework or runtime | `/upgrade audit` → `/upgrade <package>` → `/qa` |
 | Shipping an LLM feature | `/architect` → `/implement` → `/eval create` → `/qa` |
+| Building a new UI surface | `/design-system` (once) → `/design` → `/design-review` → `/polish` → `/a11y` |
 
 State which stage you believe they are in, then print the sequence with a one-line description of each step.
 
@@ -141,7 +148,11 @@ Topic → command mapping:
 | Topic keywords | Command(s) |
 |----------------|-----------|
 | requirements, spec, user story, feature idea | `/requirements` |
-| design, architecture, approach, plan | `/architect` |
+| architecture, approach, plan, technical design | `/architect` |
+| UI, visual design, landing page, screen, looks generic, looks AI-generated | `/design`, `/design-review` |
+| polish, pixel, spacing, visual bugs, before launch | `/polish` |
+| design system, tokens, DESIGN.md, brand, theme | `/design-system` |
+| Apple HIG, iOS design, Material 3, Android design | `/design-review` (loads `design-apple-hig` / `design-material3`) |
 | tasks, breakdown, work items | `/task plan` |
 | implement, code, build, write | `/task next` + `/implement` |
 | test, unit test, coverage | `/test` |

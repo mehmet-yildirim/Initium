@@ -13,6 +13,8 @@ paths:
 
 # React Native Development Standards
 
+Platform look and feel: `design-apple-hig` (iOS) and `design-material3` (Android); shared tokens: `design-tokens`.
+
 ## TypeScript — Strict Mode Required
 
 Same TypeScript standards as the web (see `lang-typescript.mdc`) plus mobile-specific:

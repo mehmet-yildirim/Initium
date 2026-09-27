@@ -15,11 +15,11 @@ Supports [Cursor](https://cursor.sh), [Continue](https://continue.dev), [Claude 
 | Layer | Config | Purpose |
 |-------|--------|---------|
 | **All agents** | `AGENTS.md` | Single source of project instructions (Claude Code loads it via `@AGENTS.md` in `CLAUDE.md`) |
-| **Agent Skills** | `.claude/skills/<name>/SKILL.md` | 32 stack skills in the open Agent Skills format — loaded on demand by Claude Code, Cursor, and OpenCode |
-| **Claude Code** | `CLAUDE.md`, `.claude/` | 36 slash commands, event hooks |
+| **Agent Skills** | `.claude/skills/<name>/SKILL.md` | 37 skills (stacks + UI design) in the open Agent Skills format — loaded on demand by Claude Code, Cursor, and OpenCode |
+| **Claude Code** | `CLAUDE.md`, `.claude/` | 40 slash commands, event hooks |
 | **Cursor** | `.cursor/rules/`, `.claude/skills/`, `.claude/commands/` | 6 base rules + shared skills and slash commands |
 | **OpenCode** | `opencode.json`, `.opencode/commands/` | Reads `AGENTS.md` and skills natively; slash commands synced from `.claude/commands/` |
-| **Continue** | `.continue/` | Multi-model setup, 32 skill rules generated from `.claude/skills/`, persistent guidelines |
+| **Continue** | `.continue/` | Multi-model setup, 37 skill rules generated from `.claude/skills/`, persistent guidelines |
 | **Autonomous Agent** | `agent.config.yaml`, `.initium/docs/agent/` | JIRA polling, domain triage, full dev loop, escalation system |
 | **Code graph** | `agent.config.yaml → codegraph`, `/codegraph` | Optional structural code index (MCP) so agents query symbols and callers instead of reading whole files |
 | **GitHub** | `.github/` | PR template, issue templates, CI workflow template |
@@ -96,13 +96,16 @@ After setup, code with the AI loop:
 │
 ├── .claude/
 │   ├── settings.json                   # Tool permissions + event hooks
-│   ├── skills/                         # 32 Agent Skills — <name>/SKILL.md (single source)
+│   ├── skills/                         # 37 Agent Skills — <name>/SKILL.md (single source)
 │   │   ├── lang-*/                     # Java, .NET, Python, TypeScript, Go, Rust, Kotlin, PHP
 │   │   ├── be-*/                       # Microservices, Node.js, messaging, GraphQL/gRPC
 │   │   ├── fe-*/  mobile-*/            # React, Next.js, Vue, Angular · iOS, Android, KMP, Flutter, RN
 │   │   ├── devops-*/                   # Docker, CI/CD, Terraform, observability, AWS, GCP, on-prem
+│   │   ├── design-*/                   # Apple HIG, Material 3, design tokens / DESIGN.md
+│   │   ├── frontend-design/ impeccable/ # Vendored web design skills (Apache-2.0, see THIRD_PARTY_NOTICES.md)
 │   │   └── ai-llm-apps/ db-migrations/ docs-generation/ security-sast/
-│   ├── commands/                       # 36 slash commands (type / in Claude Code)
+│   ├── agents/                         # Subagents used by the impeccable skill
+│   ├── commands/                       # 40 slash commands (type / in Claude Code)
 │   │   ├── help.md                     # /help — guide to commands and workflows
 │   │   ├── goal.md                     # /goal — pursue one objective until done
 │   │   ├── init.md                     # /init — project setup wizard
@@ -133,6 +136,10 @@ After setup, code with the AI loop:
 │   │   ├── upgrade.md                  # /upgrade — dependency / framework upgrades
 │   │   ├── perf.md                     # /perf
 │   │   ├── a11y.md                     # /a11y — WCAG 2.2 AA audit
+│   │   ├── design.md                   # /design — build UI that doesn't look templated
+│   │   ├── design-review.md            # /design-review — template tells + HIG / Material 3 review
+│   │   ├── polish.md                   # /polish — final visual quality pass
+│   │   ├── design-system.md            # /design-system — DESIGN.md, PRODUCT.md, tokens
 │   │   ├── eval.md                     # /eval — LLM feature evaluations
 │   │   ├── skill.md                    # /skill — create or update Agent Skills
 │   │   ├── triage.md                   # /triage        ← autonomous agent
@@ -159,10 +166,10 @@ After setup, code with the AI loop:
 │   ├── config.yaml                    # ← ADD API KEYS + uncomment your skills
 │   └── rules/
 │       ├── 01-coding-standards.md … 04-security.md
-│       └── skills/                    # 32 files — generated from .claude/skills/ (sync-skills.mjs)
+│       └── skills/                    # 37 files — generated from .claude/skills/ (sync-skills.mjs)
 │
 ├── .opencode/
-│   └── commands/                      # 36 slash commands (mirrors .claude/commands/)
+│   └── commands/                      # 40 slash commands (mirrors .claude/commands/)
 ├── opencode.json                      # OpenCode instructions (.cursor/rules) + code graph MCP
 │
 ├── .github/
@@ -295,6 +302,17 @@ After setup, code with the AI loop:
 | `/a11y [scope]` | WCAG 2.2 AA audit (automated + manual) and fixes for web and mobile | UI changes |
 | `/eval [create\|run\|compare]` | Evaluation suites for LLM features: datasets, graders, thresholds, CI | Prompt / model / RAG changes |
 
+### UI & Visual Design
+
+| Command | Purpose | When to use |
+|---------|---------|-------------|
+| `/design <target + brief>` | Context → written direction (tokens, wireframe, one signature element) → build → screenshot critique | New page, screen, or component |
+| `/design-review [scope]` | Read-only review: generic "AI template" tells, craft, states, Apple HIG / Material 3 fit, scored report | Before merging UI, "this looks generic" |
+| `/polish [scope]` | Final pass: broken layout, missing states, token consistency, typography, template tells | Before shipping |
+| `/design-system [scan\|seed\|check\|tokens]` | Create or refresh `DESIGN.md` (Google DESIGN.md format) and `PRODUCT.md`; generate token files | Once per project, after visual changes |
+
+Web surfaces use the vendored [`frontend-design`](https://github.com/anthropics/skills/tree/main/skills/frontend-design) (Anthropic) and [`impeccable`](https://github.com/pbakaus/impeccable) (Paul Bakaus) skills; native apps use `design-apple-hig` (a summary that links to Apple's guidelines) and `design-material3`. `impeccable` also works on its own: `/impeccable critique`, `/impeccable polish`, and more. For its detector, design hook, and live browser mode, run `npx impeccable install`. For Apple docs as Markdown, enable the `sosumi` MCP server in `.cursor/mcp.json` / `opencode.json`.
+
 ### Context & Knowledge
 
 | Command | Purpose |
@@ -426,6 +444,7 @@ Skills provide deep, idiomatic guidance in the open [Agent Skills](https://agent
 | **AI / LLM** | LLM applications: structured output, RAG, OWASP LLM Top 10, evals, MCP servers |
 | **Frontend** | React · Next.js App Router · Vue 3 · Angular 17+ |
 | **Mobile** | iOS/Swift · Android/Kotlin · Kotlin Multiplatform · Flutter/Dart · React Native/Expo |
+| **UI Design** | Web visual design (`frontend-design`, `impeccable`) · Apple Human Interface Guidelines · Material Design 3 Expressive · Design tokens & DESIGN.md |
 | **Infrastructure** | Docker · GitHub Actions CI/CD · Terraform/OpenTofu · OpenTelemetry & SLOs · AWS · GCP · On-Premise (k3s/Vault/Ansible) |
 | **Cross-cutting** | Database Migrations · Security SAST · Documentation Generation |
 

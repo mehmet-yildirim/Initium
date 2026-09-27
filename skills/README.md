@@ -77,6 +77,20 @@ Pair with `/eval` to build evaluation suites for LLM features.
 | `mobile-flutter` | Dart 3, Riverpod, GoRouter, Freezed, drift |
 | `mobile-reactnative` | Expo, TypeScript strict, React Navigation, Zustand, TanStack Query, EAS |
 
+### UI & Visual Design
+
+| Skill | Key Coverage |
+|-------|-------------|
+| `frontend-design` | *Vendored from Anthropic (Apache-2.0).* Distinctive, intentional web visual design: brief grounding, typography, AI-default clusters to avoid, token plan → build → screenshot critique |
+| `impeccable` | *Vendored from Paul Bakaus (Apache-2.0).* Full design workflow with 23 subcommands (`/impeccable shape`, `critique`, `audit`, `polish`, `typeset`, `layout`, …), craft floor and bans, iOS/Android references |
+| `design-apple-hig` | Apple HIG summary with links: Liquid Glass, layout and safe areas, navigation, Dynamic Type, SF Symbols, 44 pt targets, accessibility |
+| `design-material3` | Material 3 Expressive (CC BY 4.0, adapted): color roles, dynamic color, type scale, spring motion, 48 dp targets, breakpoints, edge-to-edge, predictive back |
+| `design-tokens` | Primitive / semantic / component tokens, `DESIGN.md` (Google DESIGN.md format), CSS / Tailwind / SwiftUI / Compose mapping |
+
+Pair with `/design`, `/design-review`, `/polish`, and `/design-system`. Vendored skills are
+refreshed with `bash .initium/scripts/vendor-design-skills.sh`; see `THIRD_PARTY_NOTICES.md`.
+Impeccable's optional detector, design hook, and live mode need `npx impeccable install`.
+
 ### Security
 
 | Skill | Key Coverage |

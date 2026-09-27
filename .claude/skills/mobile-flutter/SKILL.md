@@ -11,6 +11,8 @@ paths:
 
 # Flutter / Dart Development Standards
 
+Platform look and feel: `design-material3` (Android) and `design-apple-hig` (iOS); shared tokens: `design-tokens`.
+
 ## Dart Language
 
 ### Modern Dart (3.x)

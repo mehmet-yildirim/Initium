@@ -19,6 +19,61 @@ See [.initium/docs/sync-guide.md](.initium/docs/sync-guide.md) for the full guid
 
 ---
 
+## v1.3.0 — UI design skills: web craft, Apple HIG, Material 3, design tokens
+
+**Date:** 2026-09-27
+**Commit:** (set by release)
+**Severity:** MINOR (one optional merge)
+
+### Why
+- Agent-generated web UI converges on the same template: centered hero, three identical cards,
+  purple gradients, Inter everywhere, eyebrow labels, and fade-up on every section. Two
+  established open-source skills address this directly, so Initium vendors them instead of
+  writing a weaker copy.
+- Mobile work had code standards (`mobile-ios`, `mobile-android`) but no design guidance, so
+  agents mixed platform conventions (Material buttons on iOS, 44 pt targets on Android).
+- Without written design decisions every session re-invents the palette; `DESIGN.md` gives
+  agents one source of truth.
+
+### New Files (skeleton-owned — auto-applied)
+- `.claude/skills/frontend-design/` — vendored from anthropics/skills (Apache-2.0)
+- `.claude/skills/impeccable/` and `.claude/agents/impeccable-*.md` — vendored from
+  pbakaus/impeccable 4.4.0 (Apache-2.0); `/impeccable <subcommand>` works directly. Its
+  `scripts/` (engine binary downloader) is not vendored — run `npx impeccable install` to add
+  the detector, design hook, and live mode.
+- `.claude/skills/design-apple-hig/` — original HIG summary linking to Apple's pages
+- `.claude/skills/design-material3/` — Material 3 Expressive, adapted under CC BY 4.0
+- `.claude/skills/design-tokens/` — token layers and `DESIGN.md` (Google DESIGN.md format)
+- `.claude/commands/` — `/design`, `/design-review`, `/polish`, `/design-system`
+  (+ `.opencode/commands/` mirrors)
+- `.continue/rules/skills/` — generated rules for the five new skills
+- `THIRD_PARTY_NOTICES.md`, `.initium/scripts/vendor-design-skills.sh` (refreshes the vendored
+  skills at pinned commits)
+
+### Updated Files (skeleton-owned — auto-applied)
+- `.claude/commands/help.md` — UI & Visual Design section, workflow and topic entries
+- `mobile-*`, `fe-*` skills — point to the matching design skills
+- `opencode.json` — disabled `sosumi` MCP server (Apple docs as Markdown)
+- `.initium/scripts/validate.{sh,ps1,cmd}` — check notices and vendored license files
+- `skills/README.md`, `README.md`, `README.tr.md`
+
+### Project-owned (new, never synced)
+- `DESIGN.md`, `PRODUCT.md` — created per project by `/design-system`
+
+### Merge Required
+- `.cursor/mcp.json` — optional: add the disabled `sosumi` server
+  (`"url": "https://sosumi.ai/mcp"`). It is an unofficial mirror of Apple's docs, for lookup
+  only.
+- `.continue/config.yaml` — optional: commented entries for the five design rules.
+
+### Migration Steps
+1. Run `/design-system` once to write `DESIGN.md` and `PRODUCT.md` from your existing UI.
+2. Continue users: uncomment the design rules you need in `.continue/config.yaml`.
+3. Optional: `npx impeccable install --providers=claude,cursor --scope=project` for the
+   deterministic anti-pattern detector (`npx impeccable detect`) and live browser mode.
+
+---
+
 ## v1.2.0 — Automatic update checks and weekly sync PRs
 
 **Date:** 2026-09-27

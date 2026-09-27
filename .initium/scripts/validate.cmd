@@ -75,6 +75,9 @@ call :chk ".claude\commands\skill.md"
 call :chk ".initium\scripts\sync-skills.mjs"
 call :chk ".initium\scripts\check-update.mjs"
 call :chk ".github\workflows\initium-sync.yml"
+call :chk "THIRD_PARTY_NOTICES.md"
+call :chk ".claude\skills\frontend-design\LICENSE.txt"
+call :chk ".claude\skills\impeccable\LICENSE"
 where node >nul 2>&1
 if errorlevel 1 (
   echo   WARN node not found -- cannot validate skills ^(requires Node.js 22+^)
