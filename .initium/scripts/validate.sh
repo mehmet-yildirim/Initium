@@ -124,6 +124,32 @@ check_exists ".claude/hooks/post-write.mjs"
 check_exists ".claude/hooks/audit-log.mjs"
 check_exists ".claude/hooks/on-stop.mjs"
 
+# --- Guardrails (.initium/docs/guardrails.md) ---
+check_exists ".initium/guardrails/policy.mjs"
+check_exists ".initium/guardrails/node.sh"
+check_exists ".initium/guardrails/pre-commit.mjs"
+check_exists ".githooks/pre-commit"
+check_exists ".claude/hooks/guardrails.mjs"
+check_exists ".cursor/hooks.json"
+check_exists ".cursor/hooks/guardrails.mjs"
+check_exists ".opencode/plugins/initium-guardrails.js"
+check_exists ".initium/docs/guardrails.md"
+hooks_path=$(git config --get core.hooksPath 2>/dev/null || true)
+if [ "$hooks_path" = ".githooks" ]; then
+  pass "Guardrail pre-commit hook enabled (core.hooksPath=.githooks)"
+elif [ -n "$hooks_path" ]; then
+  warn "core.hooksPath is '$hooks_path' — make sure it calls .githooks/pre-commit"
+else
+  warn "Guardrail pre-commit hook not enabled — run: git config core.hooksPath .githooks"
+fi
+if command -v node >/dev/null 2>&1; then
+  if node --test ".initium/guardrails/test/*.test.mjs" >/dev/null 2>&1; then
+    pass "Guardrail tests pass"
+  else
+    fail "Guardrail tests fail — run: node --test \".initium/guardrails/test/*.test.mjs\""
+  fi
+fi
+
 # --- Agent Skills (.claude/skills/<name>/SKILL.md — single source) ---
 skill_count=$(find .claude/skills -mindepth 2 -maxdepth 2 -name SKILL.md 2>/dev/null | wc -l | tr -d ' ')
 if [ "$skill_count" -gt 0 ]; then

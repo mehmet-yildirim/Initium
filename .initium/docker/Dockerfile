@@ -55,6 +55,8 @@ COPY .opencode/          .opencode/
 COPY opencode.json       ./
 COPY .agent-templates/   .agent-templates/
 COPY agent.config.yaml   ./
+COPY .initium/guardrails/ .initium/guardrails/
+COPY .githooks/          .githooks/
 
 # Entrypoints and runners
 COPY .initium/docker/entrypoint.sh         /entrypoint.sh

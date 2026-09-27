@@ -136,7 +136,14 @@ These are the `merge_required` files that existed before and were skipped:
   `.claude/settings.local.json`, `.codebase-memory/`) and make sure `.env` is ignored. See the
   full file with `git show "refs/initium/$INITIUM_TAG:.gitignore"`.
 - **`.claude/settings.json`, `.cursor/mcp.json`, `.continue/config.yaml`** — keep your entries,
-  add Initium's permissions, hooks, and MCP servers you want.
+  add Initium's permissions, hooks, and MCP servers you want. Keep the `PreToolUse` guardrail
+  entry in `.claude/settings.json`.
+- **`.cursor/hooks.json`** — add Initium's three guardrail entries next to your own hooks.
+- **Git hooks** — Initium's pre-commit guardrail lives in `.githooks/`. Without another hook
+  manager, run `git config core.hooksPath .githooks` (hooks already in `.git/hooks/pre-commit`
+  keep running after it). With husky, lefthook, or pre-commit, keep your setup and call
+  `sh .githooks/pre-commit` from your pre-commit hook. See
+  [guardrails.md](../../.initium/docs/guardrails.md).
 - **`SECURITY.md`, `.editorconfig`, PR and issue templates** — keep yours unless Initium's adds
   something missing (the PR checklist is referenced by `/review` and `/qa`).
 
@@ -237,6 +244,7 @@ as `project-<service>` skills scoped with path globs.
 ## Removing Initium
 
 Delete `.initium/`, `.claude/commands/`, `.claude/skills/`, `.opencode/commands/`,
-`.cursor/rules/0[1-5]-*.mdc`, `.continue/rules/`, `.agent-templates/`, and the Initium workflows,
-then `git remote remove skeleton` and `git for-each-ref --format='delete %(refname)' refs/initium/ | git update-ref --stdin`.
+`.cursor/rules/0[1-5]-*.mdc`, `.continue/rules/`, `.agent-templates/`, `.githooks/`, the guardrail
+hook entries in `.claude/settings.json` and `.cursor/hooks.json`, and the Initium workflows; run
+`git config --unset core.hooksPath` if it points to `.githooks`, then `git remote remove skeleton` and `git for-each-ref --format='delete %(refname)' refs/initium/ | git update-ref --stdin`.
 Keep `AGENTS.md` — it is useful without Initium.

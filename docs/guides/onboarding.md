@@ -306,6 +306,11 @@ Run `/security-audit diff` before opening any PR:
 
 See [`docs/guides/workflows/05-security-evaluation.md`](workflows/05-security-evaluation.md) for the full security workflow.
 
+Guardrail hooks enforce the basics automatically: agents cannot read `.env` or key files, run
+destructive or force-push commands, or edit protected paths without asking, and the pre-commit
+hook rejects secret files and tokens. `setup.sh` enables the pre-commit hook; if you skipped it,
+run `git config core.hooksPath .githooks`. See [guardrails.md](../../.initium/docs/guardrails.md).
+
 ---
 
 ## Keeping Your Setup Up to Date

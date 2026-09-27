@@ -590,12 +590,18 @@ JIRA_API_TOKEN=$(aws secretsmanager get-secret-value \
 [Service]
 EnvironmentFile=/opt/ai-agent/.env
 WorkingDirectory=/opt/ai-agent/project
+# Guardrails deny (instead of ask) when nobody is watching
+Environment=INITIUM_AGENT_MODE=autonomous
 ```
 
 Claude Code runs non-interactively with `claude -p "<prompt>"`. Unattended runs also need a
 permission policy — either allow-list tools in `.claude/settings.json` or pass
 `--dangerously-skip-permissions` on an isolated host (see the containerized setup in
-[docker-agent.md](docker-agent.md)).
+[docker-agent.md](docker-agent.md)). The Initium guardrail hooks still run with
+`--dangerously-skip-permissions`; with `INITIUM_AGENT_MODE=autonomous` they block secret
+access, protected-path edits, and forbidden commands instead of asking — see
+[guardrails.md](../guardrails.md). Run `git config core.hooksPath .githooks` once in the
+project checkout so the pre-commit guardrail runs as well.
 
 ### 8.3 Validate Secrets Are Loaded
 
@@ -668,6 +674,7 @@ After=network-online.target
 User=ai-agent
 WorkingDirectory=/opt/ai-agent/project
 EnvironmentFile=/opt/ai-agent/.env
+Environment=INITIUM_AGENT_MODE=autonomous
 ExecStart=/usr/bin/node .agent/webhook-receiver.mjs
 Restart=on-failure
 
@@ -789,6 +796,7 @@ Type=oneshot
 User=ai-agent
 WorkingDirectory=/opt/ai-agent/project
 EnvironmentFile=/opt/ai-agent/.env
+Environment=INITIUM_AGENT_MODE=autonomous
 ExecStart=/usr/bin/claude -p "/groom"
 StandardOutput=append:/var/log/ai-agent/groom.log
 StandardError=append:/var/log/ai-agent/groom.log

@@ -77,6 +77,7 @@ overlay() {
   local src="/initium/$1" dst="/workspace/$1"
   if [ ! -d "${dst}" ]; then
     info "Overlaying ${1} from Initium defaults …"
+    mkdir -p "$(dirname "${dst}")"
     cp -rn "${src}" "${dst}" 2>/dev/null || true
   fi
 }
@@ -85,6 +86,16 @@ overlay ".claude"
 overlay ".cursor"
 overlay ".continue"
 overlay ".opencode"
+overlay ".initium/guardrails"
+overlay ".githooks"
+
+# Guardrail pre-commit hook; a project-defined hooks path is kept but reported.
+HOOKS_PATH="$(git -C /workspace config --get core.hooksPath || true)"
+if [ -z "${HOOKS_PATH}" ]; then
+  git -C /workspace config core.hooksPath .githooks
+elif [ "${HOOKS_PATH}" != ".githooks" ]; then
+  warn "core.hooksPath is '${HOOKS_PATH}' — call .githooks/pre-commit from it to keep guardrails."
+fi
 
 if [ ! -f "/workspace/opencode.json" ]; then
   info "Overlaying opencode.json from Initium defaults …"

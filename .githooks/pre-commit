@@ -1,0 +1,13 @@
+#!/bin/sh
+# Initium pre-commit hook (installed via: git config core.hooksPath .githooks).
+# Runs the guardrail check, then any hook that lived in .git/hooks before Initium.
+
+root=$(git rev-parse --show-toplevel) || exit 1
+cd "$root" || exit 1
+
+sh .initium/guardrails/node.sh .initium/guardrails/pre-commit.mjs || exit $?
+
+legacy_hook="$(git rev-parse --git-common-dir)/hooks/pre-commit"
+if [ -x "$legacy_hook" ]; then
+  "$legacy_hook" "$@" || exit $?
+fi

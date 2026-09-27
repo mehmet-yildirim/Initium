@@ -19,6 +19,9 @@ set -a
 [ -f /etc/environment ] && source /etc/environment
 set +a
 
+# Unattended run: guardrails (.initium/guardrails/) deny whatever they would ask about.
+export INITIUM_AGENT_MODE=autonomous
+
 LOG_PREFIX="[$(date '+%Y-%m-%dT%H:%M:%S')] [groom-runner]"
 
 echo "${LOG_PREFIX} ── Run start ────────────────────────────────────────────"

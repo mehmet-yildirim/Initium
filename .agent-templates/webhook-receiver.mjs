@@ -109,7 +109,8 @@ function validateSecret(headerValue) {
 function runAgent(prompt, timeout) {
   execFileSync(CLAUDE_BIN, ['-p', prompt], {
     cwd: process.cwd(),
-    env: process.env,
+    // Nobody watches webhook-triggered runs, so guardrails must deny instead of ask.
+    env: { ...process.env, INITIUM_AGENT_MODE: 'autonomous' },
     stdio: 'inherit',
     timeout,
   });

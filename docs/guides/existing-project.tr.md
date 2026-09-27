@@ -139,6 +139,14 @@ Bunlar önceden var olan ve atlanan `merge_required` dosyalardır:
   Dosyanın tamamı: `git show "refs/initium/$INITIUM_TAG:.gitignore"`.
 - **`.claude/settings.json`, `.cursor/mcp.json`, `.continue/config.yaml`** — kendi kayıtlarınızı
   koruyun, Initium'un istediğiniz izinlerini, hook'larını ve MCP sunucularını ekleyin.
+  `.claude/settings.json` içindeki `PreToolUse` guardrail kaydını koruyun.
+- **`.cursor/hooks.json`** — Initium'un üç guardrail kaydını kendi hook'larınızın yanına ekleyin.
+- **Git hook'ları** — Initium'un pre-commit guardrail'i `.githooks/` altındadır. Başka bir hook
+  yöneticisi kullanmıyorsanız `git config core.hooksPath .githooks` çalıştırın
+  (`.git/hooks/pre-commit` içindeki mevcut hook ondan sonra çalışmaya devam eder). husky,
+  lefthook veya pre-commit kullanıyorsanız kurulumunuzu koruyun ve pre-commit hook'unuzdan
+  `sh .githooks/pre-commit` çağırın. Ayrıntılar:
+  [guardrails.md](../../.initium/docs/guardrails.md).
 - **`SECURITY.md`, `.editorconfig`, PR ve issue şablonları** — Initium'unki eksik bir şey
   eklemiyorsa sizinkini koruyun (PR kontrol listesine `/review` ve `/qa` başvurur).
 
@@ -240,6 +248,8 @@ path glob'larıyla sınırlanmış `project-<servis>` skill'leri olarak ekleyin.
 ## Initium'u Kaldırmak
 
 `.initium/`, `.claude/commands/`, `.claude/skills/`, `.opencode/commands/`,
-`.cursor/rules/0[1-5]-*.mdc`, `.continue/rules/`, `.agent-templates/` ve Initium workflow'larını
-silin; ardından `git remote remove skeleton` ve `git for-each-ref --format='delete %(refname)' refs/initium/ | git update-ref --stdin`
+`.cursor/rules/0[1-5]-*.mdc`, `.continue/rules/`, `.agent-templates/`, `.githooks/`,
+`.claude/settings.json` ve `.cursor/hooks.json` içindeki guardrail hook kayıtlarını ve Initium
+workflow'larını silin; `core.hooksPath` `.githooks`'u gösteriyorsa `git config --unset core.hooksPath`
+çalıştırın; ardından `git remote remove skeleton` ve `git for-each-ref --format='delete %(refname)' refs/initium/ | git update-ref --stdin`
 komutlarını çalıştırın. `AGENTS.md`'yi tutun — Initium olmadan da işe yarar.

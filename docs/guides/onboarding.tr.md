@@ -305,6 +305,12 @@ Herhangi bir PR açmadan önce `/security-audit diff` çalıştır:
 
 Tam güvenlik iş akışı için: [`docs/guides/workflows/05-security-evaluation.md`](workflows/05-security-evaluation.md)
 
+Guardrail hook'ları temel kuralları otomatik uygular: ajanlar `.env` veya anahtar dosyalarını
+okuyamaz, yıkıcı ya da force-push komutlarını çalıştıramaz, korunan yolları sormadan
+düzenleyemez; pre-commit hook'u da gizli dosyaları ve token'ları reddeder. `setup.sh`
+pre-commit hook'unu etkinleştirir; bu adımı atladıysan `git config core.hooksPath .githooks`
+çalıştır. Ayrıntılar: [guardrails.md](../../.initium/docs/guardrails.md).
+
 ---
 
 ## Kurulumunu Güncel Tutma
