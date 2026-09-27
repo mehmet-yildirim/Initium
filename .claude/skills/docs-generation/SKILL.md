@@ -1,338 +1,147 @@
 ---
 name: docs-generation
-description: Documentation generation standards — code-level docs per language, OpenAPI patterns, architecture diagrams, documentation-as-code principles. Use when writing doc comments, OpenAPI annotations, or architecture diagrams.
+description: Documentation-as-code standards — Diátaxis structure, README and CHANGELOG (Keep a Changelog) conventions, ADRs (MADR 4), API reference generation (TypeDoc 0.28, Sphinx/mkdocstrings, Dokka, DocC, Javadoc), OpenAPI 3.1/3.2 descriptions, Mermaid/C4 diagrams, docs sites (Starlight, Docusaurus), and docs CI (Vale, markdownlint, lychee, lefthook/pre-commit). Use when writing or reviewing docs, doc comments, READMEs, changelogs, ADRs, architecture diagrams, or documentation tooling and pipelines.
 paths:
-  - "**/*.ts"
-  - "**/*.js"
-  - "**/*.py"
-  - "**/*.java"
-  - "**/*.kt"
-  - "**/*.cs"
-  - "**/*.go"
-  - "**/*.swift"
-  - "**/*.dart"
-  - "openapi*.json"
-  - "openapi*.yaml"
   - "**/docs/**/*.md"
+  - "**/mkdocs.yml"
+  - "**/CHANGELOG.md"
+  - "**/adr/**"
 ---
 
-# Documentation Generation Standards
+# Documentation as Code
 
-## Documentation-as-Code Principles
+Docs live in the repository, are reviewed like code, and are built and checked in CI. API
+contract design (status codes, RFC 9457 errors, versioning) is in `api-rest-openapi`; language
+doc-comment idioms are summarized in `reference/code-comments.md`.
 
-1. **Docs live next to code** — place module-level `.md` files alongside source files
-2. **Every public API surface must be documented** — no undocumented public functions
-3. **Examples must be runnable** — code in docs is tested in CI
-4. **Docs are reviewed like code** — PRs require doc updates for API/behavior changes
-5. **Audience-targeted** — choose language and depth appropriate for the reader
+## Baseline
 
-## Code-Level Documentation Standards
+- Structure: **Diátaxis** — tutorials, how-to guides, reference, explanation. Every page is one
+  type; do not mix a tutorial with reference tables.
+- Changelog: **Keep a Changelog** format with SemVer; generated drafts are curated by a human.
+- Decisions: **ADRs** using MADR 4.0 (`docs/adr/NNNN-title-with-dashes.md`).
+- API reference: generated from source (TypeDoc 0.28, Sphinx autodoc or mkdocstrings, Dokka 2,
+  DocC, Javadoc, DocFX, `dart doc`, pkg.go.dev) — never hand-maintained.
+- HTTP APIs: OpenAPI 3.1 (3.2 where tooling supports it), generated from code or used as the
+  source of truth — one or the other, never both.
+- Docs site: Starlight 0.42 (Astro) or Docusaurus 3.10. Material for MkDocs is in maintenance mode
+  (critical fixes until May 2027) and MkDocs 1.x is unmaintained — do not start new sites on them;
+  plan migration (Zensical is the Material team's successor) for existing ones.
 
-### TypeScript / JavaScript (TSDoc)
+## Structure
 
-```typescript
-/**
- * Retrieves a user by their unique ID.
- *
- * @param userId - The UUID of the user to retrieve.
- * @param options - Optional configuration for the query.
- * @param options.includeDeleted - Whether to include soft-deleted users. Defaults to `false`.
- * @returns The user object, or `null` if not found.
- * @throws {@link DatabaseError} If the database connection fails.
- * @throws {@link ValidationError} If `userId` is not a valid UUID.
- *
- * @example
- * ```ts
- * const user = await userService.getById('550e8400-e29b-41d4-a716-446655440000');
- * if (user) {
- *   console.log(user.email);
- * }
- * ```
- *
- * @see {@link createUser} for creating new users.
- * @see {@link updateUser} for modifying existing users.
- */
-export async function getUserById(
-  userId: string,
-  options?: { includeDeleted?: boolean }
-): Promise<User | null> { ... }
+```
+README.md               # what, why, quick start, links — the front door
+CHANGELOG.md            # Keep a Changelog, newest first, [Unreleased] on top
+CONTRIBUTING.md         # setup, workflow, conventions
+SECURITY.md             # how to report vulnerabilities
+docs/
+├── tutorials/          # learning-oriented, runnable end to end
+├── how-to/             # task-oriented recipes
+├── reference/          # generated API docs, config and CLI reference
+├── explanation/        # concepts, architecture overview, trade-offs
+├── architecture/       # C4 diagrams (diagrams as code)
+└── adr/                # architecture decision records
 ```
 
-**Rules:**
-- Use `@param` for every parameter with a description (not just the type)
-- Use `@returns` to describe return value — not just the type
-- Use `@throws` for every error condition
-- Include at least one `@example` for public functions
-- Use `{@link}` to cross-reference related functions
-- Toolchain: TypeDoc 0.25+; output: `docs/api/`
+- Long-form docs go under `docs/`; source directories hold only doc comments and, where a module
+  needs local context, a short `README.md` that links into `docs/`.
 
-### Python (Google-style Docstrings)
+## Toolchain
 
-```python
-def get_user_by_id(
-    user_id: str,
-    *,
-    include_deleted: bool = False,
-) -> User | None:
-    """Retrieve a user by their unique ID.
+| Concern | Tool |
+|---|---|
+| Markdown lint | markdownlint-cli2 (`.markdownlint.jsonc`) |
+| Prose lint | Vale 3 (`.vale.ini`, style packages such as Microsoft or Google + project vocabulary) |
+| Links | lychee (`lycheeverse/lychee-action` pinned by SHA in CI) |
+| OpenAPI lint | Redocly CLI (`redocly lint`) or Spectral |
+| Diagrams | Mermaid (rendered natively by GitHub and doc sites); Structurizr DSL or Mermaid C4 for C4 |
+| Local hooks | lefthook or pre-commit (versioned config, not `.git/hooks`) |
+| Site build | Starlight / Docusaurus build in CI; fail on broken links and build warnings |
 
-    Args:
-        user_id: The UUID of the user to retrieve. Must be a valid UUIDv4.
-        include_deleted: Whether to include soft-deleted users. Defaults to False.
+## README standard
 
-    Returns:
-        The User object if found, otherwise None.
+- Sections in order: name + one-line purpose, status badges (CI, version, license), quick start
+  (copy-paste commands that work on a clean machine), usage example, configuration, links to
+  docs/API reference, contributing, license.
+- Commands are tested (CI job runs the quick start, or it is covered by an e2e test).
+- No secrets, internal hostnames, or personal data in examples; use `example.com` and placeholders.
 
-    Raises:
-        DatabaseError: If the database connection fails.
-        ValidationError: If user_id is not a valid UUID format.
+## CHANGELOG
 
-    Example:
-        >>> user = get_user_by_id("550e8400-e29b-41d4-a716-446655440000")
-        >>> print(user.email if user else "Not found")
-    """
-```
+- `## [Unreleased]` at the top; releases as `## [1.4.0] - 2026-09-27` (ISO 8601), newest first.
+- Group entries under `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security` only.
+- Write for users: what changed and what they must do. Link issues/PRs and CVE IDs.
+- Conventional commits may seed release notes (release-please, changesets), but a human edits the
+  result.
 
-**Rules:**
-- Google style preferred over NumPy or reStructuredText
-- All public functions in non-trivial modules require docstrings
-- `Args:`, `Returns:`, `Raises:`, `Example:` sections
-- Toolchain: Sphinx + autodoc extension; output: `docs/build/html/`
+## ADRs
 
-### Java (JavaDoc)
+- One decision per file, numbered, immutable once accepted; supersede with a new ADR and update the
+  old one's status (`superseded by ADR-0012`).
+- Minimum sections (MADR minimal): context and problem, decision drivers, considered options,
+  decision outcome, consequences.
+- Write an ADR for anything hard to reverse: data stores, frameworks, public API shape, auth model,
+  deployment topology.
 
-```java
-/**
- * Retrieves a user by their unique ID.
- *
- * <p>Returns an empty Optional if no user is found with the given ID.
- * Deleted users are excluded by default.</p>
- *
- * @param userId the UUID of the user to retrieve; must not be null
- * @param includeDeleted whether to include soft-deleted users
- * @return an Optional containing the user, or empty if not found
- * @throws DatabaseException if the database connection fails
- * @throws IllegalArgumentException if userId is null or invalid UUID format
- *
- * @see UserRepository#findById(UUID)
- * @since 1.0
- */
-public Optional<User> getUserById(@NonNull UUID userId, boolean includeDeleted) { ... }
-```
+## Doc comments
 
-**Rules:**
-- All `public` methods in non-private classes must have JavaDoc
-- Use `@param`, `@return`, `@throws` for every signature element
-- Use `{@link}` for cross-references, `{@code}` for inline code
-- Toolchain: Maven Javadoc plugin; output: `target/site/apidocs/`
+- Every exported/public symbol has a doc comment stating purpose, parameters, return value, errors
+  thrown/returned, and at least one example for non-trivial APIs.
+- Examples compile and run: doctests (Python, Rust), `Example_` functions (Go), `{@snippet}`
+  (Java 18+), `@sample` (Kotlin), TSDoc examples type-checked via extracted snippets.
+- Examples follow repo rules: logger rather than `console.log`/`print`, no secrets, typed errors.
 
-### Kotlin (KDoc)
+## OpenAPI documentation
 
-```kotlin
-/**
- * Retrieves a user by their unique ID.
- *
- * Returns `null` if no user exists with the given [userId].
- *
- * @param userId the UUID of the user to retrieve
- * @param includeDeleted whether to include soft-deleted users; defaults to `false`
- * @return the [User] if found, or `null` otherwise
- * @throws DatabaseException if the database connection fails
- *
- * @sample com.example.UserServiceSamples.getUserByIdExample
- */
-suspend fun getUserById(userId: UUID, includeDeleted: Boolean = false): User?
-```
+- Every operation: `operationId` (camelCase verb+noun), `summary`, `description`, `tags`,
+  `security`, and responses for every documented status.
+- Errors: `application/problem+json` (RFC 9457) via shared `components.responses` — see
+  `api-rest-openapi` for the schema.
+- Use `examples`: the Example Object map on media types/parameters, and the JSON Schema
+  `examples` array inside schemas (the Schema Object `example` keyword is deprecated since 3.1).
+- Lint in CI and render with Redoc/Scalar/Swagger UI from the committed spec.
 
-Toolchain: Dokka; output: `build/dokka/html/`
+## Diagrams
 
-### Go (GoDoc)
+- Mermaid for inline diagrams: `flowchart LR|TD` (not the legacy `graph` keyword),
+  `sequenceDiagram`, `erDiagram`, `stateDiagram-v2`, `classDiagram`.
+- C4: Level 1 context and Level 2 container for every system; Level 3 only for complex services.
+- Every diagram has a title, labeled edges, and lives as text next to the docs it explains — no
+  binary draw.io/PNG sources without the editable source committed.
 
-```go
-// GetUserByID retrieves a user by their unique ID.
-//
-// It returns an error wrapping [ErrUserNotFound] if no user exists
-// with the given id. Use errors.Is to check for this condition.
-//
-// Example:
-//
-//	user, err := svc.GetUserByID(ctx, "550e8400-e29b-41d4-a716-446655440000")
-//	if errors.Is(err, ErrUserNotFound) {
-//	    // handle not found
-//	}
-func (s *UserService) GetUserByID(ctx context.Context, id string) (*User, error) { ... }
-```
+## Docs CI
 
-**Rules:**
-- Every exported identifier (function, type, constant, variable, package) must have a doc comment
-- Comment begins with the identifier name
-- Use `Example_` functions for testable examples
-- Package-level comment in `doc.go`: `// Package users provides user account management.`
-- Toolchain: `go doc` / pkg.go.dev (automatic on publish)
+1. markdownlint + Vale on changed Markdown (Vale warnings as PR annotations, errors fail).
+2. lychee link check (offline mode on PRs for relative links; full external check nightly).
+3. OpenAPI lint and breaking-change diff (`oasdiff`) against `main`.
+4. Build the docs site and API reference; publish previews per PR.
+5. Docs-impact check: PRs touching public APIs, config or CLI must update docs or state
+   "no docs impact" in the PR template.
 
-### C# / .NET (XML Doc Comments)
+## Security
 
-```csharp
-/// <summary>
-/// Retrieves a user by their unique identifier.
-/// </summary>
-/// <param name="userId">The UUID of the user. Must not be empty.</param>
-/// <param name="includeDeleted">
-///   Whether to include soft-deleted users. Defaults to <see langword="false"/>.
-/// </param>
-/// <returns>
-///   The <see cref="User"/> if found; <see langword="null"/> otherwise.
-/// </returns>
-/// <exception cref="DatabaseException">Thrown if the database connection fails.</exception>
-/// <exception cref="ArgumentException">Thrown if <paramref name="userId"/> is empty.</exception>
-/// <example>
-/// <code>
-/// var user = await userService.GetUserByIdAsync(userId);
-/// if (user is not null) Console.WriteLine(user.Email);
-/// </code>
-/// </example>
-public async Task<User?> GetUserByIdAsync(Guid userId, bool includeDeleted = false) { ... }
-```
+- Never paste real tokens, customer data, internal URLs, or stack traces with secrets into docs.
+- Sanitize logs and screenshots; redact before committing.
+- Pin third-party GitHub Actions (lychee, Vale, deploy actions) by full commit SHA.
 
-Toolchain: DocFX 2.x; output: `_site/`
+## Observability
 
-### Swift (DocC)
+- Track docs build time, broken-link count, and search-with-no-results terms (site analytics) to
+  find gaps; review quarterly.
 
-```swift
-/// Retrieves a user by their unique identifier.
-///
-/// Returns `nil` if no user exists with the given `userID`.
-///
-/// - Parameters:
-///   - userID: The unique identifier of the user.
-///   - includeDeleted: Whether to include soft-deleted users. Defaults to `false`.
-/// - Returns: The ``User`` if found, or `nil` otherwise.
-/// - Throws: ``UserError/notFound`` if the user doesn't exist.
-///           ``NetworkError`` if the request fails.
-///
-/// ## Topics
-/// ### User Retrieval
-/// - ``getUserById(_:includeDeleted:)``
-/// - ``getUserByEmail(_:)``
-func getUserById(_ userID: String, includeDeleted: Bool = false) async throws -> User?
-```
+## Testing
 
-Toolchain: DocC (Xcode); output: `.doccarchive` → interactive docs
+- Doctests and example files run in the normal test suite.
+- Quick-start commands executed in CI on a clean runner.
+- Snapshot the generated OpenAPI document; a diff in PR review is expected and must be intentional.
 
-### Dart / Flutter (Dartdoc)
+## References
 
-```dart
-/// Retrieves a user by their unique identifier.
-///
-/// Returns `null` if no user is found with [userId].
-///
-/// Throws [UserNotFoundException] if strict mode is enabled and user not found.
-/// Throws [DatabaseException] if the database connection fails.
-///
-/// Example:
-/// ```dart
-/// final user = await userRepository.getUserById('abc-123');
-/// if (user != null) {
-///   print(user.email);
-/// }
-/// ```
-///
-/// See also:
-///  * [getUserByEmail], for lookup by email address.
-Future<User?> getUserById(String userId) async { ... }
-```
+- `reference/code-comments.md` — Read when writing doc comments in TS, Python, Java, Kotlin, Go,
+  C#, Swift, or Dart, or configuring their generators.
+- `reference/openapi.md` — Read when documenting HTTP endpoints or reusable OpenAPI components.
+- `reference/templates.md` — Read when creating a README, CHANGELOG, or ADR from scratch.
+- `reference/docs-ci.md` — Read when setting up hooks, Vale, lychee, or the docs pipeline.
 
-Toolchain: `dart doc`; output: `doc/api/`
-
----
-
-## OpenAPI Annotation Standards
-
-### Annotate all REST endpoints with:
-1. `operationId` — unique, camelCase, verb + noun: `getUserById`, `createOrder`
-2. `summary` — one-line description (used in Swagger UI operation list)
-3. `description` — detailed explanation with edge cases
-4. `tags` — group by resource: `["Users"]`, `["Orders"]`
-5. `security` — declare auth requirement explicitly
-6. Response schemas for ALL documented status codes (200, 201, 400, 401, 403, 404, 422, 429, 500)
-7. `example` values on all request/response schemas
-
-### Common response patterns to reuse via `$ref`:
-```yaml
-components:
-  responses:
-    Unauthorized:
-      description: Authentication credentials missing or invalid
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ErrorResponse' }
-    NotFound:
-      description: Resource not found
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ErrorResponse' }
-  schemas:
-    ErrorResponse:
-      type: object
-      required: [error]
-      properties:
-        error:
-          type: object
-          required: [code, message]
-          properties:
-            code:    { type: string, example: "USER_NOT_FOUND" }
-            message: { type: string, example: "No user found with that ID" }
-            details: { type: array, items: { type: string } }
-```
-
----
-
-## Architecture Diagram Standards
-
-### Mermaid conventions (use for all inline diagrams)
-```
-Sequence diagrams: sequenceDiagram
-System diagrams:   graph LR or graph TD
-ERD:              erDiagram
-State machines:   stateDiagram-v2
-Class diagrams:   classDiagram
-Timeline:         timeline (for release plans)
-```
-
-### C4 model (use for architecture overview)
-- **Level 1 Context**: system + external actors — for stakeholders
-- **Level 2 Container**: services, databases, message queues — for architects
-- **Level 3 Component**: internal modules — for senior devs
-- **Level 4 Code**: class/function level — only for complex algorithms
-
-### Diagram quality rules
-- Every diagram must have a title and legend if symbols are used
-- Label all relationship arrows with the type of interaction
-- Use consistent color coding: green=external, blue=internal, red=deprecated
-- Diagrams must be regeneratable from code — no "draw.io" blobs in the repo
-
----
-
-## Documentation Staleness Prevention
-
-### Pre-commit check
-Add to `.git/hooks/pre-commit`:
-```bash
-#!/usr/bin/env bash
-# Warn if source changed but no doc files changed
-CHANGED_SRC=$(git diff --cached --name-only | grep "^src/" | grep -v "\.test\.")
-CHANGED_DOCS=$(git diff --cached --name-only | grep -E "\.(md|yaml|json)$" | grep "docs/")
-if [ -n "$CHANGED_SRC" ] && [ -z "$CHANGED_DOCS" ]; then
-  echo "⚠️  Source changed without documentation updates. Consider running /doc-api or /docs."
-fi
-```
-
-### CI staleness gate (add to .github/workflows/ci.yml)
-```yaml
-- name: Check docs freshness
-  run: |
-    # Validate OpenAPI spec is in sync
-    npx @redocly/cli lint openapi.json
-    # Validate markdown links are not broken
-    npx markdown-link-check docs/**/*.md --config .mlc.json
-```
+_Versions verified September 2026._

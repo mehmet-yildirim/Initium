@@ -15,11 +15,11 @@ Supports [Cursor](https://cursor.sh), [Continue](https://continue.dev), [Claude 
 | Layer | Config | Purpose |
 |-------|--------|---------|
 | **All agents** | `AGENTS.md` | Single source of project instructions (Claude Code loads it via `@AGENTS.md` in `CLAUDE.md`) |
-| **Agent Skills** | `.claude/skills/<name>/SKILL.md` | 37 skills (stacks + UI design) in the open Agent Skills format — loaded on demand by Claude Code, Cursor, and OpenCode |
+| **Agent Skills** | `.claude/skills/<name>/SKILL.md` | 48 skills (stacks, testing, accessibility + UI design) in the open Agent Skills format — loaded on demand by Claude Code, Cursor, and OpenCode |
 | **Claude Code** | `CLAUDE.md`, `.claude/` | 40 slash commands, event hooks |
 | **Cursor** | `.cursor/rules/`, `.claude/skills/`, `.claude/commands/` | 6 base rules + shared skills and slash commands |
 | **OpenCode** | `opencode.json`, `.opencode/commands/` | Reads `AGENTS.md` and skills natively; slash commands synced from `.claude/commands/` |
-| **Continue** | `.continue/` | Multi-model setup, 37 skill rules generated from `.claude/skills/`, persistent guidelines |
+| **Continue** | `.continue/` | Multi-model setup, 48 skill rules generated from `.claude/skills/`, persistent guidelines |
 | **Autonomous Agent** | `agent.config.yaml`, `.initium/docs/agent/` | JIRA polling, domain triage, full dev loop, escalation system |
 | **Code graph** | `agent.config.yaml → codegraph`, `/codegraph` | Optional structural code index (MCP) so agents query symbols and callers instead of reading whole files |
 | **GitHub** | `.github/` | PR template, issue templates, CI workflow template |
@@ -96,14 +96,15 @@ After setup, code with the AI loop:
 │
 ├── .claude/
 │   ├── settings.json                   # Tool permissions + event hooks
-│   ├── skills/                         # 37 Agent Skills — <name>/SKILL.md (single source)
-│   │   ├── lang-*/                     # Java, .NET, Python, TypeScript, Go, Rust, Kotlin, PHP
-│   │   ├── be-*/                       # Microservices, Node.js, messaging, GraphQL/gRPC
-│   │   ├── fe-*/  mobile-*/            # React, Next.js, Vue, Angular · iOS, Android, KMP, Flutter, RN
-│   │   ├── devops-*/                   # Docker, CI/CD, Terraform, observability, AWS, GCP, on-prem
-│   │   ├── design-*/                   # Apple HIG, Material 3, design tokens / DESIGN.md
+│   ├── skills/                         # 48 Agent Skills — <name>/SKILL.md (single source)
+│   │   ├── lang-*/                     # Java, .NET, Python, TypeScript, Go, Rust, Kotlin, PHP, Ruby, Scala, C, C++
+│   │   ├── be-*/  api-rest-openapi/    # Microservices, Node.js, messaging, GraphQL/gRPC · REST + OpenAPI
+│   │   ├── fe-*/  mobile-*/            # React, Next.js, Vue, Angular, Svelte · iOS, Android, KMP, Flutter, RN
+│   │   ├── devops-*/                   # Docker, CI/CD, Terraform, observability, Kubernetes, AWS, GCP, Azure, on-prem
+│   │   ├── design-*/  accessibility/   # Apple HIG, Material 3, design tokens / DESIGN.md · WCAG 2.2
 │   │   ├── frontend-design/ impeccable/ # Vendored web design skills (Apache-2.0, see THIRD_PARTY_NOTICES.md)
-│   │   └── ai-llm-apps/ db-migrations/ docs-generation/ security-sast/
+│   │   ├── security-sast/ security-supply-chain/ testing-e2e/
+│   │   └── ai-llm-apps/ db-migrations/ docs-generation/
 │   ├── agents/                         # Subagents used by the impeccable skill
 │   ├── commands/                       # 40 slash commands (type / in Claude Code)
 │   │   ├── help.md                     # /help — guide to commands and workflows
@@ -166,7 +167,7 @@ After setup, code with the AI loop:
 │   ├── config.yaml                    # ← ADD API KEYS + uncomment your skills
 │   └── rules/
 │       ├── 01-coding-standards.md … 04-security.md
-│       └── skills/                    # 37 files — generated from .claude/skills/ (sync-skills.mjs)
+│       └── skills/                    # 48 files — generated from .claude/skills/ (sync-skills.mjs)
 │
 ├── .opencode/
 │   └── commands/                      # 40 slash commands (mirrors .claude/commands/)
@@ -439,14 +440,15 @@ Skills provide deep, idiomatic guidance in the open [Agent Skills](https://agent
 
 | Category | Skills |
 |----------|--------|
-| **Backend** | Java/Spring Boot · .NET/ASP.NET Core · Python/FastAPI · TypeScript · Node.js (NestJS/Fastify/Hono) · Go · Rust (Axum/Tokio) · Kotlin (Ktor/Spring) · PHP (Laravel) |
-| **APIs & Integration** | Microservices · Messaging (Kafka/RabbitMQ/SQS, outbox) · GraphQL & gRPC |
+| **Backend** | Java/Spring Boot · .NET/ASP.NET Core · Python/FastAPI · TypeScript · Node.js (NestJS/Fastify/Hono) · Go · Rust (Axum/Tokio) · Kotlin (Ktor/Spring) · PHP (Laravel) · Ruby (Rails) · Scala |
+| **Systems** | C (C17/C23) · C++ (C++23, CMake, sanitizers, hardening) |
+| **APIs & Integration** | REST & OpenAPI (RFC 9457, pagination, versioning) · Microservices · Messaging (Kafka/RabbitMQ/SQS, outbox) · GraphQL & gRPC |
 | **AI / LLM** | LLM applications: structured output, RAG, OWASP LLM Top 10, evals, MCP servers |
-| **Frontend** | React · Next.js App Router · Vue 3 · Angular 17+ |
+| **Frontend** | React 19 · Next.js · Vue 3 / Nuxt · Angular · Svelte 5 / SvelteKit |
 | **Mobile** | iOS/Swift · Android/Kotlin · Kotlin Multiplatform · Flutter/Dart · React Native/Expo |
-| **UI Design** | Web visual design (`frontend-design`, `impeccable`) · Apple Human Interface Guidelines · Material Design 3 Expressive · Design tokens & DESIGN.md |
-| **Infrastructure** | Docker · GitHub Actions CI/CD · Terraform/OpenTofu · OpenTelemetry & SLOs · AWS · GCP · On-Premise (k3s/Vault/Ansible) |
-| **Cross-cutting** | Database Migrations · Security SAST · Documentation Generation |
+| **UI Design** | Web visual design (`frontend-design`, `impeccable`) · Apple Human Interface Guidelines · Material Design 3 Expressive · Design tokens & DESIGN.md · Accessibility (WCAG 2.2) |
+| **Infrastructure** | Docker · CI/CD · Terraform/OpenTofu · OpenTelemetry & SLOs · Kubernetes (Gateway API, Helm, GitOps) · AWS · GCP · Azure · On-Premise (k3s/Ansible) |
+| **Cross-cutting** | Database Migrations · Security SAST · Software Supply Chain · End-to-end Testing · Documentation Generation |
 
 See [skills/README.md](skills/README.md) for the full index, activation guide, and how to add new skills.
 

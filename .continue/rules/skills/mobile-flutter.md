@@ -1,261 +1,237 @@
 ---
 name: mobile-flutter
-description: Flutter / Dart development standards — cross-platform iOS & Android, Riverpod, GoRouter, testing. Use when writing or reviewing Flutter / Dart code.
+description: Flutter 3.47 / Dart 3.13 standards for iOS and Android apps — Riverpod 3 with riverpod_generator, go_router inside a provider, material_ui/cupertino_ui packages, flavors via Gradle productFlavors and Xcode schemes, gen-l10n and RTL, accessibility, push, background work and crash reporting behind adapters, UIScene and iOS privacy manifests, and flutter_test/alchemist/integration_test. Use when writing, reviewing, or configuring Dart code, pubspec.yaml, flavors, platform channels, or Flutter builds.
 globs:
   - "**/*.dart"
   - "**/pubspec.yaml"
-  - "**/pubspec.lock"
-  - "**/analysis_options.yaml"
-  - "**/flutter/**"
 alwaysApply: false
 ---
 <!-- Generated from .claude/skills by .initium/scripts/sync-skills.mjs — edit the skill, not this file. -->
 
 # Flutter / Dart Development Standards
 
-Platform look and feel: `design-material3` (Android) and `design-apple-hig` (iOS); shared tokens: `design-tokens`.
+Platform look and feel: `design-material3` (Android) and `design-apple-hig` (iOS); shared tokens:
+`design-tokens`; accessibility audits: `accessibility`. Native iOS code in `ios/`: `mobile-ios`.
 
-## Dart Language
+## Baseline
 
-### Modern Dart (3.x)
-- Sound null safety: `?` for nullable, `!` only when non-null is guaranteed by invariant
-- Records: `(String name, int age)` for lightweight structured values
-- Patterns and pattern matching in `switch` expressions
-- Sealed classes for exhaustive state modeling
-- `extension` methods for adding behavior to existing types
-- `typedef` for complex function signatures
-- `late` only when initialization is deferred by design — never to suppress null errors
+- Flutter 3.47.5 stable with Dart 3.13.4. Upgrade with `flutter upgrade`; pin the version in CI
+  (FVM or `flutter-version-file`).
+- Flutter 3.47 ships Material and Cupertino as standalone packages (`material_ui`,
+  `cupertino_ui` 1.0); the in-framework libraries are slated for deprecation in the next stable.
+  New code imports the packages; migrate existing imports with the official guide.
+- Android matrix verified for 3.47: Java 17, AGP 9.1, Kotlin Gradle Plugin 2.4.0, Gradle 9.3.1;
+  use `flutter.compileSdkVersion` / `flutter.targetSdkVersion` (API 36) and
+  `flutter.minSdkVersion` (API 24) in Gradle files.
+- iOS: minimum iOS 15. UIScene is the default since Flutter 3.41 and mandatory with Xcode 27;
+  a customized `AppDelegate` must be migrated by hand (plugin registration moves to
+  `didInitializeImplicitFlutterEngine`).
+- State and routing: `flutter_riverpod` 3.4, `riverpod_generator` / `riverpod_annotation` 4.0,
+  `go_router` 18 (feature-complete, maintenance only).
+- Impeller is the renderer on iOS and the default on Android; Widget Previews are stable in 3.47.
 
-```dart
-// Sealed state modeling
-sealed class UserState {}
-final class UserLoading extends UserState {}
-final class UserLoaded extends UserState {
-  const UserLoaded(this.user);
-  final User user;
-}
-final class UserError extends UserState {
-  const UserError(this.message);
-  final String message;
-}
+## Toolchain
+
+- `dart format` and `flutter analyze` with `very_good_analysis` or `flutter_lints`, zero warnings
+  in CI; enable `avoid_print` and `unawaited_futures`.
+- Code generation: `dart run build_runner build --delete-conflicting-outputs`; commit generated
+  files or regenerate in CI — pick one and be consistent.
+- Commit `pubspec.lock` for apps; Dependabot/Renovate (pub ecosystem) plus OSV-Scanner on the
+  lockfile; `flutter pub outdated` in CI.
+- Release builds: `flutter build appbundle|ipa --obfuscate --split-debug-info=build/symbols`
+  and upload symbols to the crash reporter.
+
+## Structure
+
+Feature folders with hexagonal layering; vendor SDKs only behind adapters.
+
+```
+lib/
+├── main.dart                 # bootstrap: error hooks, composition root, ProviderScope
+├── app/                      # App widget, router provider, theme
+├── features/orders/
+│   ├── domain/               # entities, sealed failures, repository interfaces (pure Dart)
+│   ├── data/                 # DTOs, Dio/drift adapters implementing domain interfaces
+│   └── presentation/         # screens, widgets, notifiers
+├── platform/                 # push, crash reporting, analytics, secure storage adapters
+└── l10n/                     # ARB files + generated AppLocalizations
 ```
 
-### Naming Conventions
-- Classes / Enums / Typedefs / Extensions: `UpperCamelCase`
-- Variables / functions / parameters: `lowerCamelCase`
-- Constants: `lowerCamelCase` (Dart convention — not SCREAMING_SNAKE)
-- Files and directories: `snake_case`
-- Packages and libraries: `snake_case`
-- Private members: `_lowerCamelCase`
-- Widget names match file names: `UserCard` widget in `user_card.dart`
+- Ports are `abstract interface class`; adapters are `final class`. Only `platform/` and `data/`
+  import `firebase_*`, `sentry_flutter`, `dio`, or plugin packages.
+- Domain code never imports `package:flutter`.
+- Widgets: `const` constructors, small `build` methods, extracted widgets over helper methods,
+  `Key`s on list items, `SizedBox`/`Padding` over `Container` for spacing.
 
-### Code Quality
-- `flutter analyze` with `very_good_analysis` or `flutter_lints` — zero warnings in CI
-- `dart format` on every save
-- `required` on all non-nullable named parameters
-- `const` constructors on all stateless widgets that can be const
-- `@visibleForTesting` on members exposed only for tests
-
-## Widget Architecture
-
-### Widget Types
-```dart
-// Stateless — pure, no mutable state
-class UserAvatar extends StatelessWidget {
-  const UserAvatar({super.key, required this.user});
-  final User user;
-
-  @override
-  Widget build(BuildContext context) => CircleAvatar(
-    backgroundImage: NetworkImage(user.avatarUrl),
-    radius: 24,
-  );
-}
-```
-
-- `StatelessWidget`: pure, side-effect-free UI — prefer for all leaf components
-- `StatefulWidget`: local ephemeral state only (animation, text field focus)
-- Hooks (`flutter_hooks`): alternative to `StatefulWidget` for local state
-- Avoid deep widget trees in `build()` — extract named widget methods or separate widgets
-
-### Widget Design Principles
-- `const` wherever possible — reduces rebuilds
-- Keep `build()` methods free of business logic
-- Extract reusable widgets to their own files
-- `Key` parameter on all widgets that appear in lists or conditional positions
-- `Padding` / `SizedBox` over `Container` when only spacing is needed
-
-## State Management (Riverpod — preferred)
+## State management (Riverpod 3)
 
 ```dart
-// Provider definition (outside widget)
 @riverpod
-class UserNotifier extends _$UserNotifier {
-  @override
-  FutureOr<User?> build() => null;
+UserRepository userRepository(Ref ref) => HttpUserRepository(ref.watch(dioProvider));
 
-  Future<void> loadUser(String id) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() => ref.read(userRepositoryProvider).getUser(id));
+@riverpod
+class UserProfile extends _$UserProfile {
+  @override
+  Future<User> build(String userId) => ref.watch(userRepositoryProvider).getUser(userId);
+
+  Future<void> rename(String name) async {
+    final repository = ref.read(userRepositoryProvider);
+    state = await AsyncValue.guard(() => repository.rename(userId, name));
   }
 }
 
-// Consumption in widget
+@riverpod
+class SelectedTab extends _$SelectedTab {
+  @override
+  int build() => 0;
+
+  void select(int index) => state = index;
+}
+
 class UserScreen extends ConsumerWidget {
   const UserScreen({super.key, required this.userId});
   final String userId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userAsync = ref.watch(userNotifierProvider);
-    return userAsync.when(
-      loading: () => const CircularProgressIndicator(),
-      error: (e, _) => ErrorWidget(e.toString()),
-      data: (user) => user == null ? const EmptyView() : UserContent(user: user),
-    );
+    final l10n = AppLocalizations.of(context);
+    return switch (ref.watch(userProfileProvider(userId))) {
+      AsyncData(:final value) => UserDetails(user: value),
+      AsyncError(error: UserNotFound()) => Center(child: Text(l10n.userNotFound)),
+      AsyncError() => Center(child: Text(l10n.genericError)),
+      _ => const Center(child: CircularProgressIndicator()),
+    };
   }
 }
 ```
 
-- Code-generate providers with `@riverpod` annotation + `riverpod_generator`
-- `ref.watch` for reactive reads; `ref.read` inside callbacks/actions
-- `AsyncNotifierProvider` for async operations with loading/error state
-- `StateProvider` for simple, single-value state
-- `FutureProvider` for one-shot reads without user actions
-- Family modifiers for parameterized providers: `userProvider(userId)`
+- Generate providers with `@riverpod`; the generator strips a trailing `Notifier` from class
+  names (`UserNotifier` → `userProvider`). Keep the default; don't mix naming schemes.
+- `Notifier` / `AsyncNotifier` for mutable state; functional providers for derived or read-only
+  values; family parameters are `build` arguments.
+- `StateProvider`, `StateNotifierProvider`, and `ChangeNotifierProvider` are legacy
+  (`legacy.dart` imports) — never in new code.
+- `ref.watch` in `build`; `ref.read` in callbacks; check `ref.mounted` after `await` before
+  touching `state` in long operations.
+- Riverpod 3 retries failing providers automatically; pass a `retry` function (provider or
+  `ProviderScope`) that returns `null` for non-transient failures such as `UserNotFound`.
+- Alternatives: Bloc/Cubit when the team already uses it; never GetX.
 
-### State Management Alternatives
-- **Bloc/Cubit**: when explicit event-driven state machine is needed
-- **GetX**: avoid — no separation of concerns, global state
-- **Provider**: legacy; migrate to Riverpod when possible
+## Navigation (go_router)
 
-## Navigation (GoRouter)
-
-```dart
-final router = GoRouter(
-  routes: [
-    GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
-    GoRoute(
-      path: '/users/:id',
-      builder: (context, state) => UserScreen(userId: state.pathParameters['id']!),
-    ),
-  ],
-  redirect: (context, state) {
-    final isLoggedIn = ref.read(authProvider).isLoggedIn;
-    return isLoggedIn ? null : '/login';
-  },
-);
-```
-
-- Type-safe routes with `go_router_builder` code generation
-- Nested routes via `ShellRoute` for bottom navigation persistence
-- `context.go()` for replace; `context.push()` for stack; `context.pop()` for back
-- Deep link configuration in `AndroidManifest.xml` and `Info.plist`
-
-## Project Structure
-
-```
-lib/
-├── main.dart                    # Entry point
-├── app.dart                     # MaterialApp / router setup
-├── core/                        # Shared utilities
-│   ├── network/                 # HTTP client, interceptors
-│   ├── storage/                 # Local persistence
-│   ├── theme/                   # Colors, typography, theme
-│   └── utils/                   # Date formatters, validators, etc.
-├── features/                    # Feature modules
-│   └── orders/
-│       ├── data/                # Repository implementations, DTOs
-│       ├── domain/              # Entities, repository interfaces
-│       ├── presentation/        # Screens, widgets, providers
-│       └── orders.dart          # Feature barrel export
-└── l10n/                        # Localisation ARB files
-```
-
-## Networking (Dio + Retrofit)
+Build the router inside a provider so redirects can read app state, and refresh it with a
+`Listenable` instead of rebuilding the router.
 
 ```dart
-@RestApi(baseUrl: 'https://api.example.com')
-abstract class UserApi {
-  factory UserApi(Dio dio) = _UserApi;
+@Riverpod(keepAlive: true)
+GoRouter router(Ref ref) {
+  final isSignedIn = ValueNotifier<bool>(false);
+  ref
+    ..listen(authProvider, (_, next) => isSignedIn.value = next is SignedIn, fireImmediately: true)
+    ..onDispose(isSignedIn.dispose);
 
-  @GET('/users/{id}')
-  Future<UserDto> getUser(@Path('id') String id);
+  final router = GoRouter(
+    refreshListenable: isSignedIn,
+    redirect: (context, state) {
+      final isOnLogin = state.matchedLocation == '/login';
+      if (!isSignedIn.value) return isOnLogin ? null : '/login';
+      return isOnLogin ? '/' : null;
+    },
+    routes: [
+      GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
+      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+      GoRoute(
+        path: '/users/:id',
+        builder: (_, state) => UserScreen(userId: state.pathParameters['id']!),
+      ),
+    ],
+  );
+  ref.onDispose(router.dispose);
+  return router;
 }
 ```
 
-- Dio for HTTP client with interceptors (auth, logging, retry)
-- `retrofit` + `json_serializable` for type-safe API clients
-- Repository pattern wraps API calls and maps DTOs to domain models
-- `Freezed` for immutable data classes with `copyWith`, `==`, and `hashCode`
+- `MaterialApp.router(routerConfig: ref.watch(routerProvider))` in the root `ConsumerWidget`.
+- Type-safe routes with `go_router_builder`; `StatefulShellRoute` for tab stacks.
+- Deep links: App Links (`assetlinks.json`) and Universal Links (`apple-app-site-association`);
+  validate path parameters before use.
 
-## Local Storage
-- `shared_preferences` for simple key-value (settings, flags)
-- `flutter_secure_storage` for sensitive data (tokens, credentials)
-- `drift` (SQLite ORM) for structured local data — not direct `sqflite`
-- `hive` for fast, type-safe object storage
+## Errors
+
+- Domain failures are `sealed class` hierarchies (`UserNotFound`, `NetworkUnavailable`);
+  repositories catch `DioException`/`PlatformException` and throw or return domain failures.
+- UI pattern-matches `AsyncValue` / failures; never shows `error.toString()` to users.
+- Bootstrap wires `FlutterError.onError` and `PlatformDispatcher.instance.onError` to the
+  `CrashReporter` port. Never swallow errors in `catch (_) {}`.
+
+## Security
+
+- Tokens in `flutter_secure_storage` (Keychain / Keystore) behind a `SecureStore` port;
+  `shared_preferences` only for non-sensitive settings.
+- `--dart-define` values are compiled into the binary: public config only, never secrets.
+- TLS: never override `badCertificateCallback`; if pinning is required, configure it natively
+  (`NSPinnedDomains` on iOS, network security config on Android) or via a maintained plugin.
+- Local data: `drift` for relational storage, `hive_ce` for simple boxes (original `hive` is
+  unmaintained); encrypt sensitive stores with a key held in secure storage.
+- iOS privacy manifests: the Runner target has its own `PrivacyInfo.xcprivacy`; only use plugin
+  versions that ship one (see `mobile-ios` → privacy manifests).
+
+## Observability
+
+- `package:logging` with one root handler: console in debug, crash-reporter breadcrumbs in
+  release. No `print` / `debugPrint` in shipped code.
+- Crash reporting (`firebase_crashlytics` or `sentry_flutter`), analytics, and push behind ports
+  in `platform/`; upload obfuscation symbols per build.
+- Profile in DevTools (profile mode, real device) before optimizing.
+
+## Accessibility and localization
+
+- Follow the `accessibility` skill. Touch targets ≥ 48×48 dp (Android) / 44×44 pt (iOS);
+  `tooltip` on `IconButton`; `Semantics` for custom controls; never color-only state.
+- Respect text scaling via `MediaQuery.textScalerOf`; never lock the scaler; test at 200%.
+- `flutter_localizations` + `intl`, `generate: true` in pubspec, ARB files in `lib/l10n`; import
+  generated `AppLocalizations` from source (the `flutter_gen` synthetic package is gone).
+- RTL: `EdgeInsetsDirectional`, `AlignmentDirectional`, `start`/`end`; mirror directional icons.
+
+## Platform services
+
+Push (`firebase_messaging`), background work (`workmanager` → WorkManager / BGTaskScheduler),
+crash-reporter adapters, and bootstrap wiring: read `reference/platform-services.md`.
+Flavors and per-environment config: read `reference/flavors.md` — flavors are Gradle
+`productFlavors` plus Xcode schemes, selected with `--flavor`, never a pubspec section.
+
+## Platform channels
+
+- Prefer maintained pub.dev plugins; custom channels use `pigeon` for type-safe messages.
+- Document channel names and payloads; validate everything crossing the channel.
 
 ## Testing
 
-```dart
-// Unit test
-void main() {
-  group('UserNotifier', () {
-    test('loads user successfully', () async {
-      final container = ProviderContainer(
-        overrides: [userRepositoryProvider.overrideWithValue(FakeUserRepository())],
-      );
-      await container.read(userNotifierProvider.notifier).loadUser('1');
-      expect(container.read(userNotifierProvider).value, isNotNull);
-    });
-  });
-}
+- Unit: `ProviderContainer.test(overrides: [...])` with fakes of domain interfaces;
+  `mocktail` for interaction checks.
+- Widget: `flutter_test`; include the `androidTapTargetGuideline`, `iOSTapTargetGuideline`,
+  `labeledTapTargetGuideline`, and `textContrastGuideline` matchers on key screens.
+- Goldens: `matchesGoldenFile` or `alchemist` (`golden_toolkit` is discontinued); run golden
+  comparisons on one CI OS.
+- Platform channels: mock at the binary messenger.
 
-// Widget test
-testWidgets('UserCard displays user name', (tester) async {
-  await tester.pumpWidget(
-    ProviderScope(child: MaterialApp(home: UserCard(user: User.mock))),
+```dart
+testWidgets('shows battery level', (tester) async {
+  const channel = MethodChannel('com.example/battery');
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+    channel,
+    (call) async => call.method == 'getLevel' ? 87 : null,
   );
-  expect(find.text(User.mock.name), findsOneWidget);
+  addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
+
+  await tester.pumpWidget(const MaterialApp(home: BatteryBadge()));
+  await tester.pumpAndSettle();
+  expect(find.text('87%'), findsOneWidget);
 });
 ```
 
-- `flutter_test` for widget tests — no external testing library needed
-- `mocktail` for mocking (null-safe, no code generation needed)
-- `integration_test` package for full app E2E tests on real devices / simulators
-- Golden tests with `golden_toolkit` for pixel-perfect UI regression
+- Outside `testWidgets`, use `TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger`
+  after `TestWidgetsFlutterBinding.ensureInitialized()`.
+- E2E: `integration_test` on real devices/emulators for critical journeys, per flavor.
 
-## Platform Channels & Plugins
-
-- Prefer established pub.dev plugins over custom platform channels
-- Custom platform channel: Dart `MethodChannel` ↔ Swift/Kotlin native code
-- Document the channel name, method names, and argument types in code
-- Plugin testing: `MockMethodChannel` in Dart unit tests
-
-## Flavors & Environments
-
-```yaml
-# pubspec.yaml — flavor via dart-define
-flutter:
-  flavors:
-    dev:
-      app:
-        name: "MyApp Dev"
-        applicationId: com.company.myapp.dev
-    prod:
-      app:
-        name: "MyApp"
-        applicationId: com.company.myapp
-```
-
-- Use `--dart-define-from-file=config.dev.json` for environment configuration
-- Separate `GoogleService-Info.plist` and `google-services.json` per flavor
-- Never hardcode API URLs or keys — load from dart-defines
-
-## Build & Distribution
-
-- `flutter build appbundle` for Play Store; `flutter build ipa` for App Store
-- Fastlane for automated signing and submission
-- GitHub Actions / Bitrise / Codemagic for CI/CD
-- `very_good_cli` for project generation and CI templates
-- Run `flutter pub outdated` in CI; patch minor/patch versions automatically
+_Versions verified September 2026._

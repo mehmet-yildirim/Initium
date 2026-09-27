@@ -1,149 +1,136 @@
 ---
 name: devops-docker
-description: Docker and container standards — Dockerfile best practices, compose, security, optimization. Use when writing Dockerfiles, compose files, or container runtime configuration.
+description: Container image and Compose standards — BuildKit Dockerfiles (`# syntax=docker/dockerfile:1`, cache and secret mounts), multi-stage builds on Node 24 LTS, distroless or Docker Hardened Images, `docker buildx bake`, SBOM and SLSA provenance attestations, cosign signing, deploy by digest, and Compose v5 with `develop.watch` and secrets. Use when writing or reviewing Dockerfiles, Containerfiles, compose files, bake files, .dockerignore, or container build/runtime configuration.
 globs:
   - "**/Dockerfile*"
-  - "**/docker-compose*.yml"
+  - "**/*.dockerfile"
+  - "**/Containerfile*"
+  - "**/compose*.y*ml"
+  - "**/docker-compose*.y*ml"
+  - "**/docker-bake.hcl"
   - "**/.dockerignore"
-  - "**/containerfile*"
 alwaysApply: false
 ---
 <!-- Generated from .claude/skills by .initium/scripts/sync-skills.mjs — edit the skill, not this file. -->
 
 # Docker & Container Standards
 
-## Dockerfile Best Practices
+Image build, supply chain, and local Compose. CI wiring (build-push, attest, verify) is in
+`devops-cicd`; cluster runtime (probes, resources, admission) is in `devops-kubernetes`.
 
-### Base Images
-- Use official, minimal base images: `distroless`, `alpine`, or `slim` variants
-- Pin exact image digests in production: `FROM node:22-alpine@sha256:<digest>`
-- Multi-stage builds to separate build-time and runtime dependencies
-- Never use `latest` tag in production Dockerfiles
+## Baseline (September 2026)
 
-### Multi-Stage Build Pattern
-```dockerfile
-# ---- Build Stage ----
-FROM node:22-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --frozen-lockfile
-COPY . .
-RUN npm run build
+- Docker Engine with BuildKit (default builder) and Buildx 0.37; Compose 5.5.
+- Every Dockerfile starts with `# syntax=docker/dockerfile:1` to get the current stable frontend
+  (secret/cache mounts, `--check` build checks, heredocs).
+- Node images: `node:24-slim` for build stages (Node 24 is Active LTS; move to 26 after it enters
+  LTS on 2026-10-28). Runtime: `gcr.io/distroless/nodejs24-debian13:nonroot` or a Docker Hardened
+  Image.
+- PostgreSQL for local dev: `postgres:18` (19 is still in beta). Postgres 18+ images moved
+  `PGDATA` to `/var/lib/postgresql/18/docker` and the `VOLUME` to `/var/lib/postgresql` — mount
+  the volume at `/var/lib/postgresql`. Do not reuse a pre-18 volume; dump and restore.
 
-# ---- Runtime Stage ----
-FROM node:22-alpine AS runtime
-ENV NODE_ENV=production
-WORKDIR /app
+## Toolchain
 
-# Create non-root user
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 appuser
+- Lint Dockerfiles with Hadolint and `docker build --check` (BuildKit build checks) in CI.
+- Scan images with Trivy, Grype, or Docker Scout; fail on fixable HIGH/CRITICAL. Pin the scanner
+  itself (image by digest, action by SHA) — see `devops-cicd` for the 2026 Trivy compromise.
+- Define multi-image or multi-platform builds in `docker-bake.hcl` and run `docker buildx bake`
+  locally and in CI so both use the same definition.
 
-# Copy only production artifacts
-COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
-COPY --from=builder --chown=appuser:nodejs /app/node_modules ./node_modules
+## Base images
 
-USER appuser
-EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:3000/health/live || exit 1
-ENTRYPOINT ["node", "dist/server.js"]
-```
+- Prefer, in order: distroless (`gcr.io/distroless/*-debian13:nonroot`), Docker Hardened Images
+  (DHI), then official `-slim`. Alpine only when musl is verified to work for all native deps.
+- Docker Hardened Images: the Community catalog is free and Apache 2.0 since Dec 2025, pulled from
+  `dhi.io` after `docker login dhi.io` (use an organization access token in CI). DHI Enterprise is
+  paid (SLA-backed CVE fixes, FIPS/STIG variants). Chainguard Images are an alternative.
+- Pin production bases by digest: `FROM node:24-slim@sha256:<digest>`; let Renovate or Dependabot
+  bump digests. Never `latest`.
+- Distroless has no shell, `wget`, or `curl`. Health checks must use the runtime itself
+  (`/nodejs/bin/node dist/healthcheck.js`) or be left to the orchestrator's probes.
 
-### Layer Optimization
-- Order layers from least to most frequently changing: base → system deps → app deps → source code
-- Copy dependency manifests before source code to leverage Docker cache
-- Combine `RUN` commands with `&&` to reduce layers
-- Use `.dockerignore` to exclude: `node_modules`, `.git`, `*.log`, `.env`, `dist`, test files
+## Dockerfile rules
 
-### Security
-- **Never run as root** — create and use a dedicated non-root user
-- No secrets, credentials, or API keys in image layers (use runtime secrets)
-- `--no-cache` for apk/apt when not needed beyond build: `RUN apk add --no-cache curl`
-- Scan images with Trivy or Docker Scout in CI: fail on HIGH/CRITICAL CVEs
-- Read-only filesystem where possible: `--read-only` flag + tmpfs for writable paths
-- Drop all capabilities: `--cap-drop=ALL`; add only what's needed
+- Multi-stage: separate `deps` (production deps only), `build` (all deps + compile), and `runtime`
+  (artifacts only). Never copy the build stage's `node_modules` into the runtime.
+- Install with the lockfile: `npm ci` (npm has no `--frozen-lockfile`; that is Yarn/pnpm).
+  Production deps: `npm ci --omit=dev` in the deps stage.
+- Cache package managers with `RUN --mount=type=cache,target=/root/.npm` (or the pnpm/pip/go
+  equivalent) instead of baking caches into layers.
+- Build-time secrets (private registry tokens) only via
+  `RUN --mount=type=secret,id=npm_token,env=NPM_TOKEN ...` and
+  `docker buildx build --secret id=npm_token,env=NPM_TOKEN`. Never `ARG`/`ENV` for secrets —
+  they persist in image history.
+- Order layers from least to most frequently changing; copy manifests before sources.
+- Use exec-form `ENTRYPOINT`/`CMD` so the app is PID 1 and receives `SIGTERM`; handle it and
+  drain within the orchestrator's grace period.
+- Run as non-root with a numeric UID (`nonroot` = 65532 in distroless); no `sudo`, no setuid.
+- Add OCI labels (`org.opencontainers.image.source`, `.revision`, `.version`) — the metadata action
+  in CI sets them automatically.
+- Keep `.dockerignore` strict: `.git`, `node_modules`, `.env*`, `dist`, `coverage`, test output.
 
-## Docker Compose (Development)
-```yaml
-services:
-  app:
-    build:
-      context: .
-      target: runtime          # Use specific build stage
-    environment:
-      - NODE_ENV=development
-    env_file: .env
-    ports:
-      - "3000:3000"
-    volumes:
-      - .:/app                 # Source mount for hot reload
-      - /app/node_modules      # Anonymous volume to preserve container's node_modules
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - app-net
+Read `reference/dockerfile-node.md` when writing a Node.js Dockerfile, `.dockerignore`, or a
+distroless health check.
 
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-net
+## Build, tag, and release
 
-volumes:
-  postgres_data:
+- Build with Buildx and attach attestations: `--sbom=true --provenance=mode=max` (or `attest` in
+  bake). Attestations are stored in the registry next to the image.
+- Tag immutably: `<image>:<git-sha>` for every build, plus `<image>:v1.2.3` for releases. Never
+  overwrite a tag; enable tag immutability in the registry where supported.
+- Deploy by digest (`<image>@sha256:...`), never by tag. Promote the same digest through
+  environments — never rebuild per environment.
+- Sign the pushed digest with cosign keyless (`cosign sign --yes <image>@sha256:...`; cosign v3
+  writes the Sigstore bundle as an OCI referrer). Cosign warns when given a tag — always sign the
+  digest.
+- Multi-platform (`linux/amd64,linux/arm64`) for images that run on Graviton/Ampere or Apple
+  silicon dev machines.
 
-networks:
-  app-net:
-    driver: bridge
-```
+Read `reference/bake.md` when writing `docker-bake.hcl` or configuring multi-platform builds,
+attestations, and registry caches.
 
-### Compose Rules
-- `depends_on` with `condition: service_healthy` — not just `depends_on: [service]`
-- Healthchecks on all stateful services (DB, cache, queue)
-- Named volumes for persistent data — not bind mounts
-- Named networks — avoid default network for isolation
-- `env_file: .env` instead of hardcoded environment values
+## Compose (local development)
 
-## Image Tagging Strategy
-- Development: `app:dev`, `app:branch-name`
-- CI builds: `app:<git-sha>` (immutable, traceable)
-- Production releases: `app:v1.2.3` (semantic version) + `app:latest`
-- Never overwrite an existing immutable tag (SHA-based)
+- Compose is for local dev and tests, not production orchestration.
+- Publish ports on loopback only: `"127.0.0.1:5432:5432"`. A bare `"5432:5432"` exposes the
+  database on every host interface.
+- Sensitive values via top-level `secrets:` mounted at `/run/secrets/<name>`, consumed with
+  `*_FILE` variables (`POSTGRES_PASSWORD_FILE`). `.env`/`env_file` only for non-secret config;
+  never commit `.env`.
+- Use `develop.watch` (`sync`, `sync+restart`, `rebuild`) for hot reload instead of bind-mounting
+  the whole repo over `node_modules`. Run with `docker compose up --watch`.
+- `depends_on` with `condition: service_healthy`; healthchecks on every stateful service.
+- Named volumes for data; the project network Compose creates is already isolated — add extra
+  networks only to separate tiers.
 
-## Container Runtime Standards
-- Set resource limits: `--memory`, `--cpus` (Kubernetes: `resources.requests` + `resources.limits`)
-- Liveness and readiness probes in orchestrated environments
-- Graceful shutdown: handle `SIGTERM`; drain connections before exit (30s timeout)
-- Log to stdout/stderr only — never write logs to files inside the container
+Read `reference/compose.md` for a complete dev stack (app + Postgres 18 with secrets and watch).
 
-## .dockerignore
-```
-.git
-.gitignore
-node_modules
-*.log
-.env
-.env.*
-dist
-build
-coverage
-.nyc_output
-**/*.test.*
-**/*.spec.*
-docs
-README.md
-```
+## Runtime hardening
+
+- `--read-only` root filesystem with `tmpfs` for writable paths; `--cap-drop=ALL`, add back only
+  what is proven necessary; `--security-opt=no-new-privileges`.
+- Set memory and CPU limits; in Kubernetes use requests/limits (see `devops-kubernetes`).
+- Log to stdout/stderr as structured JSON; never write logs to files in the container.
+
+## Security
+
+- No secrets in layers, build args, labels, or Compose files committed to git.
+- Rebuild on base-image updates, not only on code changes; scheduled rebuilds weekly at minimum.
+- Registry access: CI pushes with short-lived OIDC credentials; runtime nodes pull read-only.
+- Verify signatures and provenance before deploy (CI verify step and cluster admission policy).
+
+## Observability
+
+- Images carry OCI labels linking back to source and commit; SBOMs are queryable per digest
+  (`docker buildx imagetools inspect <image>@<digest> --format '{{ json .SBOM }}'`).
+- Emit OpenTelemetry from the app; the container only provides stdout logs and exit codes.
+
+## Testing
+
+- Build every Dockerfile in CI on PRs (no push) with `--check` and a vulnerability scan.
+- Smoke-test the runtime image: start it, hit the health endpoint, and assert a non-root user
+  with `docker inspect --format '{{.Config.User}}' <image>` (distroless has no `id` binary).
+- Integration tests use Testcontainers or the Compose stack with `docker compose up --wait`.
+
+_Versions verified September 2026._
