@@ -6,6 +6,16 @@ Reads AGENTS.md, the relevant source files, and dependency manifests before prod
 
 ---
 
+## Subagent dispatch
+
+If a Task / Agent tool exists, spawn `initium-security`
+(`.claude/agents/initium-security.md`) with this file and `$ARGUMENTS`. Do the
+scan in this context only when no subagent tool is available (disclose that in
+one line). The specialist reports; it does not patch. Protocol:
+[subagents.md](../../.initium/docs/agent/subagents.md).
+
+---
+
 ## Step 1: Determine Scan Scope
 
 Parse `$ARGUMENTS` to identify scope:

@@ -19,6 +19,30 @@ If resuming: skip completed phases, continue from last checkpoint.
 
 ---
 
+## Subagent dispatch
+
+`/loop` is an orchestrator. When `autonomy.subagents.enabled` is true (default)
+and this session exposes a Task / Agent / subagent tool, **do not** execute
+architect, implement, QA, review, security, or debug in this context. Spawn the
+matching specialist from `.claude/agents/` with the packet defined in
+[subagents.md](../../.initium/docs/agent/subagents.md). Apply the structured
+return, update task state, then continue or `/escalate`.
+
+| Phase | Spawn |
+|-------|--------|
+| 2 Architect | `initium-architect` |
+| 4a each task | `initium-implementer` (sequential unless `subagents.parallel` and no shared files) |
+| 4b test failure | `initium-debugger` |
+| 5 QA | `initium-qa` |
+| 5b / before PR | `initium-reviewer` then `initium-security` with scope `diff` |
+
+If no subagent tool exists, run the slash-command bodies inline and say so once.
+
+Never spawn nested specialists. Never spawn work that edits guardrail or policy
+files. Honor `.agent/STOP` between phases.
+
+---
+
 ## Phase 1: Validate Requirements Input
 
 Load `.agent/outputs/<task-id>-requirements.json`.
@@ -32,6 +56,8 @@ If confidence < threshold → `/escalate medium requirements_confidence_low <tas
 ---
 
 ## Phase 2: Architecture Design
+
+Spawn `initium-architect` (or run `/architect` inline if no subagent tool):
 
 ```
 /architect <task-title>
@@ -85,6 +111,9 @@ Layer: <layer> | Estimate: <estimate>
 ```
 
 ### 4a. Implement the task
+
+Spawn `initium-implementer` for this task only (or run `/implement` inline):
+
 ```
 /implement <task-id>: <task-title>
 
@@ -116,8 +145,8 @@ Update task state: `implement.tasksCompleted++`
 **If tests fail (retry loop):**
 ```
 Attempt N of <max_retries from agent.config.yaml>:
-/debug <failing test output and stack trace>
-[Apply the fix]
+Spawn `initium-debugger` with the failing test output (or `/debug` inline).
+[Apply the returned fix if the specialist reported `blocked`]
 [Re-run tests]
 ```
 
@@ -189,6 +218,10 @@ Update task state: phase = `docs_sync`, status = `completed`.
 
 After all implementation tasks and documentation sync are committed:
 
+Spawn `initium-qa` (or run `/qa` inline). Then spawn `initium-reviewer` and
+`initium-security` with scope `diff` before opening a PR. A `block` / `fail`
+verdict is a QA gate failure.
+
 ```
 /qa
 ```
@@ -201,7 +234,7 @@ Parse the structured QA report from `.agent/outputs/<task-id>-qa-report.json`.
 - For each blocking issue, attempt auto-fix (max 2 attempts):
   - Lint errors → run `<format command>` and commit fix
   - Type errors → fix and commit
-  - Test failures → `/debug` loop (subject to max_retries)
+  - Test failures → spawn `initium-debugger` (subject to max_retries)
   - Security issues → `/escalate critical security_vulnerability_detected <task-id>`
   - Coverage below threshold → generate missing tests with `/test <uncovered-file>`
 

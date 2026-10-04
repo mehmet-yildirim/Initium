@@ -265,6 +265,18 @@ To enable parallel development:
 3. Tasks with dependencies wait for their dependencies' PRs to merge first
 4. Dependency is inferred from the `dependsOn` field of each task in the requirements output
 
+## Subagents
+
+`/loop` is an orchestrator. When `autonomy.subagents.enabled` is true (the default if
+the key is absent) and the harness exposes a Task / Agent tool, each phase runs in a
+specialist spawned from `.claude/agents/initium-*.md`. The parent applies the structured
+return, updates `.agent/state/`, and enforces gates. `/groom` keeps triage and
+requirements in-process (issue-tracker MCP). `/review`, `/qa`, and `/security-audit`
+also spawn when a Task tool exists, including interactive sessions.
+
+If the harness has no subagent tool, the same command files run inline. Details:
+[subagents.md](subagents.md).
+
 ## Kill Switch
 
 To stop the agent immediately (emergency):

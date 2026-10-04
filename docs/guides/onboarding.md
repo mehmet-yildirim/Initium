@@ -290,7 +290,9 @@ curl -H "Authorization: Bearer $JIRA_API_TOKEN" \
 /loop YOUR-PROJECT-1
 ```
 
-Full documentation: [`.initium/docs/agent/autonomous-workflow.md`](../../.initium/docs/agent/autonomous-workflow.md)
+Full documentation: [`.initium/docs/agent/autonomous-workflow.md`](../../.initium/docs/agent/autonomous-workflow.md).
+`/loop` spawns specialist subagents per phase when the harness allows — see
+[subagents.md](../../.initium/docs/agent/subagents.md).
 
 ---
 

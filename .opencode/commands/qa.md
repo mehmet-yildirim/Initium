@@ -4,6 +4,15 @@ This command runs through all quality dimensions systematically. Use it before c
 
 ---
 
+## Subagent dispatch
+
+If a Task / Agent tool exists, spawn `initium-qa`
+(`.claude/agents/initium-qa.md`) with this file and `$ARGUMENTS`. Do the cycle in
+this context only when no subagent tool is available (disclose that in one line).
+Protocol: [subagents.md](../../.initium/docs/agent/subagents.md).
+
+---
+
 ## Phase 1: Static Analysis
 
 Run and report results for:

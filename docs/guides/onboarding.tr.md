@@ -289,7 +289,9 @@ curl -H "Authorization: Bearer $JIRA_API_TOKEN" \
 /loop PROJE-1
 ```
 
-Tam belgeler: [`.initium/docs/agent/autonomous-workflow.md`](../../.initium/docs/agent/autonomous-workflow.md)
+Tam belgeler: [`.initium/docs/agent/autonomous-workflow.md`](../../.initium/docs/agent/autonomous-workflow.md).
+`/loop` harness izin verdiğinde her fazı uzman subagent olarak çalıştırır —
+[subagents.md](../../.initium/docs/agent/subagents.md).
 
 ---
 

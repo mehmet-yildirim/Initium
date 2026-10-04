@@ -251,8 +251,9 @@ Create `.agent/STOP` to halt the agent at the next safety check.
 ```
 /groom          → polls the tracker → /triage per issue → /requirements on accepted ones
 /triage         → domain relevance scoring → ACCEPT / ESCALATE / REJECT
-/loop           → /architect → create branch → /implement (retry loop) →
-                  /security-audit → /qa → create PR → monitor CI →
+/loop           → spawn initium-architect → branch → spawn initium-implementer
+                  (retry: initium-debugger) → initium-qa → initium-reviewer →
+                  initium-security (diff) → create PR → monitor CI →
                   /deploy staging → monitor post-deploy
 /escalate       → notifies Slack / GitHub / tracker when the agent cannot proceed
 ```

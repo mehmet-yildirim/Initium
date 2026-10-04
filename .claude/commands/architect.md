@@ -1,5 +1,17 @@
 Design the implementation of this feature before writing any code.
 
+---
+
+## Subagent dispatch
+
+In **autonomous** mode (`INITIUM_AGENT_MODE=autonomous`, or invoked from `/loop` /
+`/groom`), if a Task / Agent tool exists, spawn `initium-architect`
+(`.claude/agents/initium-architect.md`) with this file and `$ARGUMENTS`. The parent
+only writes task state from the returned ADR and design JSON. Interactive
+`/architect` stays in-process so the developer can steer.
+
+---
+
 Provide a structured design document with the following sections:
 
 ## 1. Understanding

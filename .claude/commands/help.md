@@ -58,7 +58,8 @@ DEVELOPMENT
   /task done <ID>   Mark a task complete and update the index.
   /task list        List all tasks and their statuses.
   /task status      Dashboard view of feature progress.
-  /loop             Autonomous dev loop — implement the full task list hands-free.
+  /loop             Autonomous dev loop — implement the full task list hands-free
+                    (spawns specialist subagents per phase when the harness allows).
   /goal             Pursue one primary objective until Definition of Done — no stopping mid-way.
   /refactor         Behavior-preserving refactor with a test safety net.
   /upgrade          Audit or upgrade dependencies, frameworks, and runtimes safely.
