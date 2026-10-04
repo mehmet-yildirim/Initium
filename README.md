@@ -398,7 +398,7 @@ JIRA / Linear / GitHub Issues
     ▼ Issue tracker: Done ✓ · Audit log written
 ```
 
-**Safety:** persistent state (resume on crash) · kill switch (`touch .agent/STOP`) · protected paths · JSONL audit trail · [global guardrails](.initium/docs/guardrails.md) enforced before every command, file read, and commit in Claude Code, Cursor, OpenCode, and git
+**Safety:** persistent state (resume on crash) · kill switch (`touch .agent/STOP`) · protected paths · JSONL audit trail · [global guardrails](.initium/docs/guardrails.md) enforced before every command, file read, and commit in Claude Code, Cursor, OpenCode, and git · [subagents](.initium/docs/agent/subagents.md) for `/loop` phases (and for `/review`, `/qa`, `/security-audit`) when the harness can spawn them
 
 **Human response commands** (post on GitHub issue or JIRA ticket):
 `AGENT_RESUME` · `AGENT_APPROVE_DESIGN` · `AGENT_APPROVE_DEPLOY` · `AGENT_CLARIFY: <text>` · `AGENT_SKIP_TASK` · `AGENT_REASSIGN` · `AGENT_ABANDON`

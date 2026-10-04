@@ -132,6 +132,17 @@ autonomy:
   # Maximum number of tasks the agent works on concurrently
   max_concurrent_tasks: 1
 
+  # Specialist subagents (.initium/docs/agent/subagents.md). When the harness
+  # exposes a Task/Agent tool, /loop spawns one specialist per phase instead of
+  # doing design, code, QA, and review in a single context.
+  subagents:
+    enabled: true
+    # workspace = same checkout (default). worktree = isolated git worktree per
+    # implementer; only useful with parallel: true.
+    isolation: workspace
+    # Sequential implementers unless true AND tasks share no files.
+    parallel: false
+
 # =============================================================================
 # ESCALATION — How the agent asks for help
 # =============================================================================

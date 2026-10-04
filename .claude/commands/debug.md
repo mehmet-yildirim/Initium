@@ -1,5 +1,16 @@
 Systematically diagnose and fix the described bug or error.
 
+---
+
+## Subagent dispatch
+
+In **autonomous** mode (`INITIUM_AGENT_MODE=autonomous`, or invoked from `/loop`),
+if a Task / Agent tool exists, spawn `initium-debugger`
+(`.claude/agents/initium-debugger.md`) with this file and `$ARGUMENTS`. Interactive
+`/debug` stays in-process so the developer can steer.
+
+---
+
 ## Step 0: Branch Check
 
 Verify you are on a feature branch (`fix/` prefix for bugs). If on `main` or `develop`, stop and create one first (see AGENTS.md → Git Workflow).

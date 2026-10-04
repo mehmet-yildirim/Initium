@@ -4,6 +4,17 @@ Follow this workflow strictly. Do not skip phases.
 
 ---
 
+## Subagent dispatch
+
+In **autonomous** mode (`INITIUM_AGENT_MODE=autonomous`, or invoked from `/loop` /
+`/groom`), if a Task / Agent tool exists, spawn `initium-implementer`
+(`.claude/agents/initium-implementer.md`) with this file, `$ARGUMENTS`, and the
+packet in [subagents.md](../../.initium/docs/agent/subagents.md). Do not implement
+in the parent context. Interactive sessions stay in-process unless the developer
+asks to delegate.
+
+---
+
 ## Step 0: Branch Check
 
 Verify you are on a feature branch (`feat/`, `fix/`, or `chore/` prefix). If on `main` or `develop`, stop and create one first (see AGENTS.md → Git Workflow).

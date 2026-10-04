@@ -253,7 +253,7 @@ Ajanı bir sonraki güvenlik kontrolünde durdurmak için `.agent/STOP` dosyası
 |-------|---------|
 | `/groom` | Tracker'ı tarar → her issue için `/triage` → kabul edilenlere `/requirements` çalıştırır |
 | `/triage` | Domain uygunluğunu puanlar → KABUL / ESKALASYON / RED |
-| `/loop` | `/architect` → branch oluştur → `/implement` (yeniden deneme döngüsü) → `/security-audit` → `/qa` → PR oluştur → CI izle → staging deployment → deployment sonrası izleme |
+| `/loop` | `initium-architect` → branch oluştur → `initium-implementer` (hata: `initium-debugger`) → `initium-qa` → `initium-reviewer` → `initium-security` (diff) → PR oluştur → CI izle → staging deployment → deployment sonrası izleme |
 | `/escalate` | Ajan ilerleyemediğinde Slack / GitHub / tracker'a bildirim gönderir |
 
 ### Ajan ne zaman durur ve sizden yanıt bekler?

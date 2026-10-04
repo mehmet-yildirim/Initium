@@ -13,6 +13,11 @@ Read `agent.config.yaml` to understand:
 
 Check for the kill switch file: `.agent/STOP`. If it exists, halt immediately and report.
 
+Triage and requirements stay in this parent context (issue-tracker MCP). When an
+issue is accepted and `/loop` starts, that loop **spawns specialists** per
+[subagents.md](../../.initium/docs/agent/subagents.md) — do not do architecture
+or implementation here.
+
 ---
 
 ## Step 2: Fetch Candidate Issues

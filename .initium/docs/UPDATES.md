@@ -20,6 +20,48 @@ See [sync-guide.md](sync-guide.md) for the full guide, and
 
 ---
 
+## v1.6.0 — Specialist subagents for autonomous `/loop` and isolated review
+
+**Date:** 2026-10-04
+**Commit:** (set by release)
+**Severity:** MINOR (new default behaviour when a Task/Agent tool exists; two optional merges)
+
+### Why
+- `/loop` ran architecture, implementation, QA, and review in one context, so the
+  same session approved its own diff. Unattended Docker/CLI runs need an
+  orchestrator plus specialists.
+
+### New Files (skeleton-owned — auto-applied)
+- `.claude/agents/initium-architect.md`, `initium-implementer.md`,
+  `initium-reviewer.md`, `initium-qa.md`, `initium-security.md`,
+  `initium-debugger.md`
+- `.initium/docs/agent/subagents.md` — when to spawn, packet format, harness notes
+
+### Updated Files (skeleton-owned — auto-applied)
+- `.claude/commands/loop.md`, `groom.md`, `implement.md`, `architect.md`,
+  `debug.md`, `review.md`, `qa.md`, `security-audit.md`, `help.md` (and
+  `.opencode/commands/` mirrors)
+- `.initium/docs/agent/autonomous-workflow.md`, `docker-agent.md`
+- `.initium/scripts/validate.sh`, `validate.ps1`
+- `docs/guides/onboarding.tr.md`
+
+### Merge Required
+- `docs/guides/onboarding.md`, `docs/guides/ai-workflow.md` — subagent sentences
+  in the autonomous-agent sections
+- `agent.config.yaml` is **project-owned**. Commands treat a missing
+  `autonomy.subagents` key as `enabled: true`. To disable or allow parallel
+  implementers, add the block from Initium's `agent.config.yaml` (`enabled`,
+  `isolation`, `parallel`).
+
+### Migration Steps
+1. Sync. Merge the two guide files if you customized them.
+2. Optionally copy `autonomy.subagents` into your `agent.config.yaml`.
+3. Interactive `/implement` and `/architect` stay in-session; `/review`, `/qa`,
+   and `/security-audit` spawn when the harness has a Task tool. `/loop` always
+   orchestrates via specialists when that tool exists.
+
+---
+
 ## v1.5.1 — Global guardrails for every agent tool and git
 
 **Date:** 2026-09-27

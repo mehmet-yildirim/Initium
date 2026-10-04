@@ -1,5 +1,17 @@
 Perform a thorough code review of the changes in the current branch (or the specified files/diff if provided).
 
+---
+
+## Subagent dispatch
+
+If a Task / Agent tool exists, spawn `initium-reviewer`
+(`.claude/agents/initium-reviewer.md`) with this file and `$ARGUMENTS`. Do the
+review in this context only when no subagent tool is available (disclose that in
+one line). The reviewer must not edit production code. Protocol:
+[subagents.md](../../.initium/docs/agent/subagents.md).
+
+---
+
 Review against the project's standards defined in AGENTS.md and the `.cursor/rules/` files.
 
 ## Review Checklist
