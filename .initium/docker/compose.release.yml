@@ -1,0 +1,58 @@
+# Initium autonomous agent — run from the published image (no Initium checkout).
+#
+#   curl -fsSL -o compose.yaml \
+#     https://github.com/mehmet-yildirim/Initium/releases/latest/download/compose.yaml
+#   curl -fsSL -o .env \
+#     https://github.com/mehmet-yildirim/Initium/releases/latest/download/agent.env.example
+#   $EDITOR .env    # GIT_REPO_URL + one AI provider + GITHUB_TOKEN
+#   docker compose up -d
+#
+# Webhook receiver as well:
+#   docker compose --profile webhook up -d
+#
+# Pin a version: INITIUM_IMAGE=ghcr.io/mehmet-yildirim/initium-agent:1.7.0
+#
+# To build from source instead, use docker-compose.yml in a clone of Initium.
+
+name: initium-agent
+
+services:
+  agent:
+    image: ${INITIUM_IMAGE:-ghcr.io/mehmet-yildirim/initium-agent:latest}
+    container_name: initium-agent
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      INITIUM_AGENT_MODE: autonomous
+    volumes:
+      - workspace:/workspace
+      - agent-state:/initium/.agent
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  webhook:
+    profiles: [webhook]
+    image: ${INITIUM_IMAGE:-ghcr.io/mehmet-yildirim/initium-agent:latest}
+    container_name: initium-webhook
+    restart: unless-stopped
+    entrypoint: ["/webhook-entrypoint.sh"]
+    env_file: .env
+    environment:
+      INITIUM_AGENT_MODE: autonomous
+    ports:
+      - "${WEBHOOK_PORT:-3001}:${WEBHOOK_PORT:-3001}"
+    volumes:
+      - workspace:/workspace
+      - agent-state:/initium/.agent
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+volumes:
+  workspace:
+  agent-state:

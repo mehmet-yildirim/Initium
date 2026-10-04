@@ -20,6 +20,45 @@ See [sync-guide.md](sync-guide.md) for the full guide, and
 
 ---
 
+## v1.7.0 — Publish the agent image to GHCR on version tags
+
+**Date:** 2026-10-04
+**Commit:** (set by release)
+**Severity:** MINOR (new workflow; Compose default image; one optional merge)
+
+### Why
+- Teams that want Initium as an autonomous agent had to clone this repo and build the
+  image. They should fill config, pull, and start.
+
+### New Files (skeleton-owned — auto-applied)
+- `.github/workflows/release-image.yml` — on `vX.Y.Z`, push
+  `ghcr.io/mehmet-yildirim/initium-agent` (SBOM, provenance, cosign) and attach
+  `compose.yaml` + `agent.env.example` to the GitHub Release
+- `.initium/docker/compose.release.yml` — image-only Compose (no build context)
+
+### Updated Files (skeleton-owned — auto-applied)
+- `.initium/docker/Dockerfile` — `# syntax=docker/dockerfile:1`
+- `.initium/docker/docker-compose.yml`, `.env.example`
+- `.initium/docs/agent/docker-agent.md`, `CONTRIBUTING.md`
+
+### Merge Required
+- `.dockerignore` — new; keep yours and append Initium entries if you already have one
+
+### Migration Steps
+1. After this tag is published, operators run:
+
+   ```bash
+   curl -fsSL -o compose.yaml https://github.com/mehmet-yildirim/Initium/releases/latest/download/compose.yaml
+   curl -fsSL -o .env https://github.com/mehmet-yildirim/Initium/releases/latest/download/agent.env.example
+   # edit .env — GIT_REPO_URL, AI key, GITHUB_TOKEN
+   docker compose up -d
+   ```
+
+2. Pin production with `INITIUM_IMAGE=ghcr.io/mehmet-yildirim/initium-agent:<version>`.
+3. First GHCR package is private: Packages → `initium-agent` → Public.
+
+---
+
 ## v1.6.0 — Specialist subagents for autonomous `/loop` and isolated review
 
 **Date:** 2026-10-04

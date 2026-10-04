@@ -10,14 +10,8 @@
 # independently. Running both together is safe and recommended — webhook handles
 # real-time events while agent acts as a catch-up sweep.
 #
-# Quick start (polling only):
-#   cp .initium/docker/.env.example .initium/docker/.env   # fill in your keys
-#   docker compose -f .initium/docker/docker-compose.yml up -d agent
-#
-# With webhook receiver (event-driven + cron catch-up):
-#   # also set JIRA_WEBHOOK_SECRET in .initium/docker/.env, then:
-#   docker compose -f .initium/docker/docker-compose.yml up -d
-#   # point your Jira Server webhook at http://<host>:3001/jira-webhook
+# Quick start for operators (no Initium clone): use compose.release.yml from the GitHub Release.
+# This file is for Initium developers who build the image locally (`up --build`).
 # =============================================================================
 
 services:
@@ -25,7 +19,7 @@ services:
     build:
       context: ../..
       dockerfile: .initium/docker/Dockerfile
-    image: initium-agent:latest
+    image: ${INITIUM_IMAGE:-ghcr.io/mehmet-yildirim/initium-agent:latest}
     container_name: initium-agent
     restart: unless-stopped
 
@@ -125,7 +119,7 @@ services:
     build:
       context: ../..
       dockerfile: .initium/docker/Dockerfile
-    image: initium-agent:latest
+    image: ${INITIUM_IMAGE:-ghcr.io/mehmet-yildirim/initium-agent:latest}
     container_name: initium-webhook
     restart: unless-stopped
     entrypoint: ["/webhook-entrypoint.sh"]

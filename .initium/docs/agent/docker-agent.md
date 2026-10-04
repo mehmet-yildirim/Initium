@@ -1,15 +1,68 @@
 # Containerized Agent — Setup Guide
 
-Run the Initium autonomous agent as a long-lived Docker container. The image bakes in the full Initium runtime (slash commands, hooks, rules); your project source code is never bundled — it is cloned from `GIT_REPO_URL` at container startup.
+Run Initium as an autonomous agent against **your** repository. You do not clone Initium.
+The published image already contains slash commands, hooks, guardrails, and the default
+`agent.config.yaml`. At startup it clones `GIT_REPO_URL` into `/workspace`, overlays
+Initium files only where they are missing, and starts `/groom` on a cron.
 
-Two trigger modes are available — use one or both:
+Two trigger modes — use one or both:
 
 | Mode | Service | How it works |
 |------|---------|--------------|
-| **Polling** | `agent` | Always runs cron on `GROOM_CRON` schedule |
-| **Event-driven** | `webhook` | Starts webhook receiver if `JIRA_WEBHOOK_SECRET` is set; **falls back to cron polling automatically** if not |
+| **Polling** | `agent` | Cron on `GROOM_CRON` (default every 15 minutes) |
+| **Event-driven** | `webhook` | Jira push if `JIRA_WEBHOOK_SECRET` is set; otherwise falls back to cron |
 
-Both services are self-contained — each clones the repository and overlays Initium tooling independently. Running them together is safe: the webhook service handles real-time events while the agent service acts as a catch-up sweep for anything missed.
+---
+
+## Fast start (no Initium checkout)
+
+Need Docker Engine 24+ and Compose v2. Fill three values: the target git URL, one AI
+provider key, and a GitHub token that can push and open PRs.
+
+```bash
+mkdir initium-agent && cd initium-agent
+
+curl -fsSL -o compose.yaml \
+  https://github.com/mehmet-yildirim/Initium/releases/latest/download/compose.yaml
+curl -fsSL -o .env \
+  https://github.com/mehmet-yildirim/Initium/releases/latest/download/agent.env.example
+
+$EDITOR .env   # GIT_REPO_URL, ANTHROPIC_API_KEY (or Bedrock/Vertex), GITHUB_TOKEN
+
+docker compose up -d
+docker logs -f initium-agent
+```
+
+Same thing with `docker run` (polling only):
+
+```bash
+docker run -d --name initium-agent --restart unless-stopped \
+  --env-file .env \
+  -e INITIUM_AGENT_MODE=autonomous \
+  -v initium-workspace:/workspace \
+  -v initium-state:/initium/.agent \
+  ghcr.io/mehmet-yildirim/initium-agent:latest
+```
+
+Webhook receiver as well:
+
+```bash
+docker compose --profile webhook up -d
+# Point Jira at http://<host>:3001/jira-webhook (see jira-server-setup.md § 9.3 for the secret header)
+```
+
+Pin a version with `INITIUM_IMAGE=ghcr.io/mehmet-yildirim/initium-agent:1.7.0` in `.env`
+(or pass that image to `docker run`). `latest` moves with each Initium release.
+
+If the GHCR package is still private (first publish): `docker login ghcr.io` with a PAT that
+has `read:packages`, then Packages → `initium-agent` → visibility **Public**.
+
+Verify provenance:
+
+```bash
+gh attestation verify oci://ghcr.io/mehmet-yildirim/initium-agent@sha256:<digest> \
+  --repo mehmet-yildirim/Initium
+```
 
 ---
 
@@ -42,33 +95,21 @@ Container startup
 
 ---
 
-## Quick Start
+## From an Initium clone (developers)
 
-### Polling only (cron-based)
+Use this only when changing the image itself. Operators should use Fast start above.
 
 ```bash
 cp .initium/docker/.env.example .initium/docker/.env
-$EDITOR .initium/docker/.env   # fill in GIT_REPO_URL, AI provider, JIRA creds
-
+$EDITOR .initium/docker/.env
 docker compose -f .initium/docker/docker-compose.yml up -d --build agent
-docker logs -f initium-agent
 ```
 
-### Polling + webhook receiver
+`docker-compose.yml` still has a `build:` context. The operator file is
+`.initium/docker/compose.release.yml` (attached to each GitHub Release as `compose.yaml`).
 
-```bash
-cp .initium/docker/.env.example .initium/docker/.env
-$EDITOR .initium/docker/.env   # also set JIRA_WEBHOOK_SECRET
-
-docker compose -f .initium/docker/docker-compose.yml up -d --build
-docker logs -f initium-agent    # cron runner
-docker logs -f initium-webhook  # webhook receiver
-
-# Point your Jira Server / Data Center webhook at:
-#   http://<host>:3001/jira-webhook
-# Every request must carry X-Jira-Secret: <JIRA_WEBHOOK_SECRET>. Jira's webhook UI cannot add
-# custom headers — inject it with a reverse proxy (see jira-server-setup.md § 9.3).
-```
+Rebuild a published tag without moving `latest`: Actions → **Release agent image** → tag.
+Derived projects: the publish workflow is a no-op unless `INITIUM_PUBLISH_IMAGE=true`.
 
 ---
 
@@ -78,7 +119,8 @@ docker logs -f initium-webhook  # webhook receiver
 
 | Variable | Description |
 |----------|-------------|
-| `GIT_REPO_URL` | Full HTTPS clone URL of the repo to work on. For private repos embed the token: `https://x-token:<GITHUB_TOKEN>@github.com/org/repo.git` |
+| `GIT_REPO_URL` | HTTPS clone URL of **your** product repo (not Initium). Private repos: set `GITHUB_TOKEN` instead of embedding a password in the URL |
+| `GITHUB_TOKEN` | Clone, push, and `gh pr create`. Classic PAT: `repo` |
 | One AI provider group (see below) | Credentials for the AI backend |
 
 ### AI CLI
