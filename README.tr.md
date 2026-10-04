@@ -327,26 +327,26 @@ JIRA / Linear / GitHub İssue'ları
 
 ## Konteynerleştirilmiş Ajan (Docker)
 
-Otonom ajanı uzun ömürlü bir Docker konteyneri olarak çalıştırın — geliştirici makinesi gerekmez. İmaj, Initium çalışma ortamını (slash komutları, hook'lar, kurallar) içerir; proje kaynak kodu hiçbir zaman imaja dahil edilmez ve konteyner başlangıcında `GIT_REPO_URL` adresinden klonlanır.
-
-İki tetikleme modu — biri veya ikisi birden kullanılabilir:
-
-| Mod | Servis | Nasıl çalışır |
-|-----|--------|---------------|
-| **Yoklama** | `agent` | Cron, `GROOM_CRON` zamanlamasına göre `/groom` çalıştırır |
-| **Olay tabanlı** | `webhook` | `JIRA_WEBHOOK_SECRET` tanımlıysa Jira webhook alıcısı başlar; tanımlı değilse **otomatik olarak cron'a geçer** |
+Initium'u **sizin** reponuza karşı otonom ajan olarak çalıştırın. Bu depoyu klonlamanız gerekmez.
+İki dosyayı indirin, `.env` doldurun, Compose'u başlatın.
 
 ```bash
-# Yalnızca yoklama (cron tabanlı /groom)
-cp .initium/docker/.env.example .initium/docker/.env   # anahtarları doldur
-docker compose -f .initium/docker/docker-compose.yml up -d agent
+mkdir initium-agent && cd initium-agent
+curl -fsSL -o compose.yaml \
+  https://github.com/mehmet-yildirim/Initium/releases/latest/download/compose.yaml
+curl -fsSL -o .env \
+  https://github.com/mehmet-yildirim/Initium/releases/latest/download/agent.env.example
+$EDITOR .env   # GIT_REPO_URL, ANTHROPIC_API_KEY (veya Bedrock/Vertex), GITHUB_TOKEN
+docker compose up -d
 docker logs -f initium-agent
-
-# + Webhook alıcısı (anlık triage + cron tarama)
-# docker/.env dosyasına JIRA_WEBHOOK_SECRET ekle, ardından:
-docker compose -f .initium/docker/docker-compose.yml up -d
-# Jira Server'ı şu adrese yönlendir: http://<host>:3001/jira-webhook
 ```
+
+Zorunlu: `GIT_REPO_URL` (ürün reposu), bir AI sağlayıcı, `GITHUB_TOKEN` (push + PR).
+İsteğe bağlı: Jira/Linear, Slack, `GROOM_CRON`, webhook (`docker compose --profile webhook up -d`).
+
+Sürümü `.env` içinde `INITIUM_IMAGE=ghcr.io/mehmet-yildirim/initium-agent:<sürüm>` ile sabitleyin.
+İmaj reponuzu `/workspace` altına klonlar; eksik Initium dosyalarını overlay eder. Rehber:
+[.initium/docs/agent/docker-agent.md](.initium/docs/agent/docker-agent.md).
 
 **Araç katmanı** — konteyner, `GIT_REPO_URL` adresindeki repoyu `/workspace` dizinine klonlar. Repoda `.claude/`, `.cursor/`, `.continue/` veya `agent.config.yaml` yoksa imajdan otomatik olarak kopyalanır. `/init` ile başlatılmış projelerde repodaki özelleştirilmiş kopyalar önceliklidir.
 

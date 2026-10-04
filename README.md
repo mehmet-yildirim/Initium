@@ -407,21 +407,26 @@ JIRA / Linear / GitHub Issues
 
 ## Containerized Agent (Docker)
 
-Run the autonomous agent as a long-lived container — no developer machine required. The image contains the full Initium runtime; your project source is never bundled into the image and is cloned at startup.
-
-Two trigger modes — use one or both:
+Run Initium as an autonomous agent against **your** repo. You do not clone this repository.
+Download two files, fill `.env`, start Compose.
 
 ```bash
-# Polling only (cron-based /groom)
-cp .initium/docker/.env.example .initium/docker/.env   # fill in keys
-docker compose -f .initium/docker/docker-compose.yml up -d agent
+mkdir initium-agent && cd initium-agent
+curl -fsSL -o compose.yaml \
+  https://github.com/mehmet-yildirim/Initium/releases/latest/download/compose.yaml
+curl -fsSL -o .env \
+  https://github.com/mehmet-yildirim/Initium/releases/latest/download/agent.env.example
+$EDITOR .env   # GIT_REPO_URL, ANTHROPIC_API_KEY (or Bedrock/Vertex), GITHUB_TOKEN
+docker compose up -d
 docker logs -f initium-agent
-
-# + Webhook receiver (Jira Server event-driven, instant triage)
-# also set JIRA_WEBHOOK_SECRET in .initium/docker/.env, then:
-docker compose -f .initium/docker/docker-compose.yml up -d
-# point Jira Server → http://<host>:3001/jira-webhook
 ```
+
+Required: `GIT_REPO_URL` (the product repo), one AI provider, `GITHUB_TOKEN` (push + PRs).
+Optional: Jira/Linear, Slack, `GROOM_CRON`, webhook profile (`docker compose --profile webhook up -d`).
+
+Pin a version with `INITIUM_IMAGE=ghcr.io/mehmet-yildirim/initium-agent:<version>` in `.env`.
+The image clones your repo into `/workspace` and overlays Initium commands/hooks only where
+they are missing. Full guide: [.initium/docs/agent/docker-agent.md](.initium/docs/agent/docker-agent.md).
 
 **Tooling overlay** — on first startup the container clones your repo into `/workspace/`. If the repo was not already initialized with Initium, the following directories are automatically overlaid from the baked image before the first cron run:
 

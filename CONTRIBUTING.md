@@ -94,3 +94,11 @@ Run the validation script for your platform:
 ```
 
 Expected output: `PASS` for all checks. Fix any `FAIL` before opening a PR.
+
+## Releasing Initium
+
+1. Merge to `main`.
+2. Annotated tag `vX.Y.Z` and push it. `.github/workflows/release-image.yml` builds
+   `ghcr.io/mehmet-yildirim/initium-agent`, attests and signs the digest, opens (or
+   updates) the GitHub Release, and attaches `compose.yaml` plus `agent.env.example`.
+3. After the first run, set the GHCR package visibility to Public.

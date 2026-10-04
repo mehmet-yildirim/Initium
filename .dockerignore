@@ -1,0 +1,12 @@
+# Build context is the repository root (.initium/docker/Dockerfile).
+.git
+.github
+.agent
+.impeccable
+**/.env
+**/.env.*
+!**/.env.example
+!.initium/docker/.env.example
+**/node_modules
+**/coverage
+**/.DS_Store

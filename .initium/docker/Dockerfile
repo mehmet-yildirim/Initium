@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # =============================================================================
 # Initium Agent Runtime
 # =============================================================================
@@ -5,6 +6,8 @@
 # target git repository autonomously. The Initium tooling (.claude/commands,
 # hooks, agent.config.yaml) is baked into the image; your project source is
 # never bundled — it is cloned at container startup from GIT_REPO_URL.
+#
+# Published (on git tag v*.*.*): ghcr.io/mehmet-yildirim/initium-agent
 #
 # Supported AI CLIs (select via AGENT_CLI env var, default: claude):
 #   claude   — Claude Code CLI  (uses .claude/commands/ slash commands)
