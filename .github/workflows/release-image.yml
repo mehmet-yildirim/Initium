@@ -163,7 +163,17 @@ jobs:
           else
             gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$notes_file" --generate-notes
           fi
+          # Copy to operator filenames. `#label` on `gh release upload` is only a
+          # display label; GitHub also rewrites leading-dot names (e.g. .env.example
+          # → default.env.example).
+          asset_dir="$RUNNER_TEMP/release-assets"
+          mkdir -p "$asset_dir"
+          cp .initium/docker/compose.release.yml "$asset_dir/compose.yaml"
+          cp .initium/docker/.env.example "$asset_dir/agent.env.example"
+          for stale in compose.release.yml default.env.example; do
+            gh release delete-asset "$TAG" "$stale" --yes 2>/dev/null || true
+          done
           gh release upload "$TAG" \
-            ".initium/docker/compose.release.yml#compose.yaml" \
-            ".initium/docker/.env.example#agent.env.example" \
+            "$asset_dir/compose.yaml" \
+            "$asset_dir/agent.env.example" \
             --clobber
