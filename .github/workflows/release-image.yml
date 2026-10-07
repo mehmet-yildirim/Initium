@@ -128,36 +128,40 @@ jobs:
           TAG: ${{ steps.names.outputs.tag }}
           VERSION: ${{ steps.names.outputs.version }}
           DIGEST: ${{ steps.build.outputs.digest }}
+          REPO: ${{ github.repository }}
         run: |
-          notes="## Run the agent (no Initium checkout)
+          notes_file="$RUNNER_TEMP/release-notes.md"
+          {
+            echo "## Run the agent (no Initium checkout)"
+            echo ""
+            echo "1. Download \`compose.yaml\` and \`agent.env.example\` from this release (or the curl lines below)."
+            echo "2. Save the env file as \`.env\`, set \`GIT_REPO_URL\`, one AI provider key, and \`GITHUB_TOKEN\`."
+            echo "3. \`docker compose up -d\`"
+            echo ""
+            echo '```bash'
+            echo "curl -fsSL -o compose.yaml https://github.com/mehmet-yildirim/Initium/releases/download/${TAG}/compose.yaml"
+            echo "curl -fsSL -o .env https://github.com/mehmet-yildirim/Initium/releases/download/${TAG}/agent.env.example"
+            echo "# edit .env"
+            echo "docker compose up -d"
+            echo '```'
+            echo ""
+            echo '```bash'
+            echo "docker pull ${IMAGE}:${VERSION}"
+            echo "docker pull ${IMAGE}@${DIGEST}"
+            echo '```'
+            echo ""
+            echo "linux/amd64. Verify: \`gh attestation verify oci://${IMAGE}@${DIGEST} --repo ${REPO}\`"
+            echo ""
+            echo "Guide: \`.initium/docs/agent/docker-agent.md\`"
+          } > "$notes_file"
 
-1. Download \`compose.yaml\` and \`agent.env.example\` from this release (or the curl lines below).
-2. Save the env file as \`.env\`, set \`GIT_REPO_URL\`, one AI provider key, and \`GITHUB_TOKEN\`.
-3. \`docker compose up -d\`
-
-\`\`\`bash
-curl -fsSL -o compose.yaml https://github.com/mehmet-yildirim/Initium/releases/download/${TAG}/compose.yaml
-curl -fsSL -o .env https://github.com/mehmet-yildirim/Initium/releases/download/${TAG}/agent.env.example
-# edit .env
-docker compose up -d
-\`\`\`
-
-\`\`\`bash
-docker pull ${IMAGE}:${VERSION}
-docker pull ${IMAGE}@${DIGEST}
-\`\`\`
-
-linux/amd64. Verify: \`gh attestation verify oci://${IMAGE}@${DIGEST} --repo ${GITHUB_REPOSITORY}\`
-
-Guide: \`.initium/docs/agent/docker-agent.md\`
-"
           if gh release view "$TAG" >/dev/null 2>&1; then
             existing="$(gh release view "$TAG" --json body --jq .body)"
-            body="$(mktemp)"
-            printf '%s\n\n%s\n' "$notes" "$existing" > "$body"
+            body="$RUNNER_TEMP/release-body.md"
+            { cat "$notes_file"; echo; echo "$existing"; } > "$body"
             gh release edit "$TAG" --notes-file "$body"
           else
-            gh release create "$TAG" --verify-tag --title "$TAG" --notes "$notes" --generate-notes
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$notes_file" --generate-notes
           fi
           gh release upload "$TAG" \
             ".initium/docker/compose.release.yml#compose.yaml" \
