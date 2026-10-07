@@ -20,6 +20,36 @@ See [sync-guide.md](sync-guide.md) for the full guide, and
 
 ---
 
+## v1.7.1 — Harden sync.sh for macOS sh / fragile git peel syntax
+
+**Date:** 2026-10-07
+**Commit:** (set by release)
+**Severity:** PATCH (sync reliability)
+
+### Why
+- Upgrading a derived project could fail with
+  `sync.sh: line 240: syntax error near unexpected token ')'` when the script was
+  invoked via `sh` (POSIX bash on macOS) or when `^{commit}` / parenthesized
+  messages confused the shell parser.
+
+### Updated Files (skeleton-owned — auto-applied)
+- `.initium/scripts/sync.sh` — require bash; `set +o posix` / `set +H`; peel commits
+  via a dedicated helper; replace process substitutions with here-strings; safer
+  ownership matching and target log line
+
+### Migration
+If sync is already broken in your project, restore the script then re-run:
+
+```bash
+git fetch skeleton "+refs/tags/v1.7.1:refs/initium/v1.7.1"   # or main
+git checkout "refs/initium/v1.7.1" -- .initium/scripts/sync.sh
+bash .initium/scripts/sync.sh --ref v1.7.1
+```
+
+Always invoke with `bash .initium/scripts/sync.sh` (not `sh`).
+
+---
+
 ## v1.7.0 — Publish the agent image to GHCR on version tags
 
 **Date:** 2026-10-04

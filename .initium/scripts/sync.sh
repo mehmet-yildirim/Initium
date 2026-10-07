@@ -36,7 +36,16 @@
 # Exit codes: 0 success / up to date, 1 error, 10 update available (--check only)
 # =============================================================================
 
+# Must be bash (not dash). macOS `sh` is bash in POSIX mode — turn that off.
+if [ -z "${BASH_VERSION:-}" ]; then
+  echo "sync.sh requires bash — run: bash .initium/scripts/sync.sh ..." >&2
+  exit 1
+fi
+set +o posix 2>/dev/null || true
+
 set -euo pipefail
+# Disable history expansion so tokens like ^{commit} are never touched if bash -H is on.
+set +H 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -74,6 +83,23 @@ _json_array() {
       if (length) print
     }
   '
+}
+
+# Peel an annotated tag (or pass through a commit) without embedding ^{} in a larger word.
+_peel_commit() {
+  local rev="$1"
+  local peeled="${rev}^{commit}"
+  git rev-parse "$peeled"
+}
+
+# Read lines from a command into a named array (here-string — not a pipe, so no subshell).
+_read_lines_into() {
+  local __dest="$1"
+  local __line
+  while IFS= read -r __line || [ -n "$__line" ]; do
+    [ -n "$__line" ] || continue
+    eval "${__dest}+=(\"\$__line\")"
+  done
 }
 
 # Read a scalar value from a top-level JSON string field in initium.json.
@@ -227,7 +253,7 @@ else
   TARGET_REF="main"; fetch_branch main
 fi
 
-TARGET=$(git rev-parse "refs/initium/$TARGET_REF^{commit}")
+TARGET=$(_peel_commit "refs/initium/$TARGET_REF")
 TARGET_SHORT=$(git rev-parse --short "$TARGET")
 if [ -z "$TARGET_VERSION" ]; then
   TARGET_VERSION=$(git show "$TARGET:.initium/docs/UPDATES.md" 2>/dev/null \
@@ -235,7 +261,7 @@ if [ -z "$TARGET_VERSION" ]; then
   TARGET_VERSION="${TARGET_VERSION:-unknown}"
 fi
 
-success "Target: $TARGET_REF ($TARGET_SHORT, version $TARGET_VERSION)"
+success "Target: ${TARGET_REF} — ${TARGET_SHORT}, version ${TARGET_VERSION}"
 
 UPDATE_AVAILABLE=true
 [ "$CURRENT_COMMIT" = "$TARGET" ] && UPDATE_AVAILABLE=false
@@ -287,17 +313,17 @@ ask "Continue with sync? [Y/n] " y || { info "Sync cancelled."; exit 0; }
 REMOTE_SKELETON_JSON=$(git show "$TARGET:.initium/initium.json")
 
 SKELETON_OWNED=()
-while IFS= read -r line; do SKELETON_OWNED+=("$line"); done < <(printf '%s\n' "$REMOTE_SKELETON_JSON" | _json_array "skeleton_owned")
+_read_lines_into SKELETON_OWNED <<< "$(printf '%s\n' "$REMOTE_SKELETON_JSON" | _json_array "skeleton_owned")"
 PROJECT_OWNED=()
-while IFS= read -r line; do PROJECT_OWNED+=("$line"); done < <(printf '%s\n' "$REMOTE_SKELETON_JSON" | _json_array "project_owned")
+_read_lines_into PROJECT_OWNED <<< "$(printf '%s\n' "$REMOTE_SKELETON_JSON" | _json_array "project_owned")"
 MERGE_REQUIRED=()
-while IFS= read -r line; do MERGE_REQUIRED+=("$line"); done < <(printf '%s\n' "$REMOTE_SKELETON_JSON" | _json_array "merge_required")
+_read_lines_into MERGE_REQUIRED <<< "$(printf '%s\n' "$REMOTE_SKELETON_JSON" | _json_array "merge_required")"
 
 # ---------------------------------------------------------------------------
 # Get list of changed files in Initium since last sync
 # ---------------------------------------------------------------------------
 FIRST_SYNC=false
-if git cat-file -e "$CURRENT_COMMIT^{commit}" 2>/dev/null; then
+if [ -n "$CURRENT_COMMIT" ] && _peel_commit "$CURRENT_COMMIT" >/dev/null 2>&1; then
   CHANGED_FILES=$(git diff --name-only "$CURRENT_COMMIT" "$TARGET")
 else
   # First sync — list every file tracked in the Initium tree
@@ -316,10 +342,13 @@ PROTECTED=()
 EXISTING_KEPT=()
 
 LOCAL_PROJECT_OWNED=()
-while IFS= read -r line; do LOCAL_PROJECT_OWNED+=("$line"); done < <(_json_array "project_owned" < "$SKELETON_JSON")
+_read_lines_into LOCAL_PROJECT_OWNED <<< "$(_json_array "project_owned" < "$SKELETON_JSON")"
 
 matches_entry() {  # matches_entry <file> <entry> — exact or directory-prefix match
-  [[ "$1" == "$2" ]] || [[ "$1" == "$2"* && "${2: -1}" == "/" ]]
+  case "$2" in
+    */) [[ "$1" == "$2" || "$1" == "$2"* ]] ;;
+    *)  [[ "$1" == "$2" ]] ;;
+  esac
 }
 
 is_locally_owned() {
@@ -549,7 +578,7 @@ if [ "$FIRST_SYNC" = true ]; then
       ADDED_FILES+=("$file")
       APPLIED=$((APPLIED + 1))
       TEMPLATES_ADDED=$((TEMPLATES_ADDED + 1))
-    done < <(git ls-tree -r --name-only "$TARGET" -- "$entry")
+    done <<< "$(git ls-tree -r --name-only "$TARGET" -- "$entry")"
   done
   [ "$TEMPLATES_ADDED" -eq 0 ] && info "All project templates already exist."
 fi
