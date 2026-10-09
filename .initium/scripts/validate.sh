@@ -134,6 +134,7 @@ check_exists ".claude/hooks/on-stop.mjs"
 # --- Guardrails (.initium/docs/guardrails.md) ---
 check_exists ".initium/guardrails/policy.mjs"
 check_exists ".initium/guardrails/node.sh"
+check_exists ".initium/scripts/npx.sh"
 check_exists ".initium/guardrails/pre-commit.mjs"
 check_exists ".githooks/pre-commit"
 check_exists ".claude/hooks/guardrails.mjs"

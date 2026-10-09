@@ -11,7 +11,12 @@
   "mcp": {
     "codegraph": {
       "type": "local",
-      "command": ["npx", "-y", "codebase-memory-mcp"],
+      "command": [
+        "sh",
+        ".initium/scripts/npx.sh",
+        "-y",
+        "codebase-memory-mcp"
+      ],
       "enabled": false
     },
     "sosumi": {

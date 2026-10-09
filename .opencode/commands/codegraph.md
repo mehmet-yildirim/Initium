@@ -22,6 +22,9 @@ Default when no argument is given: `status`.
    ```
    Tell the developer to review the installer before piping it to a shell, and to restart
    their agent session after installation.
+   Cursor/OpenCode launch the server via `sh .initium/scripts/npx.sh` (not bare `npx`) so
+   GUI-launched editors without a login-shell `PATH` still find Node. If setup still fails
+   with "npx not found", set `INITIUM_NODE` or `INITIUM_NPX` to the absolute binary path.
 3. Create or update `.cbmignore` (gitignore syntax) so secrets and noise are never indexed:
    ```
    .env

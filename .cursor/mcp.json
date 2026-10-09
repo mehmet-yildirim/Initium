@@ -1,32 +1,32 @@
 {
   "mcpServers": {
     "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${workspaceFolder}"],
+      "command": "sh",
+      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-filesystem", "${workspaceFolder}"],
       "description": "Gives AI access to read/write files in the workspace"
     },
     "git": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-git", "--repository", "${workspaceFolder}"],
+      "command": "sh",
+      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-git", "--repository", "${workspaceFolder}"],
       "description": "Gives AI access to git history, diffs, and blame"
     },
     "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "command": "sh",
+      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-github"],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_TOKEN}"
       },
       "description": "GitHub API access — issues, PRs, repos"
     },
     "postgres": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-postgres", "${env:DATABASE_URL}"],
+      "command": "sh",
+      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-postgres", "${env:DATABASE_URL}"],
       "description": "Read-only database access for schema inspection and queries",
       "disabled": true
     },
     "brave-search": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "command": "sh",
+      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-brave-search"],
       "env": {
         "BRAVE_API_KEY": "${env:BRAVE_API_KEY}"
       },
@@ -34,21 +34,21 @@
       "disabled": true
     },
     "memory": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "command": "sh",
+      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-memory"],
       "description": "Persistent memory across AI sessions",
       "disabled": true
     },
     "puppeteer": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+      "command": "sh",
+      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-puppeteer"],
       "description": "Browser automation for E2E testing and web scraping",
       "disabled": true
     },
 
     "jira": {
-      "command": "npx",
-      "args": ["-y", "mcp-server-jira"],
+      "command": "sh",
+      "args": [".initium/scripts/npx.sh", "-y", "mcp-server-jira"],
       "env": {
         "JIRA_URL":       "${env:JIRA_URL}",
         "JIRA_EMAIL":     "${env:JIRA_EMAIL}",
@@ -59,8 +59,8 @@
     },
 
     "linear": {
-      "command": "npx",
-      "args": ["-y", "@linear/mcp-server"],
+      "command": "sh",
+      "args": [".initium/scripts/npx.sh", "-y", "@linear/mcp-server"],
       "env": {
         "LINEAR_API_KEY": "${env:LINEAR_API_KEY}"
       },
@@ -69,8 +69,8 @@
     },
 
     "slack": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-slack"],
+      "command": "sh",
+      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-slack"],
       "env": {
         "SLACK_BOT_TOKEN":  "${env:SLACK_BOT_TOKEN}",
         "SLACK_TEAM_ID":    "${env:SLACK_TEAM_ID}"
@@ -80,8 +80,8 @@
     },
 
     "sentry": {
-      "command": "npx",
-      "args": ["-y", "mcp-server-sentry"],
+      "command": "sh",
+      "args": [".initium/scripts/npx.sh", "-y", "mcp-server-sentry"],
       "env": {
         "SENTRY_AUTH_TOKEN": "${env:SENTRY_AUTH_TOKEN}",
         "SENTRY_ORG":        "${env:SENTRY_ORG}"
@@ -91,8 +91,8 @@
     },
 
     "codegraph": {
-      "command": "npx",
-      "args": ["-y", "codebase-memory-mcp"],
+      "command": "sh",
+      "args": [".initium/scripts/npx.sh", "-y", "codebase-memory-mcp"],
       "description": "Code knowledge graph: symbol search, call traces, change impact — used by /codegraph",
       "disabled": true
     },
