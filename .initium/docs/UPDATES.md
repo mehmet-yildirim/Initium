@@ -20,6 +20,31 @@ See [sync-guide.md](sync-guide.md) for the full guide, and
 
 ---
 
+## v1.7.3 — Stronger npx.sh discovery when Cursor omits HOME/PATH
+
+**Date:** 2026-10-09
+**Commit:** (set by release)
+**Severity:** PATCH (tooling)
+
+### Why
+- Some machines still logged `npx.sh: npx/Node.js not found` for codegraph MCP: Cursor's
+  MCP child had no usable `HOME`/`PATH`, and nvm often lives only in `.zshrc` (not loaded
+  by a non-interactive login shell).
+
+### Updated Files (skeleton-owned — auto-applied)
+- `.initium/scripts/npx.sh` — recover `HOME` from the user; source `nvm.sh`; try
+  interactive shells (`zsh -ic`); probe fnm/nix; clearer error text
+
+### Updated Files (merge_required)
+- `.cursor/mcp.json` — pass `HOME` / a bootstrap `PATH` into every `npx.sh` server
+
+### Migration
+1. Sync or copy `.initium/scripts/npx.sh`, merge `.cursor/mcp.json` env blocks.
+2. Restart Cursor. If it still fails, set `INITIUM_NODE` under `mcpServers.codegraph.env`
+   to the absolute path from `command -v node`.
+
+---
+
 ## v1.7.2 — MCP npx launcher for GUI editors (codegraph setup)
 
 **Date:** 2026-10-09
