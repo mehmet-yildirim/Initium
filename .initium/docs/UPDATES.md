@@ -20,6 +20,36 @@ See [sync-guide.md](sync-guide.md) for the full guide, and
 
 ---
 
+## v1.7.2 — MCP npx launcher for GUI editors (codegraph setup)
+
+**Date:** 2026-10-09
+**Commit:** (set by release)
+**Severity:** PATCH (tooling)
+
+### Why
+- `/codegraph setup` and other MCP servers failed with `npx: command not found` when
+  Cursor (or similar) was launched from the Dock/Finder without the shell `PATH`
+  that includes nvm/volta/Homebrew Node.
+
+### New Files (skeleton-owned — auto-applied)
+- `.initium/scripts/npx.sh` — finds `npx` next to Node (nvm/volta/Homebrew/mise/asdf)
+  or via `INITIUM_NPX` / `INITIUM_NODE`
+
+### Updated Files
+- `.cursor/mcp.json` (**merge_required**) — all former `"command": "npx"` servers now
+  run `sh .initium/scripts/npx.sh …`
+- `opencode.json` — `codegraph` MCP uses the same launcher
+- `.claude/commands/codegraph.md`, `.opencode/commands/codegraph.md` — setup notes
+
+### Migration
+1. Take `.initium/scripts/npx.sh` from sync (auto).
+2. Merge `.cursor/mcp.json`: change each `"command": "npx"` entry to
+   `"command": "sh"` and prepend `".initium/scripts/npx.sh"` to `args`.
+3. Restart the agent session, enable `codegraph` (`"disabled": false` / `enabled: true`),
+   set `codegraph.enabled: true` in `agent.config.yaml`, then `/codegraph setup`.
+
+---
+
 ## v1.7.1 — Harden sync.sh for macOS sh / fragile git peel syntax
 
 **Date:** 2026-10-07

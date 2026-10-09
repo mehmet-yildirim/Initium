@@ -2,7 +2,7 @@
   "_comment": "This file tracks which version of Initium this project is based on. Update it after running .initium/scripts/sync.sh.",
   "skeleton": {
     "repository": "https://github.com/mehmet-yildirim/Initium",
-    "version": "1.7.1",
+    "version": "1.7.2",
     "commit": "TODO: set by .initium/scripts/sync.sh",
     "syncedAt": "TODO: set by .initium/scripts/sync.sh",
     "releaseNotesUrl": "https://github.com/mehmet-yildirim/Initium/blob/main/.initium/docs/UPDATES.md"
@@ -243,6 +243,7 @@
       ".initium/scripts/validate.sh",
       "skills/README.md",
       ".initium/scripts/sync.sh",
+      ".initium/scripts/npx.sh",
       ".initium/scripts/sync.ps1",
       ".initium/scripts/sync.cmd",
       ".initium/scripts/init.ps1",

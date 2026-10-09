@@ -273,8 +273,9 @@ vimdiff .continue/config.yaml <(git show refs/initium/v1.2.0:.continue/config.ya
 Initium adds new MCP server entries (always disabled by default).
 
 **What to take from Initium:**
-- New server entries like `jira`, `linear`, `slack`, `sentry`
+- New server entries like `jira`, `linear`, `slack`, `sentry`, `codegraph`
 - Updated configurations for existing servers
+- `sh` + `.initium/scripts/npx.sh` as the launcher (GUI editors often lack `npx` on `PATH`)
 
 **What to keep:**
 - Any servers you've enabled (removed `"disabled": true` from)
