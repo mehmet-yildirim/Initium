@@ -2,32 +2,72 @@
   "mcpServers": {
     "filesystem": {
       "command": "sh",
-      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-filesystem", "${workspaceFolder}"],
+      "args": [
+        ".initium/scripts/npx.sh",
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${workspaceFolder}"
+      ],
+      "env": {
+        "HOME": "${env:HOME}",
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env:HOME}/.local/bin:${env:PATH}"
+      },
       "description": "Gives AI access to read/write files in the workspace"
     },
     "git": {
       "command": "sh",
-      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-git", "--repository", "${workspaceFolder}"],
+      "args": [
+        ".initium/scripts/npx.sh",
+        "-y",
+        "@modelcontextprotocol/server-git",
+        "--repository",
+        "${workspaceFolder}"
+      ],
+      "env": {
+        "HOME": "${env:HOME}",
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env:HOME}/.local/bin:${env:PATH}"
+      },
       "description": "Gives AI access to git history, diffs, and blame"
     },
     "github": {
       "command": "sh",
-      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-github"],
+      "args": [
+        ".initium/scripts/npx.sh",
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
       "env": {
+        "HOME": "${env:HOME}",
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env:HOME}/.local/bin:${env:PATH}",
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_TOKEN}"
       },
       "description": "GitHub API access — issues, PRs, repos"
     },
     "postgres": {
       "command": "sh",
-      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-postgres", "${env:DATABASE_URL}"],
+      "args": [
+        ".initium/scripts/npx.sh",
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "${env:DATABASE_URL}"
+      ],
+      "env": {
+        "HOME": "${env:HOME}",
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env:HOME}/.local/bin:${env:PATH}"
+      },
       "description": "Read-only database access for schema inspection and queries",
       "disabled": true
     },
     "brave-search": {
       "command": "sh",
-      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-brave-search"],
+      "args": [
+        ".initium/scripts/npx.sh",
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ],
       "env": {
+        "HOME": "${env:HOME}",
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env:HOME}/.local/bin:${env:PATH}",
         "BRAVE_API_KEY": "${env:BRAVE_API_KEY}"
       },
       "description": "Web search for documentation and answers",
@@ -35,68 +75,110 @@
     },
     "memory": {
       "command": "sh",
-      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-memory"],
+      "args": [
+        ".initium/scripts/npx.sh",
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "env": {
+        "HOME": "${env:HOME}",
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env:HOME}/.local/bin:${env:PATH}"
+      },
       "description": "Persistent memory across AI sessions",
       "disabled": true
     },
     "puppeteer": {
       "command": "sh",
-      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-puppeteer"],
+      "args": [
+        ".initium/scripts/npx.sh",
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ],
+      "env": {
+        "HOME": "${env:HOME}",
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env:HOME}/.local/bin:${env:PATH}"
+      },
       "description": "Browser automation for E2E testing and web scraping",
       "disabled": true
     },
-
     "jira": {
       "command": "sh",
-      "args": [".initium/scripts/npx.sh", "-y", "mcp-server-jira"],
+      "args": [
+        ".initium/scripts/npx.sh",
+        "-y",
+        "mcp-server-jira"
+      ],
       "env": {
-        "JIRA_URL":       "${env:JIRA_URL}",
-        "JIRA_EMAIL":     "${env:JIRA_EMAIL}",
+        "HOME": "${env:HOME}",
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env:HOME}/.local/bin:${env:PATH}",
+        "JIRA_URL": "${env:JIRA_URL}",
+        "JIRA_EMAIL": "${env:JIRA_EMAIL}",
         "JIRA_API_TOKEN": "${env:JIRA_API_TOKEN}"
       },
       "description": "Jira: read/update issues, transitions, comments — used by /triage and /groom",
       "disabled": true
     },
-
     "linear": {
       "command": "sh",
-      "args": [".initium/scripts/npx.sh", "-y", "@linear/mcp-server"],
+      "args": [
+        ".initium/scripts/npx.sh",
+        "-y",
+        "@linear/mcp-server"
+      ],
       "env": {
+        "HOME": "${env:HOME}",
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env:HOME}/.local/bin:${env:PATH}",
         "LINEAR_API_KEY": "${env:LINEAR_API_KEY}"
       },
       "description": "Linear: read/update issues and projects — alternative to Jira",
       "disabled": true
     },
-
     "slack": {
       "command": "sh",
-      "args": [".initium/scripts/npx.sh", "-y", "@modelcontextprotocol/server-slack"],
+      "args": [
+        ".initium/scripts/npx.sh",
+        "-y",
+        "@modelcontextprotocol/server-slack"
+      ],
       "env": {
-        "SLACK_BOT_TOKEN":  "${env:SLACK_BOT_TOKEN}",
-        "SLACK_TEAM_ID":    "${env:SLACK_TEAM_ID}"
+        "HOME": "${env:HOME}",
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env:HOME}/.local/bin:${env:PATH}",
+        "SLACK_BOT_TOKEN": "${env:SLACK_BOT_TOKEN}",
+        "SLACK_TEAM_ID": "${env:SLACK_TEAM_ID}"
       },
       "description": "Slack: send escalation notifications and read channel messages",
       "disabled": true
     },
-
     "sentry": {
       "command": "sh",
-      "args": [".initium/scripts/npx.sh", "-y", "mcp-server-sentry"],
+      "args": [
+        ".initium/scripts/npx.sh",
+        "-y",
+        "mcp-server-sentry"
+      ],
       "env": {
+        "HOME": "${env:HOME}",
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env:HOME}/.local/bin:${env:PATH}",
         "SENTRY_AUTH_TOKEN": "${env:SENTRY_AUTH_TOKEN}",
-        "SENTRY_ORG":        "${env:SENTRY_ORG}"
+        "SENTRY_ORG": "${env:SENTRY_ORG}"
       },
       "description": "Sentry: read error reports during post-deploy monitoring",
       "disabled": true
     },
-
     "codegraph": {
       "command": "sh",
-      "args": [".initium/scripts/npx.sh", "-y", "codebase-memory-mcp"],
+      "args": [
+        ".initium/scripts/npx.sh",
+        "-y",
+        "codebase-memory-mcp"
+      ],
+      "env": {
+        "HOME": "${env:HOME}",
+        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${env:HOME}/.local/bin:${env:PATH}"
+      },
       "description": "Code knowledge graph: symbol search, call traces, change impact — used by /codegraph",
       "disabled": true
     },
-
     "sosumi": {
       "url": "https://sosumi.ai/mcp",
       "description": "Apple developer docs and Human Interface Guidelines as Markdown (unofficial, lookup only) — used by design-apple-hig",
