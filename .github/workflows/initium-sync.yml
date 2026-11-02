@@ -60,8 +60,36 @@ jobs:
         env:
           REF: ${{ inputs.ref }}
         run: |
+          set -euo pipefail
           args=(--auto --summary "$RUNNER_TEMP/initium-sync.md")
           [ -n "$REF" ] && args+=(--ref "$REF")
+
+          # Bootstrap sync.sh from Initium before running. Older copies truncate
+          # themselves mid-run on Linux (`to: command not found` / unexpected `)`).
+          skeleton_repo=$(grep '"repository"' .initium/initium.json | head -1 \
+            | sed 's/.*"repository": *"\([^"]*\)".*/\1/')
+          git remote get-url skeleton >/dev/null 2>&1 \
+            || git remote add skeleton "$skeleton_repo"
+          if [ -n "$REF" ]; then
+            boot_ref="$REF"
+            if git ls-remote --exit-code --tags --refs skeleton "refs/tags/${boot_ref}" >/dev/null 2>&1; then
+              git fetch --quiet --no-tags skeleton "+refs/tags/${boot_ref}:refs/initium-boot/${boot_ref}"
+            else
+              git fetch --quiet --no-tags skeleton "+refs/heads/${boot_ref}:refs/initium-boot/${boot_ref}"
+            fi
+          else
+            boot_ref=$(git ls-remote --tags --refs --sort=-v:refname skeleton 'v*' \
+              | awk '{print $2}' | sed 's|refs/tags/||' \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+            [ -n "$boot_ref" ] || { echo "::error::No Initium release tags found on $skeleton_repo"; exit 1; }
+            git fetch --quiet --no-tags skeleton "+refs/tags/${boot_ref}:refs/initium-boot/${boot_ref}"
+          fi
+          git show "refs/initium-boot/${boot_ref}:.initium/scripts/sync.sh" \
+            > "$RUNNER_TEMP/initium-sync.sh"
+          bash -n "$RUNNER_TEMP/initium-sync.sh"
+          install -m 0755 "$RUNNER_TEMP/initium-sync.sh" .initium/scripts/sync.sh
+          echo "Bootstrapped .initium/scripts/sync.sh from ${boot_ref}"
+
           bash .initium/scripts/sync.sh "${args[@]}"
 
       - name: Open pull request
