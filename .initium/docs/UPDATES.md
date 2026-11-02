@@ -20,6 +20,33 @@ See [sync-guide.md](sync-guide.md) for the full guide, and
 
 ---
 
+## v1.7.4 — Fix sync.sh crashing when it updates itself (CI)
+
+**Date:** 2026-11-02
+**Commit:** (set by release)
+**Severity:** PATCH (sync reliability)
+
+### Why
+- Derived-project CI (`initium-sync.yml`) failed mid-run with
+  `.initium/scripts/sync.sh: line 341: syntax error near unexpected token ')'`
+  after logging `Updated: .initium/scripts/sync.sh`. Linux bash re-reads the
+  script by file offset; truncating sync.sh in place corrupted the rest of the run.
+
+### Updated Files (skeleton-owned — auto-applied)
+- `.initium/scripts/sync.sh` — re-exec from a temp copy at start; write files via
+  `mktemp` + `mv` instead of in-place truncate
+
+### Migration
+If a sync PR/job is stuck on this error, restore the fixed script once, then re-run:
+
+```bash
+git fetch skeleton "+refs/tags/v1.7.4:refs/initium/v1.7.4"
+git checkout refs/initium/v1.7.4 -- .initium/scripts/sync.sh
+bash .initium/scripts/sync.sh --auto
+```
+
+---
+
 ## v1.7.3 — Stronger npx.sh discovery when Cursor omits HOME/PATH
 
 **Date:** 2026-10-09
