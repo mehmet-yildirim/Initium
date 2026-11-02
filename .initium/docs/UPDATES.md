@@ -20,6 +20,34 @@ See [sync-guide.md](sync-guide.md) for the full guide, and
 
 ---
 
+## v1.7.5 — CI bootstraps sync.sh before running (unstick derived projects)
+
+**Date:** 2026-11-02
+**Commit:** (set by release)
+**Severity:** PATCH (sync reliability)
+
+### Why
+- Projects still running a pre-1.7.4 `sync.sh` keep failing on Linux Actions with
+  `line 341: to: command not found` (or unexpected `)`) because the old script
+  truncates itself mid-run. They cannot self-heal until a safe `sync.sh` is on disk
+  before the job starts.
+
+### Updated Files (skeleton-owned — auto-applied)
+- `.github/workflows/initium-sync.yml` — fetch the target Initium `sync.sh` into place
+  and `bash -n` it before invoking sync
+
+### Migration
+After this release is tagged, either wait for the next scheduled sync (bootstrap runs
+first), or one-shot:
+
+```bash
+git fetch skeleton "+refs/tags/v1.7.5:refs/initium/v1.7.5"
+git checkout refs/initium/v1.7.5 -- .initium/scripts/sync.sh .github/workflows/initium-sync.yml
+bash .initium/scripts/sync.sh --auto
+```
+
+---
+
 ## v1.7.4 — Fix sync.sh crashing when it updates itself (CI)
 
 **Date:** 2026-11-02
