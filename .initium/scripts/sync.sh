@@ -47,6 +47,22 @@ set -euo pipefail
 # Disable history expansion so tokens like ^{commit} are never touched if bash -H is on.
 set +H 2>/dev/null || true
 
+# Re-exec from a private copy. sync.sh is skeleton_owned and may overwrite itself
+# mid-run; on Linux bash re-reads the script by file offset, so an in-place rewrite
+# corrupts the remainder (seen as: syntax error near unexpected token `)' ).
+if [ "${INITIUM_SYNC_REEXEC:-}" != "1" ]; then
+  _sync_copy=$(mktemp "${TMPDIR:-/tmp}/initium-sync.XXXXXX")
+  if [ -f "$0" ] && [ -r "$0" ]; then
+    cp "$0" "$_sync_copy"
+  else
+    cp .initium/scripts/sync.sh "$_sync_copy"
+  fi
+  chmod u+x "$_sync_copy"
+  INITIUM_SYNC_REEXEC=1 exec bash "$_sync_copy" "$@"
+fi
+# After re-exec, $0 is the temp copy — remove it when the process exits.
+trap 'rm -f -- "$0"' EXIT
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -368,7 +384,11 @@ is_initium_version() {
 
 write_from_target() {
   mkdir -p "$(dirname "$1")"
-  git show "$TARGET:$1" > "$1"
+  # Atomic replace: never truncate a file bash (or another process) may still be reading.
+  local tmp
+  tmp=$(mktemp "${TMPDIR:-/tmp}/initium-write.XXXXXX")
+  git show "$TARGET:$1" > "$tmp"
+  mv "$tmp" "$1"
 }
 
 # ---------------------------------------------------------------------------
