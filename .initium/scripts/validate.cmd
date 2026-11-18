@@ -96,7 +96,7 @@ call :chk "opencode.json"
 call :chk ".opencode\README.md"
 bash .initium/scripts/sync-opencode-commands.sh --check >nul 2>&1
 if errorlevel 1 (
-  echo   FAIL OpenCode commands out of sync — run: bash .initium/scripts/sync-opencode-commands.sh
+  echo   FAIL OpenCode commands out of sync -- run: bash .initium/scripts/sync-opencode-commands.sh
   set /a FAIL+=1
 ) else (
   echo   PASS OpenCode commands in sync with .claude/commands/

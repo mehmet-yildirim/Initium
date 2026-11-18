@@ -48,7 +48,7 @@ function Check-Exists {
 Check-Exists "AGENTS.md"
 Check-Exists "CLAUDE.md"
 if ((Test-Path "CLAUDE.md") -and -not (Select-String -Path "CLAUDE.md" -Pattern "^@AGENTS\.md" -Quiet)) {
-    Write-Warn "CLAUDE.md does not import @AGENTS.md — Claude Code may follow different instructions"
+    Write-Warn "CLAUDE.md does not import @AGENTS.md -- Claude Code may follow different instructions"
 }
 Check-Exists "SECURITY.md"
 Check-Exists ".cursor/rules/00-project-overview.mdc"
@@ -100,7 +100,7 @@ if (Test-Path ".initium/scripts/sync-opencode-commands.sh") {
     if ($LASTEXITCODE -eq 0) {
         Write-Pass "OpenCode commands in sync with .claude/commands/"
     } else {
-        Write-Fail "OpenCode commands out of sync — run: bash .initium/scripts/sync-opencode-commands.sh"
+        Write-Fail "OpenCode commands out of sync -- run: bash .initium/scripts/sync-opencode-commands.sh"
     }
 }
 
@@ -144,20 +144,20 @@ $hooksPath = git config --get core.hooksPath 2>$null
 if ($hooksPath -eq ".githooks") {
     Write-Pass "Guardrail pre-commit hook enabled (core.hooksPath=.githooks)"
 } elseif ($hooksPath) {
-    Write-Warn "core.hooksPath is '$hooksPath' — make sure it calls .githooks/pre-commit"
+    Write-Warn "core.hooksPath is '$hooksPath' -- make sure it calls .githooks/pre-commit"
 } else {
-    Write-Warn "Guardrail pre-commit hook not enabled — run: git config core.hooksPath .githooks"
+    Write-Warn "Guardrail pre-commit hook not enabled -- run: git config core.hooksPath .githooks"
 }
 if (Get-Command node -ErrorAction SilentlyContinue) {
     $null = node --test ".initium/guardrails/test/*.test.mjs" 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-Pass "Guardrail tests pass"
     } else {
-        Write-Fail "Guardrail tests fail — run: node --test "".initium/guardrails/test/*.test.mjs"""
+        Write-Fail "Guardrail tests fail -- run: node --test "".initium/guardrails/test/*.test.mjs"""
     }
 }
 
-# Agent Skills (.claude/skills/<name>/SKILL.md — single source)
+# Agent Skills (.claude/skills/<name>/SKILL.md -- single source)
 $skillFiles = @(Get-ChildItem -Path ".claude/skills" -Filter "SKILL.md" -Recurse -Depth 1 -ErrorAction SilentlyContinue)
 if ($skillFiles.Count -gt 0) {
     Write-Pass "Found $($skillFiles.Count) skill(s) in .claude/skills/"
@@ -165,7 +165,7 @@ if ($skillFiles.Count -gt 0) {
     Write-Fail "No skills found in .claude/skills/"
 }
 if (Test-Path ".cursor/rules/skills/*.mdc") {
-    Write-Warn "Legacy .cursor/rules/skills/ still present — skills now live in .claude/skills/ (see UPDATES.md v1.1.0)"
+    Write-Warn "Legacy .cursor/rules/skills/ still present -- skills now live in .claude/skills/ (see UPDATES.md v1.1.0)"
 }
 Check-Exists ".initium/scripts/sync-skills.mjs"
 Check-Exists ".initium/scripts/check-update.mjs"
@@ -181,10 +181,10 @@ if (Get-Command node -ErrorAction SilentlyContinue) {
     if ($LASTEXITCODE -eq 0) {
         Write-Pass "Skills valid; Continue rules in sync"
     } else {
-        Write-Fail "Skill frontmatter invalid or Continue rules stale — run: node .initium/scripts/sync-skills.mjs"
+        Write-Fail "Skill frontmatter invalid or Continue rules stale -- run: node .initium/scripts/sync-skills.mjs"
     }
 } else {
-    Write-Warn "node not found — cannot validate skills (requires Node.js 22+)"
+    Write-Warn "node not found -- cannot validate skills (requires Node.js 22+)"
 }
 
 # Workflow docs
@@ -248,13 +248,13 @@ Write-Host "--- Environment ---"
 if (Test-Path ".env") {
     Write-Pass "Found: .env"
 } else {
-    Write-Warn "Missing .env — copy from .env.example and fill in values"
+    Write-Warn "Missing .env -- copy from .env.example and fill in values"
 }
 
 if (Test-Path ".env.example") {
     Write-Pass "Found: .env.example"
 } else {
-    Write-Warn "Missing .env.example — create one to document required variables"
+    Write-Warn "Missing .env.example -- create one to document required variables"
 }
 
 # ---------------------------------------------------------------------------
@@ -266,14 +266,14 @@ Write-Host "--- Git ---"
 if (Test-Path ".git") {
     Write-Pass "Git repository initialized"
 } else {
-    Write-Fail "No git repository — run: git init"
+    Write-Fail "No git repository -- run: git init"
 }
 
 $remoteOutput = git remote get-url origin 2>$null
 if ($LASTEXITCODE -eq 0 -and $remoteOutput) {
     Write-Pass "Remote origin: $remoteOutput"
 } else {
-    Write-Warn "No remote origin set — run: git remote add origin <url>"
+    Write-Warn "No remote origin set -- run: git remote add origin <url>"
 }
 
 # ---------------------------------------------------------------------------

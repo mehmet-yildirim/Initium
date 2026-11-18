@@ -1,5 +1,5 @@
 # =============================================================================
-# Initium — Interactive Project Initialization Wizard
+# Initium -- Interactive Project Initialization Wizard
 # (Windows / PowerShell)
 # =============================================================================
 # Run this after setup.ps1 to configure your project's mechanical settings.
@@ -21,7 +21,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# UTF-8 without BOM writer — avoids encoding issues on both PS 5.1 and PS 7+
+# UTF-8 without BOM writer -- avoids encoding issues on both PS 5.1 and PS 7+
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 
 function Write-Info    { param($msg) Write-Host "[INFO] $msg" -ForegroundColor Cyan }
@@ -314,7 +314,7 @@ if (Test-Path "agent.config.yaml") {
 
     Write-Ok "agent.config.yaml updated."
 } else {
-    Write-Warn "agent.config.yaml not found — skipping."
+    Write-Warn "agent.config.yaml not found -- skipping."
 }
 
 # --- AGENTS.md ---
