@@ -7,7 +7,7 @@ komutları, kurallar, skill'ler, ajan dokümanları) sıfırdan başlamadan alma
 içindir. Yeni bir proje için Initium'u klonlayın: bkz. [onboarding.tr.md](onboarding.tr.md).
 
 **Süre:** 30–60 dakika; çoğu, Initium'un önerdiklerini gözden geçirmekle geçer.
-**Gereksinimler:** git, bash (Windows'ta PowerShell) ve Initium **v1.5.0 veya üzeri** — daha
+**Gereksinimler:** git, bash (Windows'ta PowerShell) ve Initium **v1.7.7 veya üzeri** — daha
 eski `sync.sh` sürümleri ilk senkronizasyonda mevcut dosyaların üzerine yazar.
 
 ---
@@ -52,7 +52,7 @@ git checkout -b chore/adopt-initium
 yükleyin. En güncel sürümü [releases sayfasından](https://github.com/mehmet-yildirim/Initium/releases) seçin.
 
 ```bash
-INITIUM_TAG=v1.5.0               # en güncel sürüm, v1.5.0 veya üzeri
+INITIUM_TAG=v1.7.7               # en güncel sürüm, v1.7.7 veya üzeri
 git remote add skeleton https://github.com/mehmet-yildirim/Initium.git
 git fetch --no-tags skeleton "+refs/tags/$INITIUM_TAG:refs/initium/$INITIUM_TAG"
 git restore --source="refs/initium/$INITIUM_TAG" --worktree -- .initium/
@@ -61,7 +61,7 @@ git restore --source="refs/initium/$INITIUM_TAG" --worktree -- .initium/
 Windows (PowerShell):
 
 ```powershell
-$InitiumTag = 'v1.5.0'
+$InitiumTag = 'v1.7.7'
 git remote add skeleton https://github.com/mehmet-yildirim/Initium.git
 git fetch --no-tags skeleton "+refs/tags/${InitiumTag}:refs/initium/${InitiumTag}"
 git restore --source="refs/initium/$InitiumTag" --worktree -- .initium/
@@ -92,7 +92,7 @@ bash .initium/scripts/sync.sh --ref "$INITIUM_TAG" --dry-run    # her ekleme / k
 bash .initium/scripts/sync.sh --ref "$INITIUM_TAG"              # uygular; merge_required dosyaları tek tek sorar
 ```
 
-Windows: `.initium\scripts\sync.cmd --ref v1.5.0 --dry-run`, ardından `--dry-run` olmadan.
+Windows: `.initium\scripts\sync.cmd --ref v1.7.7 --dry-run`, ardından `--dry-run` olmadan.
 
 Zaten var olan `merge_required` dosyalar için etkileşimli senkronizasyon farkı gösterir ve `a`
 (Initium sürümüyle üzerine yaz), `s` (atla — varsayılan) ya da `o` (ikisini `$VISUAL` ile aç)

@@ -7,7 +7,7 @@ conventions — and want the Initium workflow (slash commands, rules, skills, ag
 without starting over. For a new project, clone Initium instead: see [onboarding.md](onboarding.md).
 
 **Time:** 30–60 minutes, most of it reviewing what Initium proposes.
-**Requires:** git, bash (or PowerShell on Windows), and Initium **v1.5.0 or later** — earlier
+**Requires:** git, bash (or PowerShell on Windows), and Initium **v1.7.7 or later** — earlier
 `sync.sh` versions overwrite existing files on the first sync.
 
 ---
@@ -51,7 +51,7 @@ git checkout -b chore/adopt-initium
 Pick the latest release from the [releases page](https://github.com/mehmet-yildirim/Initium/releases).
 
 ```bash
-INITIUM_TAG=v1.5.0               # latest release, v1.5.0 or later
+INITIUM_TAG=v1.7.7               # latest release, v1.7.7 or later
 git remote add skeleton https://github.com/mehmet-yildirim/Initium.git
 git fetch --no-tags skeleton "+refs/tags/$INITIUM_TAG:refs/initium/$INITIUM_TAG"
 git restore --source="refs/initium/$INITIUM_TAG" --worktree -- .initium/
@@ -60,7 +60,7 @@ git restore --source="refs/initium/$INITIUM_TAG" --worktree -- .initium/
 Windows (PowerShell):
 
 ```powershell
-$InitiumTag = 'v1.5.0'
+$InitiumTag = 'v1.7.7'
 git remote add skeleton https://github.com/mehmet-yildirim/Initium.git
 git fetch --no-tags skeleton "+refs/tags/${InitiumTag}:refs/initium/${InitiumTag}"
 git restore --source="refs/initium/$InitiumTag" --worktree -- .initium/
@@ -91,7 +91,7 @@ bash .initium/scripts/sync.sh --ref "$INITIUM_TAG" --dry-run    # shows every ad
 bash .initium/scripts/sync.sh --ref "$INITIUM_TAG"              # applies; asks per merge_required file
 ```
 
-Windows: `.initium\scripts\sync.cmd --ref v1.5.0 --dry-run`, then without `--dry-run`.
+Windows: `.initium\scripts\sync.cmd --ref v1.7.7 --dry-run`, then without `--dry-run`.
 
 For `merge_required` files that already exist, the interactive sync shows a diff and offers
 `a` (overwrite with Initium's version), `s` (skip — the default), or `o` (open both in
