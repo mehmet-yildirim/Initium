@@ -20,11 +20,33 @@ See [sync-guide.md](sync-guide.md) for the full guide, and
 
 ---
 
+## v1.7.7 — Attach release assets at create time (immutable releases)
+
+**Date:** 2026-11-19
+**Commit:** (set by release)
+**Severity:** PATCH (release tooling)
+
+### Why
+- With immutable GitHub Releases enabled, `gh release upload` after publish fails
+  (`Cannot upload assets to an immutable release`). v1.7.6 hit this; the tag was
+  retired in favor of this release.
+
+### Updated Files (skeleton-owned — auto-applied)
+- `.github/workflows/release-image.yml` — pass `compose.yaml` / `agent.env.example`
+  into `gh release create` so draft → assets → publish is one atomic operation
+
+### Migration
+Use **v1.7.7** (not v1.7.6). Same Windows sync fixes as 1.7.6, plus a working
+Release asset download for the operator compose path.
+
+---
+
 ## v1.7.6 — Windows sync.cmd path + encoding fixes
 
 **Date:** 2026-11-19
 **Commit:** (set by release)
 **Severity:** PATCH (Windows sync)
+**Note:** Tag/release superseded by v1.7.7 (immutable release blocked asset upload).
 
 ### Why
 - `.initium/scripts/sync.cmd` resolved `%~dp0` after `shift`, so calls with arguments

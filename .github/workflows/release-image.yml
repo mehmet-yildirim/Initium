@@ -155,25 +155,35 @@ jobs:
             echo "Guide: \`.initium/docs/agent/docker-agent.md\`"
           } > "$notes_file"
 
+          # Operator filenames (not path#label — that is only a display label; leading-dot
+          # names are also rewritten, e.g. .env.example → default.env.example).
+          asset_dir="$RUNNER_TEMP/release-assets"
+          mkdir -p "$asset_dir"
+          cp .initium/docker/compose.release.yml "$asset_dir/compose.yaml"
+          cp .initium/docker/.env.example "$asset_dir/agent.env.example"
+
+          # Immutable releases (repo setting) reject uploads after publish. Attach
+          # assets in `gh release create` so draft → upload → publish is atomic.
           if gh release view "$TAG" >/dev/null 2>&1; then
             existing="$(gh release view "$TAG" --json body --jq .body)"
             body="$RUNNER_TEMP/release-body.md"
             { cat "$notes_file"; echo; echo "$existing"; } > "$body"
             gh release edit "$TAG" --notes-file "$body"
+            immutable="$(gh release view "$TAG" --json isImmutable --jq .isImmutable 2>/dev/null || echo false)"
+            if [ "$immutable" = "true" ]; then
+              echo "Release $TAG is immutable — skipping asset upload (attach assets at create time)."
+            else
+              for stale in compose.release.yml default.env.example; do
+                gh release delete-asset "$TAG" "$stale" --yes 2>/dev/null || true
+              done
+              gh release upload "$TAG" \
+                "$asset_dir/compose.yaml" \
+                "$asset_dir/agent.env.example" \
+                --clobber
+            fi
           else
-            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$notes_file" --generate-notes
+            gh release create "$TAG" --verify-tag --title "$TAG" \
+              --notes-file "$notes_file" --generate-notes \
+              "$asset_dir/compose.yaml" \
+              "$asset_dir/agent.env.example"
           fi
-          # Copy to operator filenames. `#label` on `gh release upload` is only a
-          # display label; GitHub also rewrites leading-dot names (e.g. .env.example
-          # → default.env.example).
-          asset_dir="$RUNNER_TEMP/release-assets"
-          mkdir -p "$asset_dir"
-          cp .initium/docker/compose.release.yml "$asset_dir/compose.yaml"
-          cp .initium/docker/.env.example "$asset_dir/agent.env.example"
-          for stale in compose.release.yml default.env.example; do
-            gh release delete-asset "$TAG" "$stale" --yes 2>/dev/null || true
-          done
-          gh release upload "$TAG" \
-            "$asset_dir/compose.yaml" \
-            "$asset_dir/agent.env.example" \
-            --clobber
