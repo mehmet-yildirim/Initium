@@ -1,5 +1,5 @@
 # =============================================================================
-# Initium — Project Setup Script (Windows / PowerShell)
+# Initium -- Project Setup Script (Windows / PowerShell)
 # =============================================================================
 # Run this once after cloning Initium to initialize your project.
 # Requires PowerShell 5.1+ (built-in on Windows 10/11) or PowerShell 7+.
@@ -64,7 +64,7 @@ if (-not $hooksPath) {
 if ((Test-Path ".env.example") -and (-not (Test-Path ".env"))) {
     Write-Info "Creating .env from .env.example..."
     Copy-Item ".env.example" ".env"
-    Write-Ok "Created .env — fill in your values before starting development."
+    Write-Ok "Created .env -- fill in your values before starting development."
 } elseif (-not (Test-Path ".env.example")) {
     Write-Warn "No .env.example found. Create one with your required environment variables."
 } else {

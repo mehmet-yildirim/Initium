@@ -9,7 +9,7 @@
     unmodified locally), and prompts for manual review on files you have customised.
 
     Files listed under fileOwnership.project_owned in your local initium.json are never
-    written. On the first sync (no commit recorded yet — e.g. adopting Initium in an existing
+    written. On the first sync (no commit recorded yet -- e.g. adopting Initium in an existing
     repository) existing files that match no Initium version are kept, missing merge_required
     files are added, and missing project-owned templates are created.
 
@@ -72,7 +72,7 @@ function Write-Info    { param($Msg) Write-Line "[INFO]  $Msg" Cyan }
 function Write-OK      { param($Msg) Write-Line "[OK]    $Msg" Green }
 function Write-Warn    { param($Msg) Write-Line "[WARN]  $Msg" Yellow }
 function Write-Err     { param($Msg) Write-Line "[ERROR] $Msg" Red; exit 1 }
-function Write-Heading { param($Msg) Write-Line "`n$Msg" White; Write-Line ('─' * 60) }
+function Write-Heading { param($Msg) Write-Line "`n$Msg" White; Write-Line ('-' * 60) }
 
 # Native git stderr must not become a terminating error (Windows PowerShell 5.1 behaviour).
 function Invoke-Git {
@@ -216,7 +216,7 @@ if ($Ref) {
     if ($TargetRef) {
         Receive-Ref 'tags' $TargetRef | Out-Null; $TargetVersion = $TargetRef -replace '^v', ''
     } else {
-        Write-Warn 'No release tags found in Initium — falling back to main'
+        Write-Warn 'No release tags found in Initium -- falling back to main'
         $TargetRef = 'main'; Receive-Ref 'heads' 'main' | Out-Null
     }
 } else {
@@ -250,7 +250,7 @@ if ($Check) {
 }
 
 if (-not $updateAvailable) {
-    Write-OK "Already up to date — Initium $TargetVersion matches your last sync."
+    Write-OK "Already up to date -- Initium $TargetVersion matches your last sync."
     if (-not (Confirm-Yes 'Force re-sync anyway?')) { Write-Info 'Nothing to do.'; exit 0 }
 } else {
     Write-Info "Update available: $CurrentVersion -> $TargetVersion"
@@ -343,7 +343,7 @@ foreach ($file in ($candidates | Select-Object -Unique)) {
 }
 
 # ---------------------------------------------------------------------------
-# Remove files that Initium deleted — only when identical to Initium's last version
+# Remove files that Initium deleted -- only when identical to Initium's last version
 # ---------------------------------------------------------------------------
 Write-Heading 'Removing Files Deleted from Initium'
 
@@ -366,7 +366,7 @@ foreach ($file in (@($RemovedList) + $LocalOwned | Where-Object { $_ -and -not $
         $removedFiles += $file
         $applied++
     } else {
-        Write-Warn "  Removed in Initium but modified locally — kept: $file"
+        Write-Warn "  Removed in Initium but modified locally -- kept: $file"
         $keptModified += $file
     }
 }
@@ -394,14 +394,14 @@ if ($needsMerge.Count -eq 0) {
     if (-not $DryRun) {
         foreach ($file in $needsMerge) {
             if (-not (Test-Interactive)) {
-                Write-Warn "  Skipped (non-interactive): $file — merge manually"
+                Write-Warn "  Skipped (non-interactive): $file -- merge manually"
                 $skipped++
                 continue
             }
             Write-Host ''
-            Write-Host ('━' * 60)
+            Write-Host ('=' * 60)
             Write-Host " MERGE: $file" -ForegroundColor Yellow
-            Write-Host ('━' * 60)
+            Write-Host ('=' * 60)
             Invoke-Git diff "${Target}:$file" $file | ForEach-Object { Write-Host $_ }
             Write-Host 'Options:'
             Write-Host '  a) Overwrite with Initium version (discards your changes)'
@@ -430,7 +430,7 @@ if ($needsMerge.Count -eq 0) {
                     $skipped++
                 }
                 default {
-                    Write-Warn "  Skipped: $file — merge manually"
+                    Write-Warn "  Skipped: $file -- merge manually"
                     $skipped++
                 }
             }
@@ -466,7 +466,7 @@ if ($projectTemplateChanges.Count -gt 0) {
 }
 
 # ---------------------------------------------------------------------------
-# Update initium.json — targeted replacements keep the file's formatting intact
+# Update initium.json -- targeted replacements keep the file's formatting intact
 # ---------------------------------------------------------------------------
 if (-not $DryRun) {
     Write-Heading 'Updating initium.json'
@@ -484,7 +484,7 @@ if (-not $DryRun) {
 # ---------------------------------------------------------------------------
 if (-not $DryRun -and $applied -gt 0 -and (Test-Path '.initium/scripts/validate.ps1')) {
     Write-Heading 'Validating Configuration'
-    try { & ./.initium/scripts/validate.ps1 } catch { Write-Warn 'Validator found issues — review above' }
+    try { & ./.initium/scripts/validate.ps1 } catch { Write-Warn 'Validator found issues -- review above' }
 }
 
 # ---------------------------------------------------------------------------
@@ -492,7 +492,7 @@ if (-not $DryRun -and $applied -gt 0 -and (Test-Path '.initium/scripts/validate.
 # ---------------------------------------------------------------------------
 Write-Heading 'Sync Complete'
 Write-Host "  Applied (auto)   : $applied files ($($removedFiles.Count) removed)" -ForegroundColor Green
-Write-Host "  Skipped (manual) : $skipped files — merge these manually" -ForegroundColor Yellow
+Write-Host "  Skipped (manual) : $skipped files -- merge these manually" -ForegroundColor Yellow
 if ($keptModified.Count -gt 0) {
     Write-Host "  Kept (modified)  : $($keptModified.Count) files removed in Initium but changed locally" -ForegroundColor Yellow
 }
@@ -516,6 +516,6 @@ if (-not $DryRun) {
     Write-Host "  2. Stage and commit: git add -A; git commit -m 'chore: sync Initium to $TargetVersion'"
     if ($skipped -gt 0) { Write-Host '  3. Merge skipped files manually, then commit' }
 } else {
-    Write-Host '  (Dry run — no files changed)'
+    Write-Host '  (Dry run -- no files changed)'
 }
 Write-Host ''

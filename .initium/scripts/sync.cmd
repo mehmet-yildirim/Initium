@@ -1,9 +1,9 @@
 @echo off
 :: =============================================================================
-:: sync.cmd — Apply Initium updates to your derived project (Windows)
+:: sync.cmd -- Apply Initium updates to your derived project (Windows)
 :: =============================================================================
 :: Delegates to sync.ps1 via PowerShell 7 (pwsh) or
-:: Windows PowerShell 5.1 (powershell.exe) — both are built into Windows.
+:: Windows PowerShell 5.1 (powershell.exe) -- both are built into Windows.
 :: No bash, WSL, or any additional tool required.
 ::
 :: Usage:
@@ -18,7 +18,7 @@
 :: =============================================================================
 
 setlocal
-
+set "SCRIPT_DIR=%~dp0"
 :: Show help
 if /I "%~1"=="--help" (
     echo.
@@ -79,11 +79,14 @@ if /I "%~1"=="--channel" (
 shift
 goto parse_args
 
+setlocal
+set "SCRIPT_DIR=%~dp0"
+
 :run
-set PS_SCRIPT=%~dp0sync.ps1
+set "PS_SCRIPT=%SCRIPT_DIR%sync.ps1"
 
 :: ---------------------------------------------------------------------------
-:: Attempt 1: PowerShell 7+ (pwsh) — preferred, ships with Windows 11 / 10
+:: Attempt 1: PowerShell 7+ (pwsh) -- preferred, ships with Windows 11 / 10
 :: ---------------------------------------------------------------------------
 where pwsh >nul 2>&1
 if errorlevel 1 goto try_ps51
@@ -92,7 +95,7 @@ exit /b %errorlevel%
 
 :try_ps51
 :: ---------------------------------------------------------------------------
-:: Attempt 2: Windows PowerShell 5.1 — built into every Windows 7+ system
+:: Attempt 2: Windows PowerShell 5.1 -- built into every Windows 7+ system
 :: ---------------------------------------------------------------------------
 where powershell >nul 2>&1
 if errorlevel 1 goto no_powershell
@@ -101,7 +104,7 @@ exit /b %errorlevel%
 
 :no_powershell
 :: ---------------------------------------------------------------------------
-:: PowerShell missing — extremely unlikely on any modern Windows system
+:: PowerShell missing -- extremely unlikely on any modern Windows system
 :: ---------------------------------------------------------------------------
 echo.
 echo [ERROR] PowerShell not found in PATH.
