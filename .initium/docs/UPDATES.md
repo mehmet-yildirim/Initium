@@ -20,6 +20,37 @@ See [sync-guide.md](sync-guide.md) for the full guide, and
 
 ---
 
+## v1.7.6 — Windows sync.cmd path + encoding fixes
+
+**Date:** 2026-11-19
+**Commit:** (set by release)
+**Severity:** PATCH (Windows sync)
+
+### Why
+- `.initium/scripts/sync.cmd` resolved `%~dp0` after `shift`, so calls with arguments
+  (e.g. `--ref v1.5.0 --dry-run`) lost the path to `sync.ps1`.
+- BOM-less UTF-8 scripts with non-ASCII characters failed to parse under Windows
+  PowerShell 5.1 (ANSI default), producing cryptic `Missing closing '}'` errors.
+
+### Updated Files (skeleton-owned — auto-applied)
+- `.initium/scripts/sync.cmd` — capture script dir before argument parsing
+- `.initium/scripts/sync.ps1`, `init.ps1`, `setup.ps1`, `validate.ps1`, `validate.cmd` —
+  ASCII-only text so PowerShell 5.1 parses reliably
+- `.gitattributes` — CRLF for `.cmd`/`.bat`/`.ps1`, LF for shell scripts
+
+### Updated Files (merge_required)
+- `.editorconfig` — `end_of_line = crlf` for `*.{cmd,bat,ps1}`
+
+### Migration
+Auto-applied on next sync. On Windows, verify:
+
+```cmd
+.initium\scripts\sync.cmd --help
+.initium\scripts\sync.cmd --check
+```
+
+---
+
 ## v1.7.5 — CI bootstraps sync.sh before running (unstick derived projects)
 
 **Date:** 2026-11-02
